@@ -17,6 +17,8 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
+#include <execinfo.h>
 #undef _GNU_SOURCE
 
 struct syscall_chances {
@@ -189,6 +191,8 @@ static long default_handler(long sc_no,
 
   if (entry->families & SYS_FAMILY_FILE) {
     if (random <= failure_probabilities.file)
+      fprintf(stderr, "BAD READ\n");
+    if (random <= failure_probabilities.file)
       return -entry->default_errno;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
@@ -238,6 +242,22 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   return actual_fn;
 }
 
+static void segv_handler(int sig) {
+  (void)sig;  // unused
+  if (write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19) == -1) {
+    // Not async signal safe but oh well this already did not go well
+    perror("Failed to write signal error");
+  }
+
+  // Not technically kosher as not async signal safe but this is best effort
+  void *array[500];
+  size_t size;
+  size = backtrace(array, 500);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+
+  exit(1);
+}
+
 void vx_init(int *argc, char **argv[],
              vx_icept_reg_fn fn_icept_reg,
              vx_icept_vdso_callback_fn *vdso_callback,
@@ -245,6 +265,14 @@ void vx_init(int *argc, char **argv[],
              vx_post_load_fn *post_load) {
   (void)fn_icept_reg;  // unused
   (void)post_load;     // unused
+
+  // I am OK with this as the VM will get rid of this once the client exits
+  struct sigaction *sig_act = calloc(1, sizeof(*sig_act));
+  sigemptyset(&sig_act->sa_mask);
+  sig_act->sa_flags = 0;
+  sig_act->sa_handler = &segv_handler;
+
+  sigaction(SIGSEGV, sig_act, NULL);
 
   *syscall_handler = handle_syscall;
   *vdso_callback = handle_vdso;
