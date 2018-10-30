@@ -52,7 +52,7 @@ static const struct sysent sys_entries[] =
 #undef X
 };
 
-static void print_arguments() {
+static void print_arguments(void) {
   fprintf(stderr,
 "The failure probabilities are:\n\
 {\n\
@@ -65,7 +65,7 @@ static void print_arguments() {
           failure_probabilities.process, failure_probabilities.memory);
 }
 
-static void display_help() {
+static void display_help(void) {
   fprintf(stderr,
 "Plugin to SaBRe that probabilistically fails system calls for usage in fuzzing applications.\n\
 USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
@@ -81,7 +81,7 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
 ");
 }
 
-static const char *opt_string = "u:f:n:p:m:vh";
+static const char *opt_string = "u:d:f:n:p:m:vh";
 
 static struct option long_opts[] = {
     {"unassigned", required_argument, NULL, 'u'},
@@ -243,22 +243,26 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
 }
 
 static void segv_handler(int sig) {
-  (void)sig;  // unused
   if (write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19) == -1) {
     // Not async signal safe but oh well this already did not go well
     perror("Failed to write signal error");
   }
 
-  // Not technically kosher as not async signal safe but this is best effort
-  void *array[500];
-  size_t size;
-  size = backtrace(array, 500);
-  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  void *array = alloca(256 * sizeof(void *));
+  int cnt = backtrace(array, 256);
+  backtrace_symbols_fd(array, cnt, STDERR_FILENO);
 
-  exit(1);
+  /* Pass on the signal (so that a core file is produced). */
+  struct sigaction sa;
+  sa.sa_handler = SIG_DFL;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(sig, &sa, NULL);
+  raise(sig);
 }
 
-void vx_init(int *argc, char **argv[],
+void vx_init(int *argc,
+             char **argv[],
              vx_icept_reg_fn fn_icept_reg,
              vx_icept_vdso_callback_fn *vdso_callback,
              vx_sc_handler_fn *syscall_handler,
@@ -266,13 +270,21 @@ void vx_init(int *argc, char **argv[],
   (void)fn_icept_reg;  // unused
   (void)post_load;     // unused
 
-  // I am OK with this as the VM will get rid of this once the client exits
-  struct sigaction *sig_act = calloc(1, sizeof(*sig_act));
-  sigemptyset(&sig_act->sa_mask);
-  sig_act->sa_flags = 0;
-  sig_act->sa_handler = &segv_handler;
+  struct sigaction sig_act;
+  sig_act.sa_handler = &segv_handler;
+  sigemptyset(&sig_act.sa_mask);
+  sig_act.sa_flags = SA_RESTART;
 
-  sigaction(SIGSEGV, sig_act, NULL);
+  void *stack = malloc(2 * SIGSTKSZ);
+  stack_t ss;
+  ss.ss_sp = stack;
+  ss.ss_flags = 0;
+  ss.ss_size = 2 * SIGSTKSZ;
+
+  if (sigaltstack(&ss, NULL) == 0)
+    sig_act.sa_flags |= SA_ONSTACK;
+
+  sigaction(SIGSEGV, &sig_act, NULL);
 
   *syscall_handler = handle_syscall;
   *vdso_callback = handle_vdso;
@@ -280,5 +292,6 @@ void vx_init(int *argc, char **argv[],
   srand(time(NULL));
 
   handle_arguments(argc, argv);
-  if (verbose_flag) print_arguments();
+  if (verbose_flag)
+    print_arguments();
 }
