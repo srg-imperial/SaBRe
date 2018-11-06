@@ -72,8 +72,8 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
   Options:\n\
     -v, --verbose                       Enable some additional information unspecified information.\n\
     -h, --help                          Prints this help message and exits.\n\
-    -u, --unassigned Sets the default probability for system calls not assigned a family.\n\
-    -d, --device-operations Sets the default probability operating on devices.\n\
+    -u, --unassigned [0-100]            Sets the default probability for system calls not assigned a family.\n \
+    -d, --device-operations [0-100]     Sets the default probability operating on devices.\n\
     -f, --file-operations [0-100]       Sets the failure probability for file I/O system calls.\n\
     -n, --network-operations [0-100]    Sets the failure probability for network I/O system calls.\n\
     -p, --process-management [0-100]    Sets the failure probability for process management system calls.\n\
