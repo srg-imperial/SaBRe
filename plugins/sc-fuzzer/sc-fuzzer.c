@@ -19,6 +19,7 @@
 #include <time.h>
 #include <signal.h>
 #include <execinfo.h>
+#include <limits.h>
 #undef _GNU_SOURCE
 
 struct syscall_chances {
@@ -33,6 +34,7 @@ struct syscall_chances {
 static struct syscall_chances failure_probabilities = { .unassigned = 50 };
 static int verbose_flag = 0;
 
+static unsigned int random_seed = 0;
 
 static long default_handler(long sc_no,
                             long a1,
@@ -72,7 +74,8 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
   Options:\n\
     -v, --verbose                       Enable some additional information unspecified information.\n\
     -h, --help                          Prints this help message and exits.\n\
-    -u, --unassigned [0-100]            Sets the default probability for system calls not assigned a family.\n \
+    -s, --seed [1-UINT_MAX]             Sets the seed to use for srand(). The default is the current epoch.\n\
+    -u, --unassigned [0-100]            Sets the default probability for system calls not assigned a family.\n\
     -d, --device-operations [0-100]     Sets the default probability operating on devices.\n\
     -f, --file-operations [0-100]       Sets the failure probability for file I/O system calls.\n\
     -n, --network-operations [0-100]    Sets the failure probability for network I/O system calls.\n\
@@ -81,7 +84,7 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
 ");
 }
 
-static const char *opt_string = "u:d:f:n:p:m:vh";
+static const char *opt_string = "u:d:f:n:p:m:s:vh";
 
 static struct option long_opts[] = {
     {"unassigned", required_argument, NULL, 'u'},
@@ -90,6 +93,7 @@ static struct option long_opts[] = {
     {"network-operations", required_argument, NULL, 'n'},
     {"process-management", required_argument, NULL, 'p'},
     {"memory-allocation", required_argument, NULL, 'm'},
+    {"seed", required_argument, NULL, 's'},
     {"verbose", no_argument, &verbose_flag, 1},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}};
@@ -116,7 +120,8 @@ static void handle_arguments(int *argc, char **argv[]) {
   int opt_index = 0;
   int ch = 0;
 
-  while ((ch= getopt_long(*argc, *argv, opt_string, long_opts, &opt_index)) != -1) {
+  while ((ch = getopt_long(*argc, *argv, opt_string, long_opts, &opt_index)) !=
+         -1) {
     switch (ch) {
       case 'd':
         failure_probabilities.device = extract_probability(optarg);
@@ -136,6 +141,16 @@ static void handle_arguments(int *argc, char **argv[]) {
       case 'm':
         failure_probabilities.memory = extract_probability(optarg);
         break;
+      case 's':
+        errno = 0;
+        uintmax_t seed = (unsigned) strtoumax(optarg, NULL, 0);
+        if (errno || !seed || seed > (uintmax_t) UINT_MAX) {
+          perror("Received an invalid seed on the command line");
+          display_help();
+          exit(EXIT_FAILURE);
+        }
+        random_seed = (unsigned int) seed;
+        break;
       case 'h':
         display_help();
         exit(EXIT_SUCCESS);
@@ -146,7 +161,7 @@ static void handle_arguments(int *argc, char **argv[]) {
         // getopt_long will already have handled this
         if (long_opts[opt_index].flag != NULL)
           break;
-        __attribute__ ((fallthrough));
+        __attribute__((fallthrough));
       default:
         fprintf(stderr, "Unknown or bad arguments!\n");
         display_help();
@@ -191,7 +206,6 @@ static long default_handler(long sc_no,
 
   if (entry->families & SYS_FAMILY_FILE) {
     if (random <= failure_probabilities.file)
-      fprintf(stderr, "BAD READ\n");
     if (random <= failure_probabilities.file)
       return -entry->default_errno;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
@@ -289,9 +303,11 @@ void vx_init(int *argc,
   *syscall_handler = handle_syscall;
   *vdso_callback = handle_vdso;
 
-  srand(time(NULL));
-
   handle_arguments(argc, argv);
+
+  random_seed = random_seed ? random_seed : time(NULL);
+  srand(random_seed);
+
   if (verbose_flag)
     print_arguments();
 }
