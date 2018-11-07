@@ -1,5 +1,5 @@
-#ifndef SYSENT_H
-#define SYSENT_H
+#ifndef SC_FUZZER_SYSENT_H
+#define SC_FUZZER_SYSENT_H
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -369,4 +369,4 @@ struct sysent {
   X(331, 1, "pkey_free", EBADF, SYS_FAMILY_UNASSIGNED)             \
   X(332, 5, "statx", EBADF, SYS_FAMILY_UNASSIGNED)
 
-#endif /* !SYSENT_H */
+#endif /* !SC_FUZZER_SYSENT_H */
