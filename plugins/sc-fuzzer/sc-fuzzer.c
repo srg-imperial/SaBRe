@@ -262,6 +262,8 @@ static void segv_handler(int sig) {
     perror("Failed to write signal error");
   }
 
+  // This does not have the expected behaviour, but leaving it here for now, in
+  // case there is a solution
   void *array = alloca(256 * sizeof(void *));
   int cnt = backtrace(array, 256);
   backtrace_symbols_fd(array, cnt, STDERR_FILENO);
