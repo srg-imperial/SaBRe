@@ -40,6 +40,7 @@ static struct syscall_chances failure_probabilities = {.unassigned = 50};
 static int verbose_flag = 0;
 static unsigned int random_seed = 0;
 static enum log_level log_lvl = LOG_NONE;
+static FILE *out_stream = NULL;
 
 static long default_handler(long sc_no,
                             long a1,
@@ -77,40 +78,40 @@ struct print_system_call_args {
 static void print_system_call(const struct print_system_call_args *args,
                               _Bool caused_failure) {
   if (caused_failure)
-    fprintf(stderr, RED "[FAILURE] " RESET);
+    fprintf(out_stream, RED "[FAILURE] " RESET);
 
   switch (args->entry->nargs) {
     case 0:
-      fprintf(stderr, "%s() = %ld #%zu\n", args->entry->sys_name, args->sys_ret,
-              sys_call_nums[args->sc_no]);
-      break;
-    case 1:
-      fprintf(stderr, "%s(%ld) = %ld #%zu\n", args->entry->sys_name, args->arg1,
+      fprintf(out_stream, "%s() = %ld #%zu\n", args->entry->sys_name,
               args->sys_ret, sys_call_nums[args->sc_no]);
       break;
+    case 1:
+      fprintf(out_stream, "%s(%ld) = %ld #%zu\n", args->entry->sys_name,
+              args->arg1, args->sys_ret, sys_call_nums[args->sc_no]);
+      break;
     case 2:
-      fprintf(stderr, "%s(%ld, %ld) = %ld #%zu\n", args->entry->sys_name,
+      fprintf(out_stream, "%s(%ld, %ld) = %ld #%zu\n", args->entry->sys_name,
               args->arg1, args->arg2, args->sys_ret,
               sys_call_nums[args->sc_no]);
       break;
     case 3:
-      fprintf(stderr, "%s(%ld, %ld, %ld) = %ld #%zu\n", args->entry->sys_name,
-              args->arg1, args->arg2, args->arg3, args->sys_ret,
-              sys_call_nums[args->sc_no]);
+      fprintf(out_stream, "%s(%ld, %ld, %ld) = %ld #%zu\n",
+              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+              args->sys_ret, sys_call_nums[args->sc_no]);
       break;
     case 4:
-      fprintf(stderr, "%s(%ld, %ld, %ld, %ld) = %ld #%zu\n",
+      fprintf(out_stream, "%s(%ld, %ld, %ld, %ld) = %ld #%zu\n",
               args->entry->sys_name, args->arg1, args->arg2, args->arg3,
               args->arg4, args->sys_ret, sys_call_nums[args->sc_no]);
       break;
     case 5:
-      fprintf(stderr, "%s(%ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
+      fprintf(out_stream, "%s(%ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
               args->entry->sys_name, args->arg1, args->arg2, args->arg3,
               args->arg4, args->arg5, args->sys_ret,
               sys_call_nums[args->sc_no]);
       break;
     case 6:
-      fprintf(stderr, "%s(%ld, %ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
+      fprintf(out_stream, "%s(%ld, %ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
               args->entry->sys_name, args->arg1, args->arg2, args->arg3,
               args->arg4, args->arg5, args->arg6, args->sys_ret,
               sys_call_nums[args->sc_no]);
@@ -118,6 +119,8 @@ static void print_system_call(const struct print_system_call_args *args,
     default:
       __builtin_unreachable();
   }
+
+  fflush(out_stream);
 }
 
 static void display_help(void) {
@@ -130,6 +133,7 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
     -h, --help                          Prints this help message and exits.\n\
     -s, --seed [1-UINT_MAX]             Sets the seed to use for srand(). The default is the current epoch.\n\
     -l, --log (all|fail)                Sets the logging level. The value all will behave similarly to strace, whereas fail will only record the system calls the system caused to fail.\n\
+    -o, --output FILE_NAME              Uses FILE_NAME to output the lgging output to. To use standard IO, use stdout and stderr instead of a file.\n\
     -u, --unassigned [0-100]            Sets the default probability for system calls not assigned a family.\n\
     -d, --device-operations [0-100]     Sets the default probability operating on devices.\n\
     -f, --file-operations [0-100]       Sets the failure probability for file I/O system calls.\n\
@@ -139,7 +143,7 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
 ");
 }
 
-static const char *opt_string = "u:d:f:n:p:m:s:l:vh";
+static const char *opt_string = "u:d:f:n:p:m:s:l:o:vh";
 
 static struct option long_opts[] = {
     {"unassigned", required_argument, NULL, 'u'},
@@ -150,6 +154,7 @@ static struct option long_opts[] = {
     {"memory-allocation", required_argument, NULL, 'm'},
     {"seed", required_argument, NULL, 's'},
     {"log", required_argument, NULL, 'l'},
+    {"output", required_argument, NULL, 'o'},
     {"verbose", no_argument, &verbose_flag, 1},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}};
@@ -230,6 +235,23 @@ static void handle_arguments(int *argc, char **argv[]) {
         display_help();
         exit(EXIT_FAILURE);
 
+      case 'o':
+        if (strcmp(optarg, "stdout") == 0)
+          out_stream = stdout;
+
+        else if (strcmp(optarg, "stderr") == 0)
+          out_stream = stderr;
+
+        else {
+          errno = 0;
+          out_stream = fopen(optarg, "w");
+          if (!out_stream) {
+            perror("Could not open specified output file for writing");
+            display_help();
+            exit(EXIT_FAILURE);
+          }
+        }
+        break;
       case 'h':
         display_help();
         exit(EXIT_SUCCESS);
@@ -363,16 +385,17 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
 }
 
 static void segv_handler(int sig) {
-  if (write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19) == -1) {
-    // Not async signal safe but oh well this already did not go well
-    perror("Failed to write signal error");
-  }
+  write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19);
 
   // This does not have the expected behaviour, but leaving it here for now, in
   // case there is a solution
   void *array = alloca(256 * sizeof(void *));
   int cnt = backtrace(array, 256);
   backtrace_symbols_fd(array, cnt, STDERR_FILENO);
+
+  // This is obviously not kosher as not async-signal safe, but this is best
+  // effort at this point.
+  fflush(out_stream);
 
   /* Pass on the signal (so that a core file is produced). */
   struct sigaction sa;
