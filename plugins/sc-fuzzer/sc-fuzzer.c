@@ -4,23 +4,26 @@
 */
 
 #include "real_syscall.h"
-#include "vx_api_defs.h"
 #include "sysent.h"
+#include "vx_api_defs.h"
 
 #define _GNU_SOURCE
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <errno.h>
+#include <execinfo.h>
 #include <getopt.h>
 #include <inttypes.h>
-#include <errno.h>
-#include <string.h>
-#include <time.h>
-#include <signal.h>
-#include <execinfo.h>
 #include <limits.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <time.h>
+#include <unistd.h>
 #undef _GNU_SOURCE
+
+#define RESET "\033[0m"
+#define RED "\033[31m"
 
 struct syscall_chances {
   int unassigned;
@@ -31,10 +34,12 @@ struct syscall_chances {
   int memory;
 };
 
-static struct syscall_chances failure_probabilities = { .unassigned = 50 };
-static int verbose_flag = 0;
+enum log_level { LOG_NONE = 0, LOG_FAIL = 1, LOG_ALL = 2 };
 
+static struct syscall_chances failure_probabilities = {.unassigned = 50};
+static int verbose_flag = 0;
 static unsigned int random_seed = 0;
+static enum log_level log_lvl = LOG_NONE;
 
 static long default_handler(long sc_no,
                             long a1,
@@ -43,38 +48,88 @@ static long default_handler(long sc_no,
                             long a4,
                             long a5,
                             long a6,
-                            void **aux);
+                            void **aux,
+                            _Bool *fail);
 
-static const struct sysent sys_entries[] =
-    {
+static const struct sysent sys_entries[] = {
 #define X(sc_no, nargs, name, default_errno, families) \
-  [sc_no] = {nargs, name, default_handler, \
-        default_errno, families, NULL},
-                    SYSENT_SYSCALL_LIST
+  [sc_no] = {nargs, name, default_handler, default_errno, families, NULL},
+    SYSENT_SYSCALL_LIST
 #undef X
 };
 
-static void print_arguments(void) {
-  fprintf(stderr,
-"The failure probabilities are:\n\
-{\n\
-  file: %d\n\
-  network: %d\n\
-  process: %d\n\
-  memory: %d\n\
-}\n",
-          failure_probabilities.file, failure_probabilities.network,
-          failure_probabilities.process, failure_probabilities.memory);
+// Counters holding the call number for each system call. This strategy is
+// obviously broken in multi-threaded scenarios.
+static size_t sys_call_nums[SYSENT_NUM_SYSCALLS] = {0};
+
+struct print_system_call_args {
+  const struct sysent *entry;
+  long sc_no;
+  long arg1;
+  long arg2;
+  long arg3;
+  long arg4;
+  long arg5;
+  long arg6;
+  long sys_ret;
+};
+
+static void print_system_call(const struct print_system_call_args *args,
+                              _Bool caused_failure) {
+  if (caused_failure)
+    fprintf(stderr, RED "[FAILURE] " RESET);
+
+  switch (args->entry->nargs) {
+    case 0:
+      fprintf(stderr, "%s() = %ld #%zu\n", args->entry->sys_name, args->sys_ret,
+              sys_call_nums[args->sc_no]);
+      break;
+    case 1:
+      fprintf(stderr, "%s(%ld) = %ld #%zu\n", args->entry->sys_name, args->arg1,
+              args->sys_ret, sys_call_nums[args->sc_no]);
+      break;
+    case 2:
+      fprintf(stderr, "%s(%ld, %ld) = %ld #%zu\n", args->entry->sys_name,
+              args->arg1, args->arg2, args->sys_ret,
+              sys_call_nums[args->sc_no]);
+      break;
+    case 3:
+      fprintf(stderr, "%s(%ld, %ld, %ld) = %ld #%zu\n", args->entry->sys_name,
+              args->arg1, args->arg2, args->arg3, args->sys_ret,
+              sys_call_nums[args->sc_no]);
+      break;
+    case 4:
+      fprintf(stderr, "%s(%ld, %ld, %ld, %ld) = %ld #%zu\n",
+              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+              args->arg4, args->sys_ret, sys_call_nums[args->sc_no]);
+      break;
+    case 5:
+      fprintf(stderr, "%s(%ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
+              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+              args->arg4, args->arg5, args->sys_ret,
+              sys_call_nums[args->sc_no]);
+      break;
+    case 6:
+      fprintf(stderr, "%s(%ld, %ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
+              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+              args->arg4, args->arg5, args->arg6, args->sys_ret,
+              sys_call_nums[args->sc_no]);
+      break;
+    default:
+      __builtin_unreachable();
+  }
 }
 
 static void display_help(void) {
-  fprintf(stderr,
-"Plugin to SaBRe that probabilistically fails system calls for usage in fuzzing applications.\n\
+  fprintf(
+      stderr,
+      "Plugin to SaBRe that probabilistically fails system calls for usage in fuzzing applications.\n\
 USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
   Options:\n\
     -v, --verbose                       Enable some additional information unspecified information.\n\
     -h, --help                          Prints this help message and exits.\n\
     -s, --seed [1-UINT_MAX]             Sets the seed to use for srand(). The default is the current epoch.\n\
+    -l, --log (all|fail)                Sets the logging level. The value all will behave similarly to strace, whereas fail will only record the system calls the system caused to fail.\n\
     -u, --unassigned [0-100]            Sets the default probability for system calls not assigned a family.\n\
     -d, --device-operations [0-100]     Sets the default probability operating on devices.\n\
     -f, --file-operations [0-100]       Sets the failure probability for file I/O system calls.\n\
@@ -84,7 +139,7 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
 ");
 }
 
-static const char *opt_string = "u:d:f:n:p:m:s:vh";
+static const char *opt_string = "u:d:f:n:p:m:s:l:vh";
 
 static struct option long_opts[] = {
     {"unassigned", required_argument, NULL, 'u'},
@@ -94,6 +149,7 @@ static struct option long_opts[] = {
     {"process-management", required_argument, NULL, 'p'},
     {"memory-allocation", required_argument, NULL, 'm'},
     {"seed", required_argument, NULL, 's'},
+    {"log", required_argument, NULL, 'l'},
     {"verbose", no_argument, &verbose_flag, 1},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}};
@@ -109,7 +165,8 @@ static int extract_probability(const char *probability_str) {
   if (probability < 0 || probability > 100) {
     fprintf(stderr,
             "Received an out of range probability on the command line. The "
-            "value was %jd.\n", probability);
+            "value was %jd.\n",
+            probability);
     display_help();
     exit(EXIT_FAILURE);
   }
@@ -126,42 +183,67 @@ static void handle_arguments(int *argc, char **argv[]) {
       case 'd':
         failure_probabilities.device = extract_probability(optarg);
         break;
+
       case 'u':
         failure_probabilities.unassigned = extract_probability(optarg);
         break;
+
       case 'f':
         failure_probabilities.file = extract_probability(optarg);
         break;
+
       case 'n':
         failure_probabilities.network = extract_probability(optarg);
         break;
+
       case 'p':
         failure_probabilities.process = extract_probability(optarg);
         break;
+
       case 'm':
         failure_probabilities.memory = extract_probability(optarg);
         break;
+
       case 's':
         errno = 0;
-        uintmax_t seed = (unsigned) strtoumax(optarg, NULL, 0);
-        if (errno || !seed || seed > (uintmax_t) UINT_MAX) {
+        uintmax_t seed = (unsigned)strtoumax(optarg, NULL, 0);
+        if (errno || !seed || seed > (uintmax_t)UINT_MAX) {
           perror("Received an invalid seed on the command line");
           display_help();
           exit(EXIT_FAILURE);
         }
-        random_seed = (unsigned int) seed;
+        random_seed = (unsigned int)seed;
         break;
+
+      case 'l':
+        if (strcmp(optarg, "all") == 0) {
+          log_lvl = LOG_ALL;
+          break;
+        }
+
+        if (strcmp(optarg, "fail") == 0) {
+          log_lvl = LOG_ALL;
+          break;
+        }
+
+        fprintf(stderr, "Received invalid log level on the command line.\n\n");
+        display_help();
+        exit(EXIT_FAILURE);
+
       case 'h':
         display_help();
         exit(EXIT_SUCCESS);
         break;
+
       case '?': /* Display usage and exit with failure. */
         break;
+
       case 0:
         // getopt_long will already have handled this
         if (long_opts[opt_index].flag != NULL)
           break;
         __attribute__((fallthrough));
+
       default:
         fprintf(stderr, "Unknown or bad arguments!\n");
         display_help();
@@ -193,46 +275,52 @@ static long default_handler(long sc_no,
                             long a4,
                             long a5,
                             long a6,
-                            void **aux) {
+                            void **aux,
+                            _Bool *fail) {
   (void)aux;  // unused
   int random = rand() % 100 + 1;
   const struct sysent *entry = &sys_entries[sc_no];
 
   if (entry->families & SYS_FAMILY_DEVICE) {
     if (random <= failure_probabilities.device)
-      return -entry->default_errno;
+      goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
   if (entry->families & SYS_FAMILY_FILE) {
     if (random <= failure_probabilities.file)
-    if (random <= failure_probabilities.file)
-      return -entry->default_errno;
+      if (random <= failure_probabilities.file)
+        goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
   if (entry->families & SYS_FAMILY_NETWORK) {
     if (random <= failure_probabilities.network)
-      return -entry->default_errno;
+      goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
   if (entry->families & SYS_FAMILY_PROCESS) {
     if (random <= failure_probabilities.process)
-      return -entry->default_errno;
+      goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
   if (entry->families & SYS_FAMILY_MEMORY) {
     if (random <= failure_probabilities.memory)
-      return -entry->default_errno;
+      goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
   if (random <= failure_probabilities.unassigned)
-    return -entry->default_errno;
+    goto caused_failure;
 
-  return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
+  long sys_ret = real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
+  return sys_ret;
+
+caused_failure:
+  *fail = true;
+  return -entry->default_errno;
 }
 
 long handle_syscall(long sc_no,
@@ -247,8 +335,26 @@ long handle_syscall(long sc_no,
 
   const struct sysent *entry = &sys_entries[sc_no];
 
-  return entry->handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6,
-                        (void *)&entry->handler_state);
+  sys_call_nums[sc_no]++;
+  _Bool caused_failure = false;
+  long sys_ret =
+      entry->handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6,
+                     (void **)&entry->handler_state, &caused_failure);
+
+  if (log_lvl > LOG_NONE) {
+    struct print_system_call_args log_args = {.entry = entry,
+                                              .sc_no = sc_no,
+                                              .arg1 = arg1,
+                                              .arg2 = arg2,
+                                              .arg3 = arg3,
+                                              .arg4 = arg4,
+                                              .arg5 = arg5,
+                                              .arg6 = arg6,
+                                              .sys_ret = sys_ret};
+    if (caused_failure || log_lvl == LOG_ALL)
+      print_system_call(&log_args, caused_failure);
+  }
+  return sys_ret;
 }
 
 void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
@@ -309,7 +415,4 @@ void vx_init(int *argc,
 
   random_seed = random_seed ? random_seed : time(NULL);
   srand(random_seed);
-
-  if (verbose_flag)
-    print_arguments();
 }

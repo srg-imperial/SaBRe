@@ -12,7 +12,8 @@ typedef long (*syscall_handler_fn)(long sc_no,
                                    long a4,
                                    long a5,
                                    long a6,
-                                   void **aux);
+                                   void **aux,
+                                   _Bool *fail);
 
 enum syscall_family {
   SYS_FAMILY_UNASSIGNED = 0,
@@ -368,5 +369,7 @@ struct sysent {
   X(330, 2, "pkey_alloc", EBADF, SYS_FAMILY_UNASSIGNED)            \
   X(331, 1, "pkey_free", EBADF, SYS_FAMILY_UNASSIGNED)             \
   X(332, 5, "statx", EBADF, SYS_FAMILY_UNASSIGNED)
+
+#define SYSENT_NUM_SYSCALLS 333
 
 #endif /* !SC_FUZZER_SYSENT_H */
