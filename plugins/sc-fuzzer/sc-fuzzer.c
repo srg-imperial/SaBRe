@@ -41,6 +41,7 @@ static int verbose_flag = 0;
 static unsigned int random_seed = 0;
 static enum log_level log_lvl = LOG_NONE;
 static FILE *out_stream = NULL;
+static _Bool output_colors = false;
 
 static long default_handler(long sc_no,
                             long a1,
@@ -77,8 +78,13 @@ struct print_system_call_args {
 
 static void print_system_call(const struct print_system_call_args *args,
                               _Bool caused_failure) {
-  if (caused_failure)
-    fprintf(out_stream, RED "[FAILURE] " RESET);
+  if (caused_failure) {
+    if (output_colors)
+      fputs(RED, out_stream);
+    fputs("[FAILURE] ", out_stream);
+    if (output_colors)
+      fputs(RESET, out_stream);
+  }
 
   switch (args->entry->nargs) {
     case 0:
@@ -124,8 +130,7 @@ static void print_system_call(const struct print_system_call_args *args,
 }
 
 static void display_help(void) {
-  fprintf(
-      stderr,
+  fputs(
       "Plugin to SaBRe that probabilistically fails system calls for usage in fuzzing applications.\n\
 USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
   Options:\n\
@@ -140,7 +145,8 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
     -n, --network-operations [0-100]    Sets the failure probability for network I/O system calls.\n\
     -p, --process-management [0-100]    Sets the failure probability for process management system calls.\n\
     -m, --memory-allocation [0-100]     Sets the failure probability for memory allocation system calls.\n\
-");
+",
+      stderr);
 }
 
 static const char *opt_string = "u:d:f:n:p:m:s:l:o:vh";
@@ -233,7 +239,7 @@ static void handle_arguments(int *argc, char **argv[]) {
           break;
         }
 
-        fprintf(stderr, "Received invalid log level on the command line.\n\n");
+        fputs("Received invalid log level on the command line.\n\n", stderr);
         display_help();
         exit(EXIT_FAILURE);
 
@@ -270,11 +276,16 @@ static void handle_arguments(int *argc, char **argv[]) {
         __attribute__((fallthrough));
 
       default:
-        fprintf(stderr, "Unknown or bad arguments!\n");
+        fputs("Unknown or bad arguments!\n\n", stderr);
         display_help();
         exit(EXIT_FAILURE);
     }
   }
+
+  // This is not 100% foolproof as some ttys do not support VTxxx escape
+  // sequences (consult your terminfo database for more info). However, the
+  // overwhelming majority of terminals do, so this is fine.
+  output_colors = isatty(fileno(out_stream));
 
   // Update the arguments to point to client program and its arguments
   *argc -= optind;
@@ -366,7 +377,7 @@ long handle_syscall(long sc_no,
       entry->handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6,
                      (void **)&entry->handler_state, &caused_failure);
 
-  if (log_lvl > LOG_NONE) {
+  if ((log_lvl > LOG_NONE && caused_failure) || log_lvl == LOG_ALL) {
     struct print_system_call_args log_args = {.entry = entry,
                                               .sc_no = sc_no,
                                               .arg1 = arg1,
@@ -376,8 +387,7 @@ long handle_syscall(long sc_no,
                                               .arg5 = arg5,
                                               .arg6 = arg6,
                                               .sys_ret = sys_ret};
-    if (caused_failure || log_lvl == LOG_ALL)
-      print_system_call(&log_args, caused_failure);
+    print_system_call(&log_args, caused_failure);
   }
   return sys_ret;
 }
