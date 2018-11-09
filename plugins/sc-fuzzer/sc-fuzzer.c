@@ -179,9 +179,11 @@ static int extract_probability(const char *probability_str) {
 }
 
 static void handle_arguments(int *argc, char **argv[]) {
+  // Defaults output to stderr
+  out_stream = stderr;
+
   int opt_index = 0;
   int ch = 0;
-
   while ((ch = getopt_long(*argc, *argv, opt_string, long_opts, &opt_index)) !=
          -1) {
     switch (ch) {
@@ -227,7 +229,7 @@ static void handle_arguments(int *argc, char **argv[]) {
         }
 
         if (strcmp(optarg, "fail") == 0) {
-          log_lvl = LOG_ALL;
+          log_lvl = LOG_FAIL;
           break;
         }
 
@@ -257,7 +259,8 @@ static void handle_arguments(int *argc, char **argv[]) {
         exit(EXIT_SUCCESS);
         break;
 
-      case '?': /* Display usage and exit with failure. */
+      case '?':
+        // Display usage and exit with failure.
         break;
 
       case 0:
@@ -397,7 +400,7 @@ static void segv_handler(int sig) {
   // effort at this point.
   fflush(out_stream);
 
-  /* Pass on the signal (so that a core file is produced). */
+  // Pass on the signal (so that a core file is produced).
   struct sigaction sa;
   sa.sa_handler = SIG_DFL;
   sigemptyset(&sa.sa_mask);
