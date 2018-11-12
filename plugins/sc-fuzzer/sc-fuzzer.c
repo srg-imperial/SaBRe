@@ -297,8 +297,8 @@ static void handle_arguments(int *argc, char **argv[]) {
  * trial succeeds  returns the default errno value for this syscall. Otherwise
  * it will let the system call go through. The probabilities for families are
  * checked for a first match, with the ordering:
- *  - SYS_FAMILY_DEVICE
  *  - SYS_FAMILY_FILE
+ *  - SYS_FAMILY_DEVICE
  *  - SYS_FAMILY_NETWORK
  *  - SYS_FAMILY_PROCESS
  *  - SYS_FAMILY_MEMORY
@@ -317,16 +317,18 @@ static long default_handler(long sc_no,
   int random = rand() % 100 + 1;
   const struct sysent *entry = &sys_entries[sc_no];
 
-  if (entry->families & SYS_FAMILY_DEVICE) {
-    if (random <= failure_probabilities.device)
+  if (entry->families == SYS_FAMILY_NEVER_FAIL)
+    return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
+
+  if (entry->families & SYS_FAMILY_FILE) {
+    if (random <= failure_probabilities.file)
       goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
-  if (entry->families & SYS_FAMILY_FILE) {
-    if (random <= failure_probabilities.file)
-      if (random <= failure_probabilities.file)
-        goto caused_failure;
+  if (entry->families & SYS_FAMILY_DEVICE) {
+    if (random <= failure_probabilities.device)
+      goto caused_failure;
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
@@ -348,8 +350,10 @@ static long default_handler(long sc_no,
     return real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   }
 
-  if (random <= failure_probabilities.unassigned)
-    goto caused_failure;
+  if (entry->families & SYS_FAMILY_UNASSIGNED) {
+    if (random <= failure_probabilities.unassigned)
+      goto caused_failure;
+  }
 
   long sys_ret = real_syscall(sc_no, a1, a2, a3, a4, a5, a6);
   return sys_ret;
