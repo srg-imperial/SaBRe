@@ -36,7 +36,12 @@ struct syscall_chances {
 
 enum log_level { LOG_NONE = 0, LOG_FAIL = 1, LOG_ALL = 2 };
 
-static struct syscall_chances failure_probabilities = {.unassigned = 50};
+static struct syscall_chances failure_probabilities = {.unassigned = 5,
+                                                       .device = 5,
+                                                       .file = 5,
+                                                       .network = 5,
+                                                       .process = 5,
+                                                       .memory = 5};
 static int verbose_flag = 0;
 static unsigned int random_seed = 0;
 static enum log_level log_lvl = LOG_NONE;
@@ -454,5 +459,9 @@ void vx_init(int *argc,
   handle_arguments(argc, argv);
 
   random_seed = random_seed ? random_seed : time(NULL);
+
+  if (log_lvl > LOG_NONE)
+    fprintf(out_stream, "The chosen seed is %u\n", random_seed);
+
   srand(random_seed);
 }
