@@ -1,0 +1,50 @@
+include_directories(${CMAKE_SOURCE_DIR}/includes)
+
+set(CMAKE_C_FLAGS_DEBUG "-ggdb3")
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-std=gnu99 -Wall -Wextra -Werror -fPIE -fstack-protector")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -rdynamic")
+
+set(SRCS
+  elf_loading.c
+  handle_syscall.S
+  handle_syscall_loader.s
+  handle_vdso.s
+  handle_rdtsc.s
+  ld_sc_handler.c
+  library.c
+  loader.c
+  maps.c
+  x86_decoder.c
+)
+
+option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
+
+if (DEBUG)
+  add_definitions(-DVX_DEBUG)
+endif(DEBUG)
+
+if (RDTSC)
+  add_definitions(-D__NX_INTERCEPT_RDTSC)
+endif(RDTSC)
+
+# Build library
+add_library(loader ${SRCS})
+target_include_directories(loader PUBLIC ./includes)
+target_link_libraries(loader dl)
+
+# Build loader
+add_executable(run main.s)
+target_link_libraries(run loader libsrc)
+
+# Build tools
+add_executable(process-vdso tools/process-vdso.c)
+add_executable(dump-vdso    tools/dump-vdso.c)
+
+target_compile_options(dump-vdso PRIVATE "-Wno-unused-parameter")
+target_compile_options(process-vdso PRIVATE "-Wno-unused-parameter")
+
+target_include_directories(process-vdso PRIVATE ./includes)
+target_include_directories(dump-vdso PRIVATE ./includes)
+
+target_link_libraries(process-vdso loader)
+target_link_libraries(dump-vdso    loader)
