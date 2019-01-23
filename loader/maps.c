@@ -1,0 +1,589 @@
+#include "maps.h"
+
+#include <assert.h>
+#include <inttypes.h>
+#include <malloc.h>
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <stdlib.h>
+#include <fcntl.h>
+
+#include <linux/limits.h>
+
+#include "compiler.h"
+#include "hlist.h"
+#include "list.h"
+#include "rbtree.h"
+
+#include "library.h"
+#include "macros.h"
+
+#define MAX_BUF_SIZE PATH_MAX + 1024
+#define MAX_INITIAL_MAPPINGS 31
+
+static long initial_mappings[MAX_INITIAL_MAPPINGS];
+static int initial_mapping_cnt = 0;
+
+static inline struct library* library_find(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
+                                            const char* pathname) {
+  struct hlist_head *head;
+  struct hlist_node *node;
+  struct library *l;
+
+  head = &hashtable[library_hashfn(pathname)];
+  hlist_for_each_entry(l, node, head, library_hash) {
+    if (strcmp(l->pathname, pathname) == 0)
+      return l;
+  }
+
+  return NULL;
+}
+
+static inline void library_add(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
+                                struct library *lib) {
+  struct hlist_head* head = &hashtable[library_hashfn(lib->pathname)];
+  hlist_add_head(&lib->library_hash, head);
+}
+
+static inline struct region *__rb_insert_region(struct library *library,
+                                                Elf_Addr offset,
+                                                struct rb_node *node) {
+  struct rb_node **p = &library->rb_region.rb_node;
+  struct rb_node *parent = NULL;
+  struct region *region;
+
+  while (*p) {
+    parent = *p;
+    region = rb_entry(parent, struct region, rb_region);
+
+    if (offset > region->offset)
+      p = &(*p)->rb_left;
+    else if (offset < region->offset)
+      p = &(*p)->rb_right;
+    else
+      return region;
+  }
+
+  rb_link_node(node, parent, p);
+
+  return NULL;
+}
+
+static inline struct region *rb_insert_region(struct library *library,
+                                              Elf_Addr offset,
+                                              struct rb_node *node) {
+  struct region *ret;
+  if ((ret = __rb_insert_region(library, offset, node)))
+    goto out;
+  rb_insert_color(node, &library->rb_region);
+out:
+  return ret;
+}
+
+static void maps_init(struct maps *maps, int fd) {
+  maps->fd = fd;
+  maps->lib_vdso = NULL;
+  maps->lib_vsyscall = NULL;
+
+  for (int i = 0; i < LIBS_HASHTABLE_SIZE; i++)
+    INIT_HLIST_HEAD(&maps->libraries[i]);
+}
+
+void maps_release(struct maps *maps) {
+  // TODO(andronat): finish implementation
+  close(maps->fd);
+}
+
+// Returns false if segment that starts with check_addr should not be touched
+static bool maps_check(unsigned long check_addr, long no_touch_addrs[], int addr_cnt) {
+  for (int i = 0; i < addr_cnt; ++i)
+    if (check_addr == (unsigned long)no_touch_addrs[i])
+    {
+      _nx_debug_printf("Not touching %lX\n", check_addr);
+      return false;
+    }
+  return true;
+}
+
+struct maps* maps_read_only(const char* libname) {
+  int fd = open("/proc/self/maps", O_RDONLY, 0);
+  if (fd < 0)
+    _nx_fatal_printf("opening /proc/self/maps failed\n"); // !exits!
+
+  if (lseek(fd, 0, SEEK_SET) < 0)
+    _nx_fatal_printf("lseek /proc/self/maps failed\n"); // !exits!
+
+  struct maps* maps = malloc(sizeof(struct maps));
+  maps_init(maps, fd);
+
+  struct library* lib = malloc(sizeof(*lib));
+  library_init(lib, libname, maps);
+  library_add(maps->libraries, lib);
+
+  char buf[MAX_BUF_SIZE] = {'\0'};
+  char *from = buf, *to = buf, *next = buf;
+  char *bufend = buf + MAX_BUF_SIZE - 1;
+
+  _nx_debug_printf("searching /proc/self/maps for %s\n", libname);
+  do {
+    from = next; /* advance to the start of the next line */
+    next = (char *)memchr(
+        from, '\n', to - from); /* check if we have another line */
+    if (!next) {
+      /* shift/fill the buffer */
+      size_t len = to - from;
+      /* move the current text to the start of the buffer */
+      memmove(buf, from, len);
+      from = buf;
+      to = buf + len;
+      /* fill up buffer with text */
+      size_t nread = 0;
+      while (to < bufend) {
+        nread = read(fd, to, bufend - to);
+        if (nread > 0)
+          to += nread;
+        else
+          break;
+      }
+      if (to != bufend && !nread)
+        memset(to, 0, bufend - to); /* zero-out remaining space */
+      *to = '\n';                   /* sentinel */
+      next = (char *)memchr(from, '\n', to + 1 - from);
+    }
+    *next = 0;                 /* turn newline into 0 */
+    next += next < to ? 1 : 0; /* skip NULL if not end of text */
+
+    if (to > buf) {
+      char *ptr = from;
+      unsigned long start = strtoul(ptr, &ptr, 16);
+      unsigned long end = strtoul(ptr + 1, &ptr, 16);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *flags = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      assert(ptr - flags >= 4);
+      unsigned long offset = strtoul(ptr, &ptr, 16);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *id = ptr;
+      unreferenced_var(id);
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      assert(ptr - id > 0);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *pathname = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n')
+        ++ptr;
+
+      // If it is not the library we are looking for, there is
+      // no point to continue and malloc a new region struct.
+      const char* name = strstr(pathname, libname);
+      if (name == NULL)
+        continue;
+      // Ensure the full name of the library has been matched:
+      // the next character should not be a letter.
+      // This prevents e.g. libc from matching libcap.
+      char ch = name[strlen(libname)];
+      bool is_letter = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+      if (is_letter)
+	continue;
+
+      if ((flags[0] == 'r') && ((end - start) > 0)
+          && maps_check(start, initial_mappings, initial_mapping_cnt)) {
+        /* allocate a new region structure */
+        struct region *reg = (struct region *)malloc(sizeof(struct region));
+        assert(reg != NULL);
+
+        reg->start = (void *)start;
+        reg->end = (void *)end;
+        reg->size = (size_t)(end - start);
+
+        // Setup protection permissions
+        int perms = PROT_NONE;
+        if (flags[0] == 'r')
+          perms |= PROT_READ;
+        if (flags[1] == 'w')
+          perms |= PROT_WRITE;
+        if (flags[2] == 'x')
+          perms |= PROT_EXEC;
+
+        if (flags[3] == 'p')
+          perms |= MAP_PRIVATE;
+        else if (flags[3] == 's')
+          perms |= MAP_SHARED;
+        reg->perms = perms;
+
+        // Set region offset
+        reg->offset = (Elf_Addr)offset;
+
+        reg->type = REGION_LIBRARY;
+
+        rb_insert_region(lib, offset, &reg->rb_region);
+      }
+    }
+  } while (to > buf);
+
+  return maps;
+}
+
+struct maps* maps_read(void) {
+  int fd = open("/proc/self/maps", O_RDONLY, 0);
+  if (fd < 0)
+    _nx_fatal_printf("opening /proc/self/maps failed\n");
+
+  struct maps* maps = malloc(sizeof(struct maps));
+  maps_init(maps, fd);
+
+  char buf[MAX_BUF_SIZE] = {'\0'};
+  char *from = buf, *to = buf, *next = buf;
+  char *bufend = buf + MAX_BUF_SIZE - 1;
+
+  _nx_debug_printf("reading /proc/self/maps\n");
+  do {
+    from = next; /* advance to the start of the next line */
+    next = (char *)memchr(
+        from, '\n', to - from); /* check if we have another line */
+    if (!next) {
+      /* shift/fill the buffer */
+      size_t len = to - from;
+      /* move the current text to the start of the buffer */
+      memmove(buf, from, len);
+      from = buf;
+      to = buf + len;
+      /* fill up buffer with text */
+      size_t nread = 0;
+      while (to < bufend) {
+        nread = read(fd, to, bufend - to);
+        if (nread > 0)
+          to += nread;
+        else
+          break;
+      }
+      if (to != bufend && !nread)
+        memset(to, 0, bufend - to); /* zero-out remaining space */
+      *to = '\n';                   /* sentinel */
+      next = (char *)memchr(from, '\n', to + 1 - from);
+    }
+    *next = 0;                 /* turn newline into 0 */
+    next += next < to ? 1 : 0; /* skip NULL if not end of text */
+
+    if (to > buf) {
+      char *ptr = from;
+      unsigned long start = strtoul(ptr, &ptr, 16);
+      unsigned long end = strtoul(ptr + 1, &ptr, 16);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *flags = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      assert(ptr - flags >= 4);
+      unsigned long offset = strtoul(ptr, &ptr, 16);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *id = ptr;
+      unreferenced_var(id);
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      assert(ptr - id > 0);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *pathname = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n')
+        ++ptr;
+
+      if ((flags[0] == 'r') && ((end - start) > 0)
+          && maps_check(start, initial_mappings, initial_mapping_cnt)) {
+        /* allocate a new region structure */
+        struct region *reg = (struct region *)malloc(sizeof(struct region));
+        assert(reg != NULL);
+
+        reg->start = (void *)start;
+        reg->end = (void *)end;
+        reg->size = (size_t)(end - start);
+
+        // Setup protection permissions
+        int perms = PROT_NONE;
+        if (flags[0] == 'r')
+          perms |= PROT_READ;
+        if (flags[1] == 'w')
+          perms |= PROT_WRITE;
+        if (flags[2] == 'x')
+          perms |= PROT_EXEC;
+
+        if (flags[3] == 'p')
+          perms |= MAP_PRIVATE;
+        else if (flags[3] == 's')
+          perms |= MAP_SHARED;
+        reg->perms = perms;
+
+        // Set region offset
+        reg->offset = (Elf_Addr)offset;
+
+        if (strncmp(pathname, "[vdso]", 6) == 0) {
+          _nx_debug_printf("vdso library found\n");
+
+          assert(maps->lib_vdso == NULL); // We currently support only 1 memory region
+          assert(offset == 0);
+          reg->type = REGION_VDSO;
+
+          struct library* lib = malloc(sizeof(*lib));
+          library_init(lib, pathname, maps);
+          lib->vdso = true;
+          maps->lib_vdso = lib;
+          rb_insert_region(lib, offset, &reg->rb_region);
+        } else if (strncmp(pathname, "[vsyscall]", 10) == 0) {
+          _nx_debug_printf("vsyscall library found\n");
+
+          assert(maps->lib_vsyscall == NULL); // We currently support only 1 memory region
+          assert(offset == 0);
+          reg->type = REGION_VSYSCALL;
+
+          struct library* lib = malloc(sizeof(*lib));
+          library_init(lib, pathname, maps);
+          maps->lib_vsyscall = lib;
+          rb_insert_region(lib, offset, &reg->rb_region);
+        } else if (pathname[0] == '/') {
+          reg->type = REGION_LIBRARY;
+
+          // TODO(andronat): library_find uses hashing. This needs benchmarking
+          // as we had issues with hashing in the past.
+          struct library* lib = library_find(maps->libraries, pathname);
+          if (lib == NULL) {
+            _nx_debug_printf("new library found: %s\n", pathname);
+            lib = malloc(sizeof(*lib));
+            library_init(lib, pathname, maps);
+            library_add(maps->libraries, lib);
+          }
+          rb_insert_region(lib, offset, &reg->rb_region);
+        }
+      }
+    }
+  } while (to > buf);
+
+  return maps;
+}
+
+#define MAX_DISTANCE (1536 << 20)
+#define PAGE_ALIGNMENT 4096
+
+void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near) {
+  _nx_debug_printf("maps_alloc_near\n");
+
+  if (lseek(maps_fd, 0, SEEK_SET) < 0)
+    return NULL;
+
+  // We try to allocate memory within 1.5GB of a target address. This means, we
+  // will be able to perform relative 32bit jumps from the target address.
+  size = ALIGN(size, PAGE_ALIGNMENT);
+
+  // Go over each line of /proc/self/maps and consider each mapped region one
+  // at a time, looking for a gap between regions to allocate.
+  char buf[MAX_BUF_SIZE] = {'\0'};
+  char *from = buf, *to = buf, *next = buf;
+  char *bufend = buf + MAX_BUF_SIZE - 1;
+
+  unsigned long gap_start = 0x10000;
+
+  do {
+    from = next; /* advance to the start of the next line */
+    next = (char *)memchr(
+        from, '\n', to - from); /* check if we have another line */
+    if (!next) {
+      /* shift/fill the buffer */
+      size_t len = to - from;
+      /* move the current text to the start of the buffer */
+      memmove(buf, from, len);
+      from = buf;
+      to = buf + len;
+      /* fill up buffer with text */
+      size_t nread = 0;
+      while (to < bufend) {
+        nread = read(maps_fd, to, bufend - to);
+        if (nread > 0)
+          to += nread;
+        else
+          break;
+      }
+      if (to != bufend && !nread)
+        memset(to, 0, bufend - to); /* zero-out remaining space */
+      *to = '\n';                   /* sentinel */
+      next = (char *)memchr(from, '\n', to + 1 - from);
+    }
+    *next = 0;                 /* turn newline into 0 */
+    next += next < to ? 1 : 0; /* skip NULL if not end of text */
+
+    unsigned long long gap_end, map_end;
+    int name;
+
+    // Parse each line of /proc/<pid>/maps file.
+    if (sscanf(from,
+               "%llx-%llx %*4s %*d %*x:%*x %*d %n",
+               &gap_end,
+               &map_end,
+               &name) > 1) {
+      // gap_start to gap_end now covers the region of empty space before the
+      // current line.
+      // Now we try to see if there's a place within the gap we can use.
+      if (gap_end - gap_start >= size) {
+        // Is the gap before our target address?
+        if (((long)addr - (long)gap_end >= 0)) {
+          if (!near || ((long)addr - (gap_end - size) < MAX_DISTANCE)) {
+            if (name == 0 || (size_t)name > strlen(from)) {
+              name = strlen(from);
+            }
+            char *pathname = from + name;
+            _nx_debug_printf("pathname %s\n", pathname);
+
+            unsigned long pos;
+            if (strncmp(pathname, "[stack]", 7) == 0) {
+              // Underflow protection when we're adjacent to the stack
+              if (!near || ((uintptr_t)addr < MAX_DISTANCE ||
+                            (uintptr_t)addr - MAX_DISTANCE < gap_start)) {
+                pos = gap_start;
+              } else {
+                pos = ((uintptr_t)addr - MAX_DISTANCE) & ~4095;
+                if (pos < gap_start)
+                  pos = gap_start;
+              }
+              //_nx_dprintf(2, "adjacent to the stack %lx\n", pos);
+            } else {
+              // Otherwise, take the end of the region
+              pos = gap_end - size;
+            }
+            void *ptr = mmap((void *)pos,
+                                 size,
+                                 prot,
+                                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                                 -1,
+                                 0);
+            if (ptr != MAP_FAILED)
+              return ptr;
+          }
+        } else if (!near || (gap_start + size - (uintptr_t)addr < MAX_DISTANCE)) {
+          // Gap is after the address, above checks that we can wrap around
+          // through 0 to a space we'd use
+          void *ptr = mmap((void *)gap_start,
+                               size,
+                               prot,
+                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                               -1,
+                               0);
+          if (ptr != MAP_FAILED)
+            return ptr;
+        }
+      }
+      gap_start = map_end;
+    }
+  } while (to > buf);
+
+  return NULL;
+}
+
+
+// Populates array initial_mappings with the starts of mappings of executable regions
+void binrw_rd_init_maps(void) {
+  int fd = open("/proc/self/maps", O_RDONLY, 0);
+  if (fd < 0)
+    _nx_fatal_printf("opening /proc/self/maps failed\n");
+
+  char buf[MAX_BUF_SIZE] = {'\0'};
+  char *from = buf, *to = buf, *next = buf;
+  char *bufend = buf + MAX_BUF_SIZE - 1;
+
+  do {
+    from = next; /* advance to the start of the next line */
+    next = (char *)memchr(
+        from, '\n', to - from); /* check if we have another line */
+    if (!next) {
+      /* shift/fill the buffer */
+      size_t len = to - from;
+      /* move the current text to the start of the buffer */
+      memmove(buf, from, len);
+      from = buf;
+      to = buf + len;
+      /* fill up buffer with text */
+      size_t nread = 0;
+      while (to < bufend) {
+        nread = read(fd, to, bufend - to);
+        if (nread > 0)
+          to += nread;
+        else
+          break;
+      }
+      if (to != bufend && !nread)
+        memset(to, 0, bufend - to); /* zero-out remaining space */
+      *to = '\n';                   /* sentinel */
+      next = (char *)memchr(from, '\n', to + 1 - from);
+    }
+    *next = 0;                 /* turn newline into 0 */
+    next += next < to ? 1 : 0; /* skip NULL if not end of text */
+
+    if (to > buf) {
+      char *ptr = from;
+      unsigned long start = strtoul(ptr, &ptr, 16);
+      unsigned long end = strtoul(ptr + 1, &ptr, 16);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *flags = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      assert(ptr - flags >= 4);
+      //unsigned long offset = strtoul(ptr, &ptr, 16);
+      (void)strtoul(ptr, &ptr, 16);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *id = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t')
+        ++ptr;
+      assert(ptr - id > 0);
+      unreferenced_var(id);
+      while (*ptr == ' ' || *ptr == '\t')
+        ++ptr;
+      char *pathname = ptr;
+      while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n')
+        ++ptr;
+
+      if ((flags[0] == 'r') && ((end - start) > 0) && pathname[0] == '/') {
+          assert(initial_mapping_cnt < MAX_INITIAL_MAPPINGS);
+          initial_mappings[initial_mapping_cnt++] = start;
+      }
+    }
+  } while (to > buf);
+
+  close(fd);
+}
+
+void print_maps(void)
+{
+    char *line = NULL;
+    size_t len = 0;
+    FILE *maps;
+
+    maps = fopen("/proc/self/maps", "r");
+
+    while (getline(&line, &len, maps) != -1)
+    {
+        printf("%s", line);
+    }
+
+    free(line);
+    fclose(maps);
+}
+
