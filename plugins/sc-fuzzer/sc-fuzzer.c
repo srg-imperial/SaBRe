@@ -265,13 +265,12 @@ static void handle_arguments(int *argc, char **argv[]) {
           }
         }
         break;
-      case 'h':
-        display_help();
-        exit(EXIT_SUCCESS);
-        break;
 
+      case 'h': __attribute__((fallthrough));
       case '?':
         // Display usage and exit with failure.
+        display_help();
+        exit(EXIT_SUCCESS);
         break;
 
       case 0:
