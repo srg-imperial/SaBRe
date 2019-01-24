@@ -224,9 +224,9 @@ static void handle_arguments(int *argc, char **argv[]) {
 
       case 's':
         errno = 0;
-        uintmax_t seed = (unsigned)strtoumax(optarg, NULL, 0);
+        uintmax_t seed = strtoumax(optarg, NULL, 0);
         if (errno || !seed || seed > (uintmax_t)UINT_MAX) {
-          perror("Received an invalid seed on the command line");
+          fputs("Received an invalid seed on the command line.\n", stderr);
           display_help();
           exit(EXIT_FAILURE);
         }
