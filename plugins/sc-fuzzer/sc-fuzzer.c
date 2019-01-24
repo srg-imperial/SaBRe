@@ -139,11 +139,11 @@ static void display_help(void) {
       "Plugin to SaBRe that probabilistically fails system calls for usage in fuzzing applications.\n\
 USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
   Options:\n\
-    -v, --verbose                       Enable some additional information unspecified information.\n\
+    -v, --verbose                       Enable some additional unspecified information.\n\
     -h, --help                          Prints this help message and exits.\n\
     -s, --seed [1-UINT_MAX]             Sets the seed to use for srand(). The default is the current epoch.\n\
     -l, --log (all|fail)                Sets the logging level. The value all will behave similarly to strace, whereas fail will only record the system calls the system caused to fail.\n\
-    -o, --output FILE_NAME              Uses FILE_NAME to output the lgging output to. To use standard IO, use stdout and stderr instead of a file.\n\
+    -o, --output FILE_NAME              Uses FILE_NAME to output the logging output to. To use standard IO, use stdout and stderr instead of a file.\n\
     -u, --unassigned [0-100]            Sets the default probability for system calls not assigned a family.\n\
     -d, --device-operations [0-100]     Sets the default probability operating on devices.\n\
     -f, --file-operations [0-100]       Sets the failure probability for file I/O system calls.\n\
