@@ -13,7 +13,7 @@
 #include "compiler.h"
 #include "kernel.h"
 #include "../maps.c"
-#include "../library.c"
+#include "../rewriter.c"
 
 // TODO(andronat): We should use this code as a unit test
 
@@ -75,10 +75,10 @@ int main(int argc, char **argv, char **envp) {
   rb_insert_region(&lib, 0L, &reg->rb_region);
 
   lib.vdso = true;
-  library_parse_elf(&lib, NULL);
+  parse_elf(&lib, NULL);
 
   //  Call library_patch_syscalls
-  library_patch_syscalls(&lib, false);
+  patch_syscalls(&lib, false);
 
   //  write the result to the second argument
   int result_fd = open(argv[2], O_WRONLY | O_CREAT, 00600);
