@@ -266,6 +266,9 @@ static void handle_arguments(int *argc, char **argv[]) {
         }
         break;
 
+      case 'v':
+        verbose_flag = 1;
+        break;
       case 'h': __attribute__((fallthrough));
       case '?':
         // Display usage and exit with failure.
@@ -459,7 +462,7 @@ void vx_init(int *argc,
 
   random_seed = random_seed ? random_seed : time(NULL);
 
-  if (log_lvl > LOG_NONE)
+  if (verbose_flag)
     fprintf(out_stream, "The chosen seed is %u\n", random_seed);
 
   srand(random_seed);
