@@ -1,6 +1,9 @@
 # Prerequisites
 *.d
 
+# Anything pertaining to building the project
+build/
+
 # Object files
 *.o
 *.ko
@@ -50,3 +53,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
