@@ -1,22 +1,22 @@
 /*
- * This is a proposed API for Loader <-> Varan (Plugin) interaction.
+ * This is a proposed API for Loader <-> Plugin interaction.
  * This header file should be imported by the plugin implementation.
  * TBD:
  * - What handles the errors - loader or plugin? i.e. do we use void return
  *   types in the plugin or do we use int or something similar?
  * - Segfault handler
  */
-#ifndef VX_API_H
-#define VX_API_H
+#ifndef SBR_API_H
+#define SBR_API_H
 
 // Includes
-#include "vx_api_defs.h"
+#include "sbr_api_defs.h"
 
 /*
  * Protocol of plugin registration and startup:
  * 1. Loader is passed the path of the plugin (which is ELF Shared Object)
- * 2. Loader uses dlopen() to open the ELF and dlsym() to find vx_init()
- * 3. Loader calls the vx_init(), providing following arguments:
+ * 2. Loader uses dlopen() to open the ELF and dlsym() to find sbr_init()
+ * 3. Loader calls the sbr_init(), providing following arguments:
  *   a) pointers to argc and argv - both of them will be modified by the
  *      plugin
  *   b) pointer to segfault handler to be populated by the plugin
@@ -25,9 +25,9 @@
  *   d) pointer to vDSO callback function to be populated by the plugin
  *   e) pointer to syscall handler function to be populated by the plugin
  *
- * Plugin side (in vx_init()):
+ * Plugin side (in sbr_init()):
  * 4. the plugin parses arguments and leaves them in a state such that when
- *    vx_init returns, argv[0] is the path of the ELF to be executed and
+ *    sbr_init returns, argv[0] is the path of the ELF to be executed and
  *    consecutive arguments are standard arguments passed to the ELF
  * 5. the plugin populates segfault handler with appropriate function (optional)
  * 6. the plugin calls fn_icept_reg for each of the functions that need to be
@@ -51,15 +51,15 @@
  *     populated in a similar way to 10.
  * 12. the loader transfers control to the entry point of the ELF
  */
-void vx_init(int *argc,
+void sbr_init(int *argc,
              char **argv[],
-             //vx_segfault_handler_fn *segfault_handler, // - TBD
-             vx_icept_reg_fn fn_icept_reg,
-             vx_icept_vdso_callback_fn *vdso_callback,
-             vx_sc_handler_fn *syscall_handler,
-             vx_post_load_fn *post_load);
+             //sbr_segfault_handler_fn *segfault_handler, // - TBD
+             sbr_icept_reg_fn fn_icept_reg,
+             sbr_icept_vdso_callback_fn *vdso_callback,
+             sbr_sc_handler_fn *syscall_handler,
+             sbr_post_load_fn *post_load);
 
 // If the init above is used, nothing else is required from the API - loader
 // knows what it needs to overwrite and what to overwrite it with.
 
-#endif /* !VX_API_H */
+#endif /* !SBR_API_H */

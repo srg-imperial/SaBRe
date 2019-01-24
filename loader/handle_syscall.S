@@ -14,7 +14,7 @@ handle_syscall:
   # SA_RESTORER and a pointer to inform Linux how to finish a signal execution.
   # SA_RESTORER points to a function that should eventually call the
   # rt_sigreturn syscall (together with whatever teardown stuff). An important
-  # point here is that rt_sigreturn doesn't return. Varan will replace the
+  # point here is that rt_sigreturn doesn't return. SaBRe will replace the
   # syscall with a jump and because our trampoline messes with the stack layout
   # we need to manually handle it. So whenever we are about to call rt_sigreturn
   # we need to revert all custom stack manipulations we did before rt_sigreturn
@@ -24,10 +24,10 @@ handle_syscall:
   # do it for SIGSEGV in plugins/varan/signal/proxy.c:overwrite_handler_func) is
   # not an option as the original SA_RESTORER might have some teardown logic
   # that we shouldn't be messing with. On the other hand, we need to replace the
-  # SA_RESTORER pointer for signals that Varan should be hanlding internally
+  # SA_RESTORER pointer for signals that SaBRe should be hanlding internally
   # (e.g. SIGSEGV). In this case when a user wants to define a custom SIGSEGV
   # with a custom SA_RESTORER we need to first execute the user's SA_RESTORER
-  # and then our own one. In the current version of Varan, glibc is used which
+  # and then our own one. In the current version of SaBRe, glibc is used which
   # can simplify various details related to SA_RESTORER.
   #
   # TODO(andronat): Implement SA_RESTORER overwritting. SIGSEGV by default

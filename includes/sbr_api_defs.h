@@ -1,15 +1,15 @@
-#ifndef VX_API_DEFS_H
-#define VX_API_DEFS_H
+#ifndef SBR_API_DEFS_H
+#define SBR_API_DEFS_H
 
 #include <stdbool.h>
 
-// Helper typedef to simplify definition of vx_icept_callback_fn
+// Helper typedef to simplify definition of sbr_icept_callback_fn
 typedef void (*void_void_fn)(void);
-typedef void_void_fn (*vx_icept_callback_fn)(void_void_fn);
+typedef void_void_fn (*sbr_icept_callback_fn)(void_void_fn);
 
 /*
- * Structure passed to the loader by the Varan (or any other plugin) during
- * initialisation (in vx_init).
+ * Structure passed to the loader by SaBRe (or any other plugin) during
+ * initialisation (in sbr_init).
  *
  * It contains two strings (library name as well as the name of the function
  * to be intercepted) and a callback function that loader calls while
@@ -19,7 +19,7 @@ typedef void_void_fn (*vx_icept_callback_fn)(void_void_fn);
  * relocated head of the function being intercepted) and returns a function
  * that is actually called instead of the function being intercepted.
  */
-typedef struct vx_fn_icept {
+typedef struct sbr_fn_icept {
   const char *lib_name;
   const char *fn_name;
   /*
@@ -31,40 +31,40 @@ typedef struct vx_fn_icept {
    * to keep the compiler happy and cast them to whatever is required.
    */
   //void (*(*icept_callback)(void (*)(void)))(void);
-  vx_icept_callback_fn icept_callback;
-} vx_fn_icept_struct;
+  sbr_icept_callback_fn icept_callback;
+} sbr_fn_icept_struct;
 
 // Signature for the syscall handler
-typedef long (*vx_sc_handler_fn)(long, long, long, long, long, long, long, void *);
+typedef long (*sbr_sc_handler_fn)(long, long, long, long, long, long, long, void *);
 
 #ifdef __NX_INTERCEPT_RDTSC
 // Signature for the RDTSC handler
-typedef long (*vx_rdtsc_handler_fn)();
+typedef long (*sbr_rdtsc_handler_fn)();
 #endif
 
 // Signature for vDSO callback function
-typedef void_void_fn (*vx_icept_vdso_callback_fn)(long, void_void_fn);
+typedef void_void_fn (*sbr_icept_vdso_callback_fn)(long, void_void_fn);
 
 // Signature for the callback registration function
-typedef void (*vx_icept_reg_fn)(const vx_fn_icept_struct *);
+typedef void (*sbr_icept_reg_fn)(const sbr_fn_icept_struct *);
 
-typedef void (*vx_post_load_fn)(bool);
+typedef void (*sbr_post_load_fn)(bool);
 
-typedef void_void_fn vx_premain_fn;
+typedef void_void_fn sbr_premain_fn;
 
-// Signature for the vx_init function
-typedef void (*vx_init_fn)(int *,
+// Signature for the sbr_init function
+typedef void (*sbr_init_fn)(int *,
                            char ***,
-                           //vx_segfault_handler_fn *segfault_handler, // - TBD
-                           vx_icept_reg_fn,
-                           vx_icept_vdso_callback_fn *,
-                           vx_sc_handler_fn *,
+                           //sbr_segfault_handler_fn *segfault_handler, // - TBD
+                           sbr_icept_reg_fn,
+                           sbr_icept_vdso_callback_fn *,
+                           sbr_sc_handler_fn *,
 #ifdef __NX_INTERCEPT_RDTSC
-                           vx_rdtsc_handler_fn *,
+                           sbr_rdtsc_handler_fn *,
 #endif
-                           vx_post_load_fn *);
+                           sbr_post_load_fn *);
 
 struct syscall_stackframe;
 void *get_syscall_return_address (struct syscall_stackframe* stack_frame);
 
-#endif /* !VX_API_DEFS_H */
+#endif /* !SBR_API_DEFS_H */

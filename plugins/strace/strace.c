@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 #undef __USE_GNU
 
-#include "vx_api.h"
+#include "sbr_api.h"
 #include "real_syscall.h"
 #include "sysent.h"
 
@@ -38,11 +38,11 @@ static const struct_sysent sysent[] = {
 #define ARG_PATTERN_NO_PARAM(s) ARG_PATTERN_NO_PARAM2(s)
 
 static void print_help(void) {
-  fputs("Arguments passed to the vx_strace "
+  fputs("Arguments passed to the sbr_strace "
         "shared object should follow the following syntax:\n",
         out_stream);
-  fputs("[VX_STRACE_ARGS] -- EXE_PATH [EXE_ARGS]\n", out_stream);
-  fputs("VX_STRACE_ARGS:\n", out_stream);
+  fputs("[SBR_STRACE_ARGS] -- EXE_PATH [EXE_ARGS]\n", out_stream);
+  fputs("SBR_STRACE_ARGS:\n", out_stream);
   fputs(ARG_PATTERN(OUT_ARG) "stream|filename - redirect output to either "
         "stream or file; default value is stderr\n",
         out_stream);
@@ -427,7 +427,7 @@ void handle_args(int *argc, char **argv[]) {
           if (!out_stream) {
             fputs("Could not open file ", stderr);
             fputs(out_file, stderr);
-            fputs(" for vx_strace output.\n", stderr);
+            fputs(" for sbr_strace output.\n", stderr);
 
             exit(1);
           }
@@ -503,12 +503,12 @@ void_void_fn vdso_callback_none_imp(long sc_no, void_void_fn actual_fn) {
   return actual_fn;
 }
 
-void vx_init(int *argc,
+void sbr_init(int *argc,
              char **argv[],
-             vx_icept_reg_fn fn_icept_reg,
-             vx_icept_vdso_callback_fn *vdso_callback,
-             vx_sc_handler_fn *syscall_handler,
-             vx_post_load_fn *post_load) {
+             sbr_icept_reg_fn fn_icept_reg,
+             sbr_icept_vdso_callback_fn *vdso_callback,
+             sbr_sc_handler_fn *syscall_handler,
+             sbr_post_load_fn *post_load) {
   (void)fn_icept_reg;  // unused
   (void)post_load;     // unused
 

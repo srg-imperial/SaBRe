@@ -11,7 +11,7 @@
 #include "macros.h"
 #include "elf_loading.h"
 #include "library.h"
-#include "vx_api_defs.h"
+#include "sbr_api_defs.h"
 #include "global_vars.h"
 #include "handle_syscall.h"
 
@@ -20,19 +20,19 @@
 typedef uintptr_t __attribute__((may_alias)) stack_val_t;
 
 // Global variables
-vx_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
+sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 int registered_icept_cnt = 0;
-vx_sc_handler_fn sc_handler = NULL;
-vx_icept_vdso_callback_fn vdso_callback = NULL;
+sbr_sc_handler_fn sc_handler = NULL;
+sbr_icept_vdso_callback_fn vdso_callback = NULL;
 #ifdef __NX_INTERCEPT_RDTSC
-vx_rdtsc_handler_fn rdtsc_handler;
+sbr_rdtsc_handler_fn rdtsc_handler;
 #endif
 
 void *get_syscall_return_address (struct syscall_stackframe* stack_frame) {
   return stack_frame->ret;
 }
 
-void register_function_intercepts(const vx_fn_icept_struct *r_struct)
+void register_function_intercepts(const sbr_fn_icept_struct *r_struct)
 {
   assert(strlen(r_struct->lib_name) < MAX_ICEPT_STRLEN);
   assert(strlen(r_struct->fn_name) < MAX_ICEPT_STRLEN);
@@ -100,7 +100,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   dlerror();    /* Clear any existing error */
 
-  vx_init_fn plugin_init = dlsym(plugin_handle, "vx_init");
+  sbr_init_fn plugin_init = dlsym(plugin_handle, "sbr_init");
   if (!plugin_init) {
     char *error = dlerror();
     if (error)
@@ -114,7 +114,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   ++argv;
 
   char ** const argv_plugin = argv;
-  vx_post_load_fn post_load = NULL;
+  sbr_post_load_fn post_load = NULL;
   plugin_init(&argc,
               &argv,
               &register_function_intercepts,

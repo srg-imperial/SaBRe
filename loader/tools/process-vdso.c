@@ -68,7 +68,7 @@ int main(int argc, char **argv, char **envp) {
   struct library lib = {0};
   struct maps maps = {0};
 
-  // Varan needs this fd to find scratch space to mmap
+  // SaBRe needs this fd to find scratch space to mmap
   maps.fd = open("/proc/self/maps", O_RDONLY, 0);
   library_init(&lib, pathname, &maps);
 
