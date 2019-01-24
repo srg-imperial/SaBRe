@@ -154,7 +154,7 @@ USAGE: sabre libsc-fuzzer.so [OPTIONS] -- <CLIENT APP> [CLIENT ARGUMENTS] ...\n\
       stderr);
 }
 
-static const char *opt_string = "u:d:f:n:p:m:s:l:o:vh";
+static const char *opt_string = "u:d:f:n:p:m:s:l:o:vh?";
 
 static struct option long_opts[] = {
     {"unassigned", required_argument, NULL, 'u'},
