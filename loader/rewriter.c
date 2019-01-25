@@ -1,5 +1,5 @@
 #include "config.h"
-#include "library.h"
+#include "rewriter.h"
 
 #include <assert.h>
 #include <string.h>
@@ -719,7 +719,7 @@ static void patch_call_to_vsyscall_page(char *code) {
 }
 #endif
 
-static void library_patch_syscalls_in_func(struct library *lib,
+static void patch_syscalls_in_func(struct library *lib,
                                            int vsys_offset,
                                            char *start,
                                            char *end,
@@ -728,7 +728,7 @@ static void library_patch_syscalls_in_func(struct library *lib,
                                            bool loader) {
   struct rb_root branch_targets = RB_ROOT;
 
-  _nx_debug_printf("library_patch_syscalls_in_func: function %p-%p\n", start, end);
+  _nx_debug_printf("patch_syscalls_in_func: function %p-%p\n", start, end);
 
   {
     // Count how many targets we'll need
@@ -1209,7 +1209,7 @@ static const size_t HANDLER_OFFSET = 6;
  * @param[in]  detour_asm_size   size of static ASM body
  *
  */
-static inline void library_needed_space(const struct s_code * code, int * needed, int * postamble, int * second, size_t detour_asm_size) {
+static inline void needed_space(const struct s_code * code, int * needed, int * postamble, int * second, size_t detour_asm_size) {
   int additional_bytes_to_relocate = (__WORDSIZE == 32 ? 6 : JUMP_SIZE) - code[0].len;
   *second = 0;
   while (additional_bytes_to_relocate > 0) {
@@ -1223,7 +1223,7 @@ static inline void library_needed_space(const struct s_code * code, int * needed
   *needed = detour_asm_size + *postamble + JUMP_SIZE;
 }
 
-static inline void library_copy_postamble(void * dest, struct s_code code[], int second) {
+static inline void copy_postamble(void * dest, struct s_code code[], int second) {
   // Copy each instruction, one by one,
   // fixing eventual instructions that use the RIP register
   void * curr = dest;
@@ -1455,7 +1455,7 @@ static inline void library_copy_postamble(void * dest, struct s_code code[], int
   }
 }
 
-static inline void library_detour_func(struct library *lib,
+static inline void detour_func(struct library *lib,
                                         char *start,
                                         char *end,
                                         int syscall_no,
@@ -1515,7 +1515,7 @@ static inline void library_detour_func(struct library *lib,
   }
 
   int needed, postamble, second;
-  library_needed_space(code, &needed, &postamble, &second,
+  needed_space(code, &needed, &postamble, &second,
 #if defined(USE_ABS_JMP_DETOUR)
 		       70
 #else
@@ -1582,7 +1582,7 @@ static inline void library_detour_func(struct library *lib,
 
   // Copy the postamble that was moved from the function that we are
   // patching.
-  library_copy_postamble(dest +
+  copy_postamble(dest +
 #if defined(__x86_64__)
 #if defined(USE_ABS_JMP_DETOUR)
              70,
@@ -1651,7 +1651,7 @@ static inline void library_detour_func(struct library *lib,
 }
 
 
-static void library_api_detour_func(struct library *lib,
+static void api_detour_func(struct library *lib,
                                         char *start,
                                         char *end,
                                            sbr_icept_callback_fn callback,
@@ -1712,7 +1712,7 @@ static void library_api_detour_func(struct library *lib,
   }
 
   int needed, postamble, second;
-  library_needed_space(code, &needed, &postamble, &second, DETOUR_ASM_SIZE);
+  needed_space(code, &needed, &postamble, &second, DETOUR_ASM_SIZE);
 
   // Allocate scratch space and copy the preamble of code that was moved
   // from the function that we are patching.
@@ -1728,7 +1728,7 @@ static void library_api_detour_func(struct library *lib,
 
   // Copy the postamble that was moved from the function that we are
   // patching.
-  library_copy_postamble(dest + DETOUR_ASM_SIZE,
+  copy_postamble(dest + DETOUR_ASM_SIZE,
          code,
          second);
 
@@ -1771,8 +1771,8 @@ static void library_api_detour_func(struct library *lib,
 
 }
 
-static void library_patch_vdso(struct library *lib) {
-  _nx_debug_printf("library_patch_vdso: %s\n", lib->pathname);
+static void patch_vdso(struct library *lib) {
+  _nx_debug_printf("patch_vdso: %s\n", lib->pathname);
 
   int extra_len = 0;
   char *extra_space = NULL;
@@ -1794,7 +1794,7 @@ static void library_patch_vdso(struct library *lib) {
 
   struct symbol *sym = symbol_find(lib->symbol_hash, "__vdso_getcpu");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    library_detour_func(lib,
+    detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
         __NR_getcpu,
@@ -1803,7 +1803,7 @@ static void library_patch_vdso(struct library *lib) {
   }
   sym = symbol_find(lib->symbol_hash, "__vdso_time");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    library_detour_func(lib,
+    detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
         __NR_time,
@@ -1812,7 +1812,7 @@ static void library_patch_vdso(struct library *lib) {
   }
   sym = symbol_find(lib->symbol_hash, "__vdso_gettimeofday");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    library_detour_func(lib,
+    detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
         __NR_gettimeofday,
@@ -1821,7 +1821,7 @@ static void library_patch_vdso(struct library *lib) {
   }
   sym = symbol_find(lib->symbol_hash, "__vdso_clock_gettime");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    library_detour_func(lib,
+    detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
         __NR_clock_gettime,
@@ -1835,7 +1835,7 @@ static void library_patch_vdso(struct library *lib) {
   }
 }
 
-static void library_patch_vsyscalls(struct library *lib, int maps_fd) {
+static void patch_vsyscalls(struct library *lib, int maps_fd) {
   // VSyscalls live in a shared 4kB page at the top of the address space. This
   // page cannot be unmapped nor remapped. We have to create a copy within 2GB
   // of the page, and rewrite all IP-relative accesses to shared variables. As
@@ -1850,7 +1850,7 @@ static void library_patch_vsyscalls(struct library *lib, int maps_fd) {
                                        PROT_READ | PROT_WRITE | PROT_EXEC,
                                        true);
   if (copy == NULL)
-    _nx_fatal_printf("library_patch_vsyscalls: maps_alloc_near failed\n");
+    _nx_fatal_printf("patch_vsyscalls: maps_alloc_near failed\n");
   _nx_debug_printf("alloc near %p\n", copy);
 
   char *extra_space = copy;
@@ -1929,7 +1929,7 @@ static void library_patch_vsyscalls(struct library *lib, int maps_fd) {
           }
 
           // Translate all SYSCALLs to jumps into our system call handler.
-          library_patch_syscalls_in_func(
+          patch_syscalls_in_func(
               lib, 0, start, ptr, &extra_space, &extra_len, false);
           break;
         }
@@ -1946,7 +1946,7 @@ static void library_patch_vsyscalls(struct library *lib, int maps_fd) {
   mprotect(copy, 0x1000, PROT_READ | PROT_EXEC);
 }
 
-static void library_patch_syscalls_in_range(struct library *lib,
+static void patch_syscalls_in_range(struct library *lib,
                                      char *start,
                                      char *stop,
                                      char **extra_space,
@@ -1983,7 +1983,7 @@ static void library_patch_syscalls_in_range(struct library *lib,
           // scan
           _nx_debug_printf("patch syscalls in func after quick scan\n");
           // TODO(andronat): i think vsys_offset is not required
-          library_patch_syscalls_in_func(lib, 0, func, stop, extra_space, extra_len, loader);
+          patch_syscalls_in_func(lib, 0, func, stop, extra_space, extra_len, loader);
         }
         func = ptr;
       }
@@ -1996,7 +1996,7 @@ static void library_patch_syscalls_in_range(struct library *lib,
   if (has_syscall) {
     // Patch any remaining system calls that were in the last function before
     // the loop terminated.
-    library_patch_syscalls_in_func(lib, 0, func, stop, extra_space, extra_len, loader);
+    patch_syscalls_in_func(lib, 0, func, stop, extra_space, extra_len, loader);
   }
   _nx_debug_printf("patched syscalls in range\n");
 }
@@ -2074,11 +2074,11 @@ static bool lib_is_icepted(const char *pathname)
 }
 
 // TODO extract symbol (function) interception to a different function
-static void library_patch_syscalls(struct library *lib, bool loader) {
+static void patch_syscalls(struct library *lib, bool loader) {
   if (!lib->valid)
     return;
 
-  _nx_debug_printf("library: patching syscalls in -> (%s)\n", lib->pathname);
+  _nx_debug_printf("rewriter: patching syscalls in -> (%s)\n", lib->pathname);
 
   int extra_len = 0;
   char *extra_space = NULL;
@@ -2113,7 +2113,7 @@ static void library_patch_syscalls(struct library *lib, bool loader) {
         struct symbol *sym = symbol_find(lib->symbol_hash, intercept_records[i].fn_name);
         if (sym != NULL && (void *)sym->sym.st_value != NULL) {
           _nx_debug_printf("patching at address %lx\n", (long)lib->asr_offset + sym->sym.st_value);
-          library_api_detour_func(lib,
+          api_detour_func(lib,
                                   lib->asr_offset + sym->sym.st_value,
                                   lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
                                   intercept_records[i].callback,
@@ -2134,7 +2134,7 @@ static void library_patch_syscalls(struct library *lib, bool loader) {
   const Elf_Shdr *shdr = &scn->shdr;
   char *start = (char *)(shdr->sh_addr + lib->asr_offset);
   char *stop = start + shdr->sh_size;
-  library_patch_syscalls_in_range(lib, start, stop, &extra_space, &extra_len, loader);
+  patch_syscalls_in_range(lib, start, stop, &extra_space, &extra_len, loader);
 
   _nx_debug_printf("mprotect extra space %p\n", extra_space);
   if (extra_space != NULL) {
@@ -2144,7 +2144,7 @@ static void library_patch_syscalls(struct library *lib, bool loader) {
   _nx_debug_printf("mprotected\n");
 }
 
-static bool library_parse_symbols(struct library *lib) {
+static bool parse_symbols(struct library *lib) {
   if (!lib->valid)
     return false;
 
@@ -2178,14 +2178,14 @@ static bool library_parse_symbols(struct library *lib) {
       }
       const char *name =
           library_copy_original(lib, strtab.sh_offset + sym.st_name);
-      _nx_debug_printf("library_parse_symbols: name copied\n");
+      _nx_debug_printf("parse_symbols: name copied\n");
       if (!strlen(name))
         continue;
 
       struct symbol *ls = malloc(sizeof(*ls));
       symbol_init(ls, name, sym);
       symbol_add(lib->symbol_hash, ls);
-      _nx_debug_printf("library_parse_symbols: symbol %s (%p)\n", name, (void *)addr);
+      _nx_debug_printf("parse_symbols: symbol %s (%p)\n", name, (void *)addr);
     }
   }
 
@@ -2197,7 +2197,7 @@ error:
   return false;
 }
 
-bool library_parse_elf(struct library *lib, const char * prog_name) {
+bool parse_elf(struct library *lib, const char * prog_name) {
   lib->valid = true;
 
   // Verify ELF header
@@ -2210,7 +2210,7 @@ bool library_parse_elf(struct library *lib, const char * prog_name) {
           lib,
           lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
           &str_shdr)) {
-    _nx_debug_printf("library_parse_elf: header invalid\n");
+    _nx_debug_printf("parse_elf: header invalid\n");
     goto error;
   }
 
@@ -2250,7 +2250,7 @@ bool library_parse_elf(struct library *lib, const char * prog_name) {
     }
   }*/
   if (!text) {
-    _nx_debug_printf("library_parse_elf: failed to find .text\n");
+    _nx_debug_printf("parse_elf: failed to find .text\n");
     goto error;
   }
 
@@ -2258,7 +2258,7 @@ bool library_parse_elf(struct library *lib, const char * prog_name) {
   // asr_offset_
   struct region *rgn = rb_lower_bound_region(lib, text->sh_offset);
   if (!rgn) {
-    _nx_debug_printf("library_parse_elf: failed to find .text region\n");
+    _nx_debug_printf("parse_elf: failed to find .text region\n");
     goto error;
   }
 
@@ -2268,16 +2268,16 @@ bool library_parse_elf(struct library *lib, const char * prog_name) {
   _nx_debug_printf("asr offset %p\n", lib->asr_offset);
 
   if (prog_name && !strcmp(lib->pathname, prog_name))
-    return library_parse_symbols(lib);
+    return parse_symbols(lib);
 
   const char * libnames[] = { "[vdso]", "libc" , "libpthread" , NULL };
   if (which_lib_name_interesting(libnames, lib->pathname) >= 0)
-    return library_parse_symbols(lib);
+    return parse_symbols(lib);
   else
     return true;
 
 error:
-  _nx_debug_printf("library: failed to parse\n");
+  _nx_debug_printf("rewriter: failed to parse\n");
   lib->valid = false;
   return false;
 }
@@ -2324,10 +2324,10 @@ void memorymaps_rewrite_lib(const char* libname) {
   struct library* l;
   int guard = 0; // Test that we always find exactly 1 library
   for_each_library(l, maps) {
-    if (library_parse_elf(l, libname)) {
+    if (parse_elf(l, libname)) {
       _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
       library_make_writable(l, true);
-      library_patch_syscalls(l, false);
+      patch_syscalls(l, false);
       library_make_writable(l, false);
     }
     guard++;
@@ -2356,14 +2356,14 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
     _nx_debug_printf("memrewrite: patching vsyscalls\n");
     // If a SIGSEGV rises here please check the following issue:
     // https://github.com/srg-imperial/varan/issues/119
-    library_patch_vsyscalls(maps->lib_vsyscall, maps->fd);
+    patch_vsyscalls(maps->lib_vsyscall, maps->fd);
     _nx_debug_printf("memrewrite: vsyscalls done\n");
   }
 
-  if (maps->lib_vdso != NULL && library_parse_elf(maps->lib_vdso, bin)) {
+  if (maps->lib_vdso != NULL && parse_elf(maps->lib_vdso, bin)) {
     _nx_debug_printf("memrewrite: patching vdso\n");
     library_make_writable(maps->lib_vdso, true);
-    library_patch_vdso(maps->lib_vdso);
+    patch_vdso(maps->lib_vdso);
     library_make_writable(maps->lib_vdso, false);
     _nx_debug_printf("memrewrite: vsdo done\n");
   }
@@ -2373,10 +2373,10 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
   for_each_library(l, maps) {
     _nx_debug_printf("memrewrite: processing library %s\n", l->pathname);
     if ((which_lib_name_interesting(libs, l->pathname) >= 0 || (bin && !strcmp(l->pathname, bin))) // FIXME here bin should be the full path
-            && library_parse_elf(l, bin)) {
+            && parse_elf(l, bin)) {
       _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
       library_make_writable(l, true);
-      library_patch_syscalls(l, loader);
+      patch_syscalls(l, loader);
       library_make_writable(l, false);
     }
   }

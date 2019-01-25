@@ -11,7 +11,7 @@ set(SRCS
   handle_vdso.s
   handle_rdtsc.s
   ld_sc_handler.c
-  library.c
+  rewriter.c
   loader.c
   maps.c
   x86_decoder.c

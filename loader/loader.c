@@ -10,7 +10,7 @@
 #include "compiler.h"
 #include "macros.h"
 #include "elf_loading.h"
-#include "library.h"
+#include "rewriter.h"
 #include "sbr_api_defs.h"
 #include "global_vars.h"
 #include "handle_syscall.h"
