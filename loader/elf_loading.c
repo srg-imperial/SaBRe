@@ -74,9 +74,7 @@ int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr) {
   }
 
   switch (ehdr->e_machine) {
-#if defined(__i386__)
-    case EM_386:
-#elif defined(__x86_64__)
+#if defined(__x86_64__)
     case EM_X86_64:
 #else
 #error Unsupported target platform

@@ -29,7 +29,6 @@
 #include "handle_vdso.h"
 #include "handle_rdtsc.h"
 
-#if defined(__x86_64__)
 typedef Elf64_Phdr Elf_Phdr;
 typedef Elf64_Rela Elf_Rel;
 
@@ -41,9 +40,6 @@ typedef Elf64_Sxword Elf_Sxword;
 typedef Elf64_Off Elf_Off;
 typedef Elf64_Section Elf_Section;
 typedef Elf64_Versym Elf_Versym;
-#else
-#error Unsupported target platform
-#endif
 
 char *__kernel_vsyscall __internal;
 char *__kernel_sigreturn __internal;
@@ -634,9 +630,7 @@ static inline bool is_safe_insn(unsigned short insn) {
   return ((insn & 0x7) < 0x6 &&
           (insn & 0xF0) < 0x40
               /* ADD, OR, ADC, SBB, AND, SUB, XOR, CMP */) ||
-#if defined(__x86_64__)
          insn == 0x63 /* MOVSXD */ ||
-#endif
          (insn >= 0x80 && insn <= 0x8E /* ADD, OR, ADC,
          SBB, AND, SUB, XOR, CMP, TEST, XCHG, MOV, LEA */) ||
          (insn == 0x90) || /* NOP */
@@ -674,7 +668,6 @@ static char *alloc_scratch_space(int fd,
   _nx_fatal_printf("No space left to allocate scratch space");
 }
 
-#if defined(__x86_64__)
 static bool is_call_to_vsyscall_page(char *code) {
   /* Look for these instructions, which are a call to the x86-64
      vsyscall page, which the kernel puts at a fixed address:
@@ -717,7 +710,6 @@ static void patch_call_to_vsyscall_page(char *code) {
     memcpy(code, replacement, sizeof(replacement) - 1);
   }
 }
-#endif
 
 static void patch_syscalls_in_func(struct library *lib,
                                            int vsys_offset,
@@ -774,10 +766,8 @@ static void patch_syscalls_in_func(struct library *lib,
 
   int i = 0;
   for (char *ptr = start; ptr < end;) {
-#if defined(__x86_64__)
     if (is_call_to_vsyscall_page(ptr))
       patch_call_to_vsyscall_page(ptr);
-#endif
     // Keep a ring-buffer of the last few instruction in order to find the
     // correct place to patch the code.
     char *mod_rm;
@@ -786,16 +776,11 @@ static void patch_syscalls_in_func(struct library *lib,
         next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
     code[i].len = ptr - code[i].addr;
     code[i].is_ip_relative =
-#if defined(__x86_64__)
         mod_rm && (*mod_rm & 0xC7) == 0x5;
-#else
-#error Unsupported target platform
-#endif
 
     // Whenever we find a system call, we patch it with a jump to out-of-line
     // code that redirects to our system call entrypoint.
     bool is_syscall = true;
-#if defined(__x86_64__)
     bool is_indirect_call = false;
 #if defined(__NX_INTERCEPT_RDTSC) || defined(SBR_DEBUG)
     bool is_rdtsc = false;
@@ -816,9 +801,6 @@ static void patch_syscalls_in_func(struct library *lib,
                              !code[i].is_ip_relative && mod_rm &&
                              (*mod_rm & 0x38) == 0x10 /* CALL (indirect) */))) {
       is_syscall = !is_indirect_call;
-#else
-#error Unsupported target platform
-#endif
 
       // Found a system call. Search backwards to figure out how to redirect
       // the code. We will need to overwrite a couple of instructions and,
@@ -961,7 +943,6 @@ static void patch_syscalls_in_func(struct library *lib,
           memcpy(code[i].addr, "\x0F\xFF" /* UD0 */, 2);
           goto replaced;
         }
-#if defined(__x86_64__)
         // On x86-64, we occasionally see code like this in the VDSO:
         //   48 8B 05 CF FE FF FF  MOV   -0x131(%rip),%rax
         //   FF 50 20              CALLQ *0x20(%rax)
@@ -986,7 +967,6 @@ static void patch_syscalls_in_func(struct library *lib,
           // We changed start_idx to include the IP relative instruction. When
           // copying this preamble, we make sure to patch up the offset.
         }
-#endif
         else {
           _nx_fatal_printf("Cannot intercept system call");
         }
@@ -1009,14 +989,10 @@ static void patch_syscalls_in_func(struct library *lib,
 
       // The following is all the code that construct the various bits of
       // assembly code.
-#if defined(__x86_64__)
       if (is_indirect_call)
         needed = 52 + preamble + code[i].len + postamble;
       else
         needed = 52 + preamble + postamble;
-#else
-#error Unsupported target platform
-#endif
 
       // Allocate scratch space and copy the preamble of code that was moved
       // from the function that we are patching.
@@ -1033,7 +1009,6 @@ static void patch_syscalls_in_func(struct library *lib,
 
       // For indirect calls, we need to copy the actual CALL instruction and
       // turn it into a PUSH instruction.
-#if defined(__x86_64__)
       if (is_indirect_call) {
         memcpy(dest + preamble,
                "\xE8\x00\x00\x00\x00"  // CALL .
@@ -1046,12 +1021,10 @@ static void patch_syscalls_in_func(struct library *lib,
         dest[preamble + 10 + (mod_rm - code[i].addr)] |= 0x20;
         preamble += 10 + code[i].len;
       }
-#endif
 
       // Copy the static body of the assembly code.
       memcpy(
           dest + preamble,
-#if defined(__x86_64__)
           is_indirect_call
               ? "\x48\x81\x3C\x24\x00\x00\x00\xFF" // CMPQ
                                                    // $0xFFFFFFFFFF000000,0(rsp)
@@ -1076,24 +1049,16 @@ static void patch_syscalls_in_func(struct library *lib,
               "\xC3"                         // RETQ
               "\x48\x81\xC4\x80\x00\x00",    // ADD  $0x80, %rsp
           is_indirect_call ? 37 : 47
-#else
-#error Unsupported target platform
-#endif
           );
 
       // Copy the postamble that was moved from the function that we are
       // patching.
       memcpy(dest + preamble +
-#if defined(__x86_64__)
                  (is_indirect_call ? 37 : 47),
-#else
-#error Unsupported target platform
-#endif
              code[i].addr + code[i].len,
              postamble);
 
       // Patch up the various computed values
-#if defined(__x86_64__)
       int post = preamble + (is_indirect_call ? 37 : 47) + postamble;
       dest[post] = '\xE9';  // JMPQ
       *(int *)(dest + post + 1) =
@@ -1116,21 +1081,14 @@ static void patch_syscalls_in_func(struct library *lib,
           entrypoint = handle_syscall;
         *(void **)(dest + preamble + 18) = entrypoint;
       }
-#else
-#error Unsupported target platform
-#endif
       // Pad unused space in the original function with NOPs
       memset(code[first].addr,
              0x90 /* NOP */,
              code[second].addr + code[second].len - code[first].addr);
 
       // Replace the system call with an unconditional jump to our new code.
-#if defined(__x86_64__)
       *code[first].addr = '\xE9';  // JMPQ
       *(int *)(code[first].addr + 1) = dest - (code[first].addr + 5);
-#else
-#error Unsupported target platform
-#endif
       _nx_debug_printf("patched %s at %p (scratch space at %p)\n",
                   (is_rdtsc ? "rdtsc" : "syscall"), code[i].addr, dest);
     }
@@ -1175,7 +1133,6 @@ struct s_code {
   bool is_ip_relative;
 };
 
-#ifdef __x86_64__
 #if defined(USE_ABS_JMP_DETOUR)
 #define JUMP_SIZE 12 // 10 bytes to load target address into register + 2 bytes to jump
 #else
@@ -1195,9 +1152,6 @@ static const char DETOUR_ASM [] =
 
 static const size_t DETOUR_ASM_SIZE = sizeof(DETOUR_ASM) - 1;
 static const size_t HANDLER_OFFSET = 6;
-#else
-#error Unsupported target platform
-#endif
 
 /**
  * Compute the amount of space needed to accommodate relocated instructions
@@ -1228,12 +1182,8 @@ static inline void copy_postamble(void * dest, struct s_code code[], int second)
   // fixing eventual instructions that use the RIP register
   void * curr = dest;
   for (int insn = 0 ; insn <= second ; insn++) {
-#if defined(__x86_64__)
     if (code[insn].is_ip_relative
         || code[insn].insn == 0x0f84 /* JE */) {
-#else
-#error Unsupported target platform
-#endif
       bool has_prefix;
       char *rex_ptr;
       char *mod_rm_ptr;
@@ -1476,11 +1426,7 @@ static inline void detour_func(struct library *lib,
       next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
   code[0].len = ptr - code[0].addr;
   code[0].is_ip_relative =
-#if defined(__x86_64__)
       mod_rm && (*mod_rm & 0xC7) == 0x5;
-#else
-#error Unsupported target platform
-#endif
   int length = code[0].len;
   char *next = ptr;
   for (size_t i = 1; next < end && i < JUMP_SIZE; i++) {
@@ -1495,11 +1441,7 @@ static inline void detour_func(struct library *lib,
         next_inst((const char **)&next, __WORDSIZE == 64, 0, 0, &tmp_rm, 0, 0);
     code[i].len = next - code[i].addr;
     code[i].is_ip_relative =
-#if defined(__x86_64__)
         tmp_rm && (*tmp_rm & 0xC7) == 0x5;
-#else
-#error Unsupported target platform
-#endif
     if (is_safe_insn(code[i].insn) ||
          (code[i].insn >= 0x50 && code[i].insn <= 0x57) /* PUSH */ ||
          (code[i].insn == 0x6A) /* PUSH */ ||
@@ -1547,7 +1489,6 @@ static inline void detour_func(struct library *lib,
 
   // Copy the static body of the assembly code.
   memcpy(dest,
-#if defined(__x86_64__)
          "\xb8\x00\x00\x00\x00"          // MOV ..., %eax
          "\x48\x81\xEC\x80\x00\x00\x00"  // SUB  $0x80, %rsp
          "\x41\x57"                      // PUSH %r15
@@ -1575,28 +1516,20 @@ static inline void detour_func(struct library *lib,
 #else
          67
 #endif
-#else
-#error Unsupported target platform
-#endif
          );
 
   // Copy the postamble that was moved from the function that we are
   // patching.
   copy_postamble(dest +
-#if defined(__x86_64__)
 #if defined(USE_ABS_JMP_DETOUR)
              70,
 #else
              67,
 #endif
-#else
-#error Unsupported target platform
-#endif
          code,
          second);
 
   // Patch up the various computed values
-#if defined(__x86_64__)
 #if defined(USE_ABS_JMP_DETOUR)
   int post = 70 + postamble;
   memcpy(dest + post,
@@ -1621,9 +1554,6 @@ static inline void detour_func(struct library *lib,
   *(int *)(dest + 28) = (code[second].addr + code[second].len) - (dest + 32);
   *(void **)(dest + 35) = handle_vdso;
 #endif
-#else
-#error Unsupported target platform
-#endif
 
   // Pad unused space in the original function with NOPs
   memset(code[0].addr,
@@ -1631,7 +1561,6 @@ static inline void detour_func(struct library *lib,
          (code[second].addr + code[second].len) - code[0].addr);
 
   // Replace the system call with an unconditional jump to our new code.
-#if defined(__x86_64__)
 #if defined(USE_ABS_JMP_DETOUR)
   memcpy(code[0].addr,
          //"\x48\xA1\x00\x00\x00\x00\x00" // MOV ...,
@@ -1643,9 +1572,6 @@ static inline void detour_func(struct library *lib,
 #else
   *code[0].addr = '\xE9';  // JMPQ
   *(int *)(code[0].addr + 1) = dest - (code[0].addr + JUMP_SIZE);
-#endif
-#else
-#error Unsupported target platform
 #endif
 
 }
@@ -1672,11 +1598,7 @@ static void api_detour_func(struct library *lib,
       next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
   code[0].len = ptr - code[0].addr;
   code[0].is_ip_relative =
-#if defined(__x86_64__)
       mod_rm && (*mod_rm & 0xC7) == 0x5;
-#else
-#error Unsupported target platform
-#endif
   int length = code[0].len;
   char *next = ptr;
   for (size_t i = 1; next < end && i < JUMP_SIZE; i++) {
@@ -1691,11 +1613,7 @@ static void api_detour_func(struct library *lib,
         next_inst((const char **)&next, __WORDSIZE == 64, 0, 0, &tmp_rm, 0, 0);
     code[i].len = next - code[i].addr;
     code[i].is_ip_relative =
-#if defined(__x86_64__)
         tmp_rm && (*tmp_rm & 0xC7) == 0x5;
-#else
-#error Unsupported target platform
-#endif
     if (is_safe_insn(code[i].insn) ||
          (code[i].insn == 0x0F84) /* JE rel32 */ ||
          (code[i].insn >= 0x50 && code[i].insn <= 0x57) /* PUSH */ ||
@@ -1737,22 +1655,17 @@ static void api_detour_func(struct library *lib,
   void *handler = callback(trampoline_addr);
   assert(handler);
 
-#if defined(__x86_64__)
   int post = DETOUR_ASM_SIZE + postamble;
   dest[post] = '\xE9';  // JMPQ
   *(int *)(dest + post + 1) =
       (code[second].addr + code[second].len) - (dest + post + JUMP_SIZE);
   *(void **)(dest + HANDLER_OFFSET) = handler;
-#else
-#error Unsupported target platform
-#endif
   // Pad unused space in the original function with NOPs
   memset(code[0].addr,
          0x90 /* NOP */,
          (code[second].addr + code[second].len) - code[0].addr);
 
 // Replace the system call with an unconditional jump to our new code.
-#if defined(__x86_64__)
 #if defined(USE_ABS_JMP_DETOUR)
   memcpy(code[0].addr,
          //"\x48\xA1\x00\x00\x00\x00\x00" // MOV ...,
@@ -1764,9 +1677,6 @@ static void api_detour_func(struct library *lib,
 #else
   *code[0].addr = '\xE9';  // JMPQ
   *(int *)(code[0].addr + 1) = dest - (code[0].addr + JUMP_SIZE);
-#endif
-#else
-#error Unsupported target platform
 #endif
 
 }
@@ -1957,12 +1867,8 @@ static void patch_syscalls_in_range(struct library *lib,
   int nopcount = 0;
   bool has_syscall = false;
   for (char *ptr = start; ptr < stop; ptr++) {
-#if defined(__x86_64__)
     if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) ||
         (lib->vdso && *ptr == '\xFF') || is_call_to_vsyscall_page(ptr)) {
-#else
-#error Unsupported target platform
-#endif
       ptr++;
       has_syscall = true;
       nopcount = 0;
@@ -2233,22 +2139,6 @@ bool parse_elf(struct library *lib, const char * prog_name) {
   // Compute the offset of entries in the .text segment
   struct section *scn = section_find(lib->section_hash, ".text");
   const Elf_Shdr *text = scn ? &scn->shdr : NULL;
-  /*if (!text) {
-    struct hlist_node *node;
-    struct section *scn;
-
-    // On x86-32, the VDSO is unusual in as much as it does not have a single
-    // ".text" section. Instead, it has one section per function. Each section
-    // name starts with ".text". We just need to pick an arbitrary one in
-    // order to find the asr_offset_ - which would typically be zero for the
-  VDSO.
-    hlist_for_each_entry(scn, node, lib->section_hash, section_hash) {
-      if (!strncmp(scn->name, ".text", 5)) {
-        text = &scn->shdr;
-        break;
-      }
-    }
-  }*/
   if (!text) {
     _nx_debug_printf("parse_elf: failed to find .text\n");
     goto error;
