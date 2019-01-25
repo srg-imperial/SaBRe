@@ -20,7 +20,7 @@ set(SRCS
 option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
 
 if (DEBUG)
-  add_definitions(-DVX_DEBUG)
+  add_definitions(-DSBR_DEBUG)
 endif(DEBUG)
 
 if (RDTSC)

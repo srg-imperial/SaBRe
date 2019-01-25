@@ -797,7 +797,7 @@ static void library_patch_syscalls_in_func(struct library *lib,
     bool is_syscall = true;
 #if defined(__x86_64__)
     bool is_indirect_call = false;
-#if defined(__NX_INTERCEPT_RDTSC) || defined(VX_DEBUG)
+#if defined(__NX_INTERCEPT_RDTSC) || defined(SBR_DEBUG)
     bool is_rdtsc = false;
 #endif
     if (code[i].insn == 0x0F05 /* SYSCALL */ ||
@@ -1654,7 +1654,7 @@ static inline void library_detour_func(struct library *lib,
 static void library_api_detour_func(struct library *lib,
                                         char *start,
                                         char *end,
-                                           vx_icept_callback_fn callback,
+                                           sbr_icept_callback_fn callback,
                                         char **extra_space,
                                         int *extra_len) {
   void *trampoline_addr = NULL;

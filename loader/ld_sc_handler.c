@@ -30,10 +30,10 @@ const char *known_syscall_libs[] __hidden = {
     NULL
 };
 
-#define VX_SEGMENTS 4
-static uintptr_t start_vx [VX_SEGMENTS], end_vx [VX_SEGMENTS];
+#define SBR_SEGMENTS 4
+static uintptr_t start_sbr [SBR_SEGMENTS], end_sbr [SBR_SEGMENTS];
 
-static void hide_vx_maps(int from_fd, int to_fd) {
+static void hide_sbr_maps(int from_fd, int to_fd) {
   // TODO This code is extracted from maps.c, function maps_read
   //      Refactor that function to be generic instead of copying the code here
 
@@ -43,7 +43,7 @@ static void hide_vx_maps(int from_fd, int to_fd) {
   char *from = buf, *to = buf, *next = buf;
   char *bufend = buf + sizeof(buf) - 1;
 
-  int vx_segment = 0;
+  int sbr_segment = 0;
 
   do {
     from = next; /* advance to the start of the next line */
@@ -93,11 +93,11 @@ static void hide_vx_maps(int from_fd, int to_fd) {
             _nx_fatal_printf("write maps failed\n");
           }
         }
-      } else { // varan segment found
-    assert(vx_segment < VX_SEGMENTS);
-    start_vx[vx_segment] = gap_end;
-    end_vx[vx_segment] = map_end;
-    vx_segment++;
+      } else { // SaBRe segment found
+    assert(sbr_segment < SBR_SEGMENTS);
+    start_sbr[sbr_segment] = gap_end;
+    end_sbr[sbr_segment] = map_end;
+    sbr_segment++;
       }
     }
   } while (to > buf);
@@ -125,18 +125,18 @@ static long process_fd(long fd, const char * pathname, int flags, mode_t mode) {
   _nx_debug_printf("open: exit loader syscall (%lu)\n", (long) fd);
 
   // TODO: TSan scans /proc/self/maps and quits if it finds anything not listed
-  //       on the ELF headers.  This hack works by hiding Varan from
-  //       /proc/self/maps, but we could trick TSan by adding varan to the ELF
+  //       on the ELF headers.  This hack works by hiding SaBRe from
+  //       /proc/self/maps, but we could trick TSan by adding SaBRe to the ELF
   //       headers as a dynamic library
   if (!strcmp("/proc/self/maps", pathname)) {
-    // Hide Varan from TSan
+    // Hide SaBRe from TSan
 
     // Create dummy file
-    char buf[] = "/tmp/vxXXXXXX";
+    char buf[] = "/tmp/sbrXXXXXX";
     int to = mkstemp(buf);
 
-    // Copy '/proc/self/maps' to dummy except for Varan entries
-    hide_vx_maps(fd, to);
+    // Copy '/proc/self/maps' to dummy except for SaBRe entries
+    hide_sbr_maps(fd, to);
 
     // Close all files
     close(fd);
@@ -159,24 +159,24 @@ struct mem_chunk {
   uintptr_t end;
 };
 
-static int intercept_vx (struct mem_chunk mmaps []) {
+static int intercept_sbr (struct mem_chunk mmaps []) {
   int c = 0;
   uintptr_t start_mmap = mmaps[c].start;
   uintptr_t end_mmap = mmaps[c].end;
 
-  for (int seg = 0; seg < VX_SEGMENTS; seg++) {
-    bool before_vx = end_mmap <= start_vx[seg];
-    bool after_vx = start_mmap >= end_vx[seg];
+  for (int seg = 0; seg < SBR_SEGMENTS; seg++) {
+    bool before_sbr = end_mmap <= start_sbr[seg];
+    bool after_sbr = start_mmap >= end_sbr[seg];
 
-    if (!(before_vx || after_vx)) {
-      if (mmaps[c].start > start_vx[seg])
-        mmaps[c].start = end_vx[seg];
-      else if (mmaps[c].end < end_vx[seg])
-        mmaps[c].end = start_vx[seg];
+    if (!(before_sbr || after_sbr)) {
+      if (mmaps[c].start > start_sbr[seg])
+        mmaps[c].start = end_sbr[seg];
+      else if (mmaps[c].end < end_sbr[seg])
+        mmaps[c].end = start_sbr[seg];
       else {
-        mmaps[c++].end = start_vx[seg];
-        assert(c < VX_SEGMENTS + 1);
-        mmaps[c].start = end_vx[seg];
+        mmaps[c++].end = start_sbr[seg];
+        assert(c < SBR_SEGMENTS + 1);
+        mmaps[c].start = end_sbr[seg];
         mmaps[c].end = end_mmap;
       }
     }
@@ -268,10 +268,10 @@ long ld_sc_handler(long sc_no,
 
       _nx_debug_printf("mmap: enter loader syscall (%u)\n", fd);
 
-      // Populate start_vx and end_vx
-      if (start_vx[0] == 0 || end_vx[0] == 0) {
+      // Populate start_sbr and end_sbr
+      if (start_sbr[0] == 0 || end_sbr[0] == 0) {
         int fd = open("/proc/self/maps", O_RDONLY, 0);
-        hide_vx_maps(fd, 0);
+        hide_sbr_maps(fd, 0);
         close(fd);
       }
 
@@ -281,8 +281,8 @@ long ld_sc_handler(long sc_no,
         uintptr_t start_mmap = (uintptr_t) addr;
         uintptr_t end_mmap = start_mmap + length;
 
-        struct mem_chunk mmaps [VX_SEGMENTS + 1] = {[0] = {.start = start_mmap, .end = end_mmap}};
-        int nb_chunks = intercept_vx(mmaps);
+        struct mem_chunk mmaps [SBR_SEGMENTS + 1] = {[0] = {.start = start_mmap, .end = end_mmap}};
+        int nb_chunks = intercept_sbr(mmaps);
 
         int c = 0;
         mmap_addr = (void *)sc_handler(sc_no, mmaps[c].start, (mmaps[c].end - mmaps[c].start), prot, flags, fd, offset, wrapper_sp);

@@ -5,7 +5,7 @@
 
 #include "real_syscall.h"
 #include "sysent.h"
-#include "vx_api_defs.h"
+#include "sbr_api_defs.h"
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -430,12 +430,12 @@ static void segv_handler(int sig) {
   raise(sig);
 }
 
-void vx_init(int *argc,
+void sbr_init(int *argc,
              char **argv[],
-             vx_icept_reg_fn fn_icept_reg,
-             vx_icept_vdso_callback_fn *vdso_callback,
-             vx_sc_handler_fn *syscall_handler,
-             vx_post_load_fn *post_load) {
+             sbr_icept_reg_fn fn_icept_reg,
+             sbr_icept_vdso_callback_fn *vdso_callback,
+             sbr_sc_handler_fn *syscall_handler,
+             sbr_post_load_fn *post_load) {
   (void)fn_icept_reg;  // unused
   (void)post_load;     // unused
 

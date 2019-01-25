@@ -4,7 +4,7 @@
 */
 
 #include "real_syscall.h"
-#include "vx_api_defs.h"
+#include "sbr_api_defs.h"
 
 #define _GNU_SOURCE
 #include <stdlib.h>
@@ -87,14 +87,14 @@ long handle_rdtsc() {
   return ret;
 }
 
-void vx_init(int *argc, char **argv[],
-             vx_icept_reg_fn fn_icept_reg,
-             vx_icept_vdso_callback_fn *vdso_callback,
-             vx_sc_handler_fn *syscall_handler,
+void sbr_init(int *argc, char **argv[],
+             sbr_icept_reg_fn fn_icept_reg,
+             sbr_icept_vdso_callback_fn *vdso_callback,
+             sbr_sc_handler_fn *syscall_handler,
 #ifdef __NX_INTERCEPT_RDTSC
-             vx_rdtsc_handler_fn *rdtsc_handler,
+             sbr_rdtsc_handler_fn *rdtsc_handler,
 #endif
-             vx_post_load_fn *post_load) {
+             sbr_post_load_fn *post_load) {
   (void)fn_icept_reg;  // unused
   (void)post_load;     // unused
 

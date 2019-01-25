@@ -11,7 +11,7 @@
     exit(127);\
   } while (0)
 
-#if VX_DEBUG
+#if SBR_DEBUG
 #define _nx_debug_printf(fmt, args...) \
   do {                                 \
     dprintf(2, "Debug in %s:%u\n", __FILE__, __LINE__);\
