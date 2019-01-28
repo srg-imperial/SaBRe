@@ -409,7 +409,8 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
 }
 
 static void segv_handler(int sig) {
-  write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19);
+  ssize_t bytes = write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19);
+  if (bytes != 19) goto error;
 
   // This does not have the expected behaviour, but leaving it here for now, in
   // case there is a solution
@@ -427,6 +428,7 @@ static void segv_handler(int sig) {
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
   sigaction(sig, &sa, NULL);
+error:
   raise(sig);
 }
 
