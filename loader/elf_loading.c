@@ -74,11 +74,7 @@ int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr) {
   }
 
   switch (ehdr->e_machine) {
-#if defined(__x86_64__)
     case EM_X86_64:
-#else
-#error Unsupported target platform
-#endif
       break;
     default:
       _nx_fatal_printf("ELF file has wrong architecture (%u)\n",
