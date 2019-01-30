@@ -8,13 +8,9 @@
 #include "compiler.h"
 #include "maps.h"
 
-#if defined(__x86_64__)
 typedef Elf64_Ehdr Elf_Ehdr;
 typedef Elf64_Shdr Elf_Shdr;
 typedef Elf64_Sym Elf_Sym;
-#else
-#error Unsupported target platform
-#endif
 
 struct symbol {
   const char *name;
