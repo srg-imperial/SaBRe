@@ -60,7 +60,6 @@ struct library {
   bool valid;
   bool vdso; // TODO(andronat): remove this field
   char *asr_offset;
-  int vsys_offset; // TODO(andronat): remove this field
   Elf_Ehdr ehdr;
   struct rb_root rb_region;
   struct hlist_head *section_hash;
@@ -71,7 +70,6 @@ struct library {
   struct hlist_node library_hash;
 };
 
-extern char *__kernel_vsyscall __internal;
 extern char *__kernel_sigreturn __internal;
 extern char *__kernel_rt_sigreturn __internal;
 
