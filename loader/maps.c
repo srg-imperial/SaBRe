@@ -86,7 +86,6 @@ out:
 static void maps_init(struct maps *maps, int fd) {
   maps->fd = fd;
   maps->lib_vdso = NULL;
-  maps->lib_vsyscall = NULL;
 
   for (int i = 0; i < LIBS_HASHTABLE_SIZE; i++)
     INIT_HLIST_HEAD(&maps->libraries[i]);
@@ -343,17 +342,6 @@ struct maps* maps_read(void) {
           library_init(lib, pathname, maps);
           lib->vdso = true;
           maps->lib_vdso = lib;
-          rb_insert_region(lib, offset, &reg->rb_region);
-        } else if (strncmp(pathname, "[vsyscall]", 10) == 0) {
-          _nx_debug_printf("vsyscall library found\n");
-
-          assert(maps->lib_vsyscall == NULL); // We currently support only 1 memory region
-          assert(offset == 0);
-          reg->type = REGION_VSYSCALL;
-
-          struct library* lib = malloc(sizeof(*lib));
-          library_init(lib, pathname, maps);
-          maps->lib_vsyscall = lib;
           rb_insert_region(lib, offset, &reg->rb_region);
         } else if (pathname[0] == '/') {
           reg->type = REGION_LIBRARY;

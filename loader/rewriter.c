@@ -41,7 +41,6 @@ typedef Elf64_Off Elf_Off;
 typedef Elf64_Section Elf_Section;
 typedef Elf64_Versym Elf_Versym;
 
-char *__kernel_vsyscall __internal;
 char *__kernel_sigreturn __internal;
 char *__kernel_rt_sigreturn __internal;
 
@@ -324,7 +323,6 @@ inline void library_init(struct library *l,
   l->valid = false;
   l->vdso = false;
   l->asr_offset = 0;
-  l->vsys_offset = 0;
   l->image = NULL;
   l->image_size = 0;
   l->maps = maps;
@@ -668,51 +666,7 @@ static char *alloc_scratch_space(int fd,
   _nx_fatal_printf("No space left to allocate scratch space");
 }
 
-static bool is_call_to_vsyscall_page(char *code) {
-  /* Look for these instructions, which are a call to the x86-64
-     vsyscall page, which the kernel puts at a fixed address:
-
-     48 c7 c0 00 XX 60 ff    mov    $0xffffffffff60XX00,%rax
-     ff d0                   callq  *%rax
-
-     This will not catch all calls to the vsyscall page, but it
-     handles the important cases that glibc contains.  The vsyscall
-     page is deprecated, so it is unlikely that new instruction
-     sequences for calling it will be introduced. */
-  return (code[0] == '\x48' && code[1] == '\xc7' && code[2] == '\xc0' &&
-          code[3] == '\x00' &&
-          (code[4] == '\x00' || code[4] == '\x04' || code[4] == '\x08') &&
-          code[5] == '\x60' && code[6] == '\xff' && code[7] == '\xff' &&
-          code[8] == '\xd0');
-}
-
-static void patch_call_to_vsyscall_page(char *code) {
-  _nx_debug_printf("patch_call_to_vsyscall_page: code %p\n", code);
-  /* We replace the mov+callq with these instructions:
-
-       b8 XX XX XX XX   mov $X, %eax  // where X is the syscall number
-       0f 05            syscall
-       90               nop
-       90               nop
-
-     The syscall instruction will later be patched by the general case. */
-  if (code[4] == '\x00') {
-    /* use __NR_gettimeofday == 96 == 0x60 */
-    const char replacement[] = "\xb8\x60\x00\x00\x00\x0f\x05\x90\x90";
-    memcpy(code, replacement, sizeof(replacement) - 1);
-  } else if (code[4] == '\x04') {
-    /* use __NR_time == 201 == 0xc9 */
-    const char replacement[] = "\xb8\xc9\x00\x00\x00\x0f\x05\x90\x90";
-    memcpy(code, replacement, sizeof(replacement) - 1);
-  } else if (code[4] == '\x08') {
-    /* use __NR_getcpu == 309 == 0x135 */
-    const char replacement[] = "\xb8\x35\x01\x00\x00\x0f\x05\x90\x90";
-    memcpy(code, replacement, sizeof(replacement) - 1);
-  }
-}
-
 static void patch_syscalls_in_func(struct library *lib,
-                                           int vsys_offset,
                                            char *start,
                                            char *end,
                                            char **extra_space,
@@ -766,8 +720,6 @@ static void patch_syscalls_in_func(struct library *lib,
 
   int i = 0;
   for (char *ptr = start; ptr < end;) {
-    if (is_call_to_vsyscall_page(ptr))
-      patch_call_to_vsyscall_page(ptr);
     // Keep a ring-buffer of the last few instruction in order to find the
     // correct place to patch the code.
     char *mod_rm;
@@ -780,27 +732,14 @@ static void patch_syscalls_in_func(struct library *lib,
 
     // Whenever we find a system call, we patch it with a jump to out-of-line
     // code that redirects to our system call entrypoint.
-    bool is_syscall = true;
-    bool is_indirect_call = false;
 #if defined(__NX_INTERCEPT_RDTSC) || defined(SBR_DEBUG)
     bool is_rdtsc = false;
 #endif
-    if (code[i].insn == 0x0F05 /* SYSCALL */ ||
+    if (code[i].insn == 0x0F05 /* SYSCALL */
 #ifdef __NX_INTERCEPT_RDTSC
-        ((is_rdtsc = (code[i].insn == 0x0F31)) /* RDTSC */ && !loader) ||
+        || ((is_rdtsc = (code[i].insn == 0x0F31)) /* RDTSC */ && !loader)
 #endif
-        // In addition, on x86-64, we need to redirect all CALLs between the
-        // VDSO and the VSyscalls page. We want these to jump to our own
-        // modified copy of the VSyscalls. As we know that the VSyscalls are
-        // always more than 2GB away from the VDSO, the compiler has to
-        // generate some form of indirect jumps. We can find all indirect
-        // CALLs and redirect them to a separate scratch area, where we can
-        // inspect the destination address. If it indeed points to the
-        // VSyscall area, we then adjust the destination address accordingly.
-        (is_indirect_call = (lib->vsys_offset && code[i].insn == 0xFF &&
-                             !code[i].is_ip_relative && mod_rm &&
-                             (*mod_rm & 0x38) == 0x10 /* CALL (indirect) */))) {
-      is_syscall = !is_indirect_call;
+       ) {
 
       // Found a system call. Search backwards to figure out how to redirect
       // the code. We will need to overwrite a couple of instructions and,
@@ -923,11 +862,6 @@ static void patch_syscalls_in_func(struct library *lib,
       // Total: 52 bytes + any bytes that were copied
 
       if (length < (__WORDSIZE == 32 ? 6 : 5)) {
-        // There are a very small number of instruction sequences that we
-        // cannot easily intercept, and that have been observed in real world
-        // examples. Handle them here:
-        struct branch_target *target;
-
         // If we cannot figure out any other way to intercept this syscall/RDTSC,
         // we replace it with an illegal instruction. This causes a SIGILL which we then
         // handle in the signal handler. That's a lot slower than rewriting the
@@ -939,36 +873,9 @@ static void patch_syscalls_in_func(struct library *lib,
         }
         else
 #endif
-        if (is_syscall) {
+        {
           memcpy(code[i].addr, "\x0F\xFF" /* UD0 */, 2);
           goto replaced;
-        }
-        // On x86-64, we occasionally see code like this in the VDSO:
-        //   48 8B 05 CF FE FF FF  MOV   -0x131(%rip),%rax
-        //   FF 50 20              CALLQ *0x20(%rax)
-        // By default, we would not replace the MOV instruction, as it is
-        // IP relative. But if the following instruction is also IP relative,
-        // we are left with only three bytes which is not enough to insert a
-        // jump.
-        // We recognize this particular situation, and as long as the CALLQ
-        // is not a branch target, we decide to still relocate the entire
-        // sequence. We just have to make sure that we then patch up the
-        // IP relative addressing.
-        else if (is_indirect_call && start_idx == i &&
-                 code[start_idx = (start_idx +
-                                   (sizeof(code) / sizeof(struct code)) - 1) %
-                                  (sizeof(code) / sizeof(struct code))].addr &&
-                 ptr - code[start_idx].addr >= 5 &&
-                 code[start_idx].is_ip_relative &&
-                 is_safe_insn(code[start_idx].insn) &&
-                 ((target = rb_upper_bound_target(
-                       &branch_targets, code[start_idx].addr)) == NULL ||
-                  target->addr >= ptr)) {
-          // We changed start_idx to include the IP relative instruction. When
-          // copying this preamble, we make sure to patch up the offset.
-        }
-        else {
-          _nx_fatal_printf("Cannot intercept system call");
         }
       }
       int needed = (__WORDSIZE == 32 ? 6 : 5) - code[i].len;
@@ -989,10 +896,7 @@ static void patch_syscalls_in_func(struct library *lib,
 
       // The following is all the code that construct the various bits of
       // assembly code.
-      if (is_indirect_call)
-        needed = 52 + preamble + code[i].len + postamble;
-      else
-        needed = 52 + preamble + postamble;
+      needed = 52 + preamble + postamble;
 
       // Allocate scratch space and copy the preamble of code that was moved
       // from the function that we are patching.
@@ -1007,36 +911,9 @@ static void patch_syscalls_in_func(struct library *lib,
             dest - code[first].addr;
       }
 
-      // For indirect calls, we need to copy the actual CALL instruction and
-      // turn it into a PUSH instruction.
-      if (is_indirect_call) {
-        memcpy(dest + preamble,
-               "\xE8\x00\x00\x00\x00"  // CALL .
-               "\x48\x83\x04\x24",     // ADDQ $.., (%rsp)
-               9);
-        dest[preamble + 9] = code[i].len + 42;
-        memcpy(dest + preamble + 10, code[i].addr, code[i].len);
-
-        // Convert CALL -> PUSH
-        dest[preamble + 10 + (mod_rm - code[i].addr)] |= 0x20;
-        preamble += 10 + code[i].len;
-      }
-
       // Copy the static body of the assembly code.
       memcpy(
           dest + preamble,
-          is_indirect_call
-              ? "\x48\x81\x3C\x24\x00\x00\x00\xFF" // CMPQ
-                                                   // $0xFFFFFFFFFF000000,0(rsp)
-                "\x72\x10"                         // JB   . + 16
-                "\x81\x2C\x24\x00\x00\x00\x00"     // SUBL ..., 0(%rsp)
-                "\xC7\x44\x24\x04\x00\x00\x00\x00" // MOVL $0, 4(%rsp)
-                "\xC3"                             // RETQ
-                "\x48\x87\x04\x24"                 // XCHG %rax, (%rsp)
-                "\x48\x89\x44\x24\x08"             // MOV  %rax, 8(%rsp)
-                "\x58"                             // POP  %rax
-                "\xC3"
-              :                              // RETQ
               "\x48\x81\xEC\x80\x00\x00\x00" // SUB  $0x80, %rsp
               "\x50"                         // PUSH %rax
               "\x48\x8D\x05\x00\x00\x00\x00" // LEA  ...(%rip), %rax
@@ -1048,39 +925,34 @@ static void patch_syscalls_in_func(struct library *lib,
               "\x48\x87\x44\x24\x10"         // XCHG %rax, 16(%rsp)
               "\xC3"                         // RETQ
               "\x48\x81\xC4\x80\x00\x00",    // ADD  $0x80, %rsp
-          is_indirect_call ? 37 : 47
+          47
           );
 
       // Copy the postamble that was moved from the function that we are
       // patching.
-      memcpy(dest + preamble +
-                 (is_indirect_call ? 37 : 47),
+      memcpy(dest + preamble + 47,
              code[i].addr + code[i].len,
              postamble);
 
       // Patch up the various computed values
-      int post = preamble + (is_indirect_call ? 37 : 47) + postamble;
+      int post = preamble + 47 + postamble;
       dest[post] = '\xE9';  // JMPQ
       *(int *)(dest + post + 1) =
           (code[second].addr + code[second].len) - (dest + post + 5);
-      if (is_indirect_call) {
-        *(int *)(dest + preamble + 13) = vsys_offset;
-      } else {
-        *(int *)(dest + preamble + 11) =
-            (code[second].addr + code[second].len) - (dest + preamble + 15);
-        void* entrypoint;
+      *(int *)(dest + preamble + 11) =
+          (code[second].addr + code[second].len) - (dest + preamble + 15);
+      void* entrypoint;
 
-        if (loader)
-          entrypoint = handle_syscall_loader;
+      if (loader)
+        entrypoint = handle_syscall_loader;
 #ifdef __NX_INTERCEPT_RDTSC
-        else if (is_rdtsc) {
-          entrypoint = rdtsc_entrypoint;
-        }
-#endif
-        else
-          entrypoint = handle_syscall;
-        *(void **)(dest + preamble + 18) = entrypoint;
+      else if (is_rdtsc) {
+        entrypoint = rdtsc_entrypoint;
       }
+#endif
+      else
+        entrypoint = handle_syscall;
+      *(void **)(dest + preamble + 18) = entrypoint;
       // Pad unused space in the original function with NOPs
       memset(code[first].addr,
              0x90 /* NOP */,
@@ -1745,117 +1617,6 @@ static void patch_vdso(struct library *lib) {
   }
 }
 
-static void patch_vsyscalls(struct library *lib, int maps_fd) {
-  // VSyscalls live in a shared 4kB page at the top of the address space. This
-  // page cannot be unmapped nor remapped. We have to create a copy within 2GB
-  // of the page, and rewrite all IP-relative accesses to shared variables. As
-  // the top of the address space is not accessible by mmap(), this means that
-  // we need to wrap around addresses to the bottom 2GB of the address space.
-  // Only x86-64 has VSyscalls.
-
-  // Get the starting address of the vsyscall region
-  char* vsys_addr = (char*)rb_entry_region(lib->rb_region.rb_node)->start;
-
-  char *copy = (char *)maps_alloc_near(maps_fd, vsys_addr, 0x1000,
-                                       PROT_READ | PROT_WRITE | PROT_EXEC,
-                                       true);
-  if (copy == NULL)
-    _nx_fatal_printf("patch_vsyscalls: maps_alloc_near failed\n");
-  _nx_debug_printf("alloc near %p\n", copy);
-
-  char *extra_space = copy;
-  int extra_len = 0x1000;
-  // TODO(andonat): check if we get a segfault here. Kernel bug: https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1744122
-  memcpy(copy, vsys_addr, 0x1000);
-  _nx_debug_printf("patch vsyscalls at %p\n", vsys_addr);
-  long adjust = (long)vsys_addr - (long)copy;
-  _nx_debug_printf("adjust %lu\n", adjust);
-
-  for (int vsys = 0; vsys < 0x1000; vsys += 0x400) {
-    char *start = copy + vsys, *end = start + 0x400;
-
-    // There can only be up to four VSyscalls starting at an offset of
-    // n*0x1000, each. VSyscalls are invoked by functions in the VDSO and
-    // provide fast implementations of a time source.  We don't exactly know
-    // where the code and where the data is in the VSyscalls page. So, we
-    // disassemble the code for each function and find all branch targets
-    // within the function in order to find the last address of function.
-    for (char *last = start, *vars = end, *ptr = start; ptr < end;) {
-      char *mod_rm;
-      unsigned short insn;
-    new_function:
-      insn = next_inst((const char **)&ptr, true, 0, 0, &mod_rm, 0, 0);
-      if (mod_rm && (*mod_rm & 0xC7) == 0x5) {
-        // Instruction has IP relative addressing mode. Adjust to reference
-        // the variables in the original VSyscall segment.
-        long offset = *(int *)(mod_rm + 1);
-        char *var = ptr + offset;
-        // Variables are stored somewhere past all the functions. Remember the
-        // first variable in the VSyscall slot, so that we stop scanning for
-        // instructions once we reach that address.
-        if (var >= ptr && var < vars)
-          vars = var;
-        offset += adjust;
-        if ((offset >> 32) && (offset >> 32) != -1)
-          _nx_fatal_printf("Cannot patch [vsyscall]");
-        *(int *)(mod_rm + 1) = offset;
-      }
-
-      // Check for jump targets to higher addresses (but within our own
-      // VSyscall slot).  They extend the possible end-address of this
-      // function.
-      char *target = 0;
-      if ((insn >= 0x70 && insn <= 0x7F) /* Jcc */ || insn == 0xEB /* JMP */) {
-        target = ptr + ((signed char *)(ptr))[-1];
-      } else if (insn == 0xE8 /* CALL */ || insn == 0xE9 /* JMP */ ||
-                 (insn >= 0x0F80 && insn <= 0x0F8F) /* Jcc */) {
-        target = ptr + ((int *)(ptr))[-1];
-      }
-
-      // The function end is found, once the loop reaches the last valid
-      // address in the VSyscall slot, or once it finds a RET instruction that
-      // is not followed by any jump targets. Unconditional jumps that point
-      // backwards are treated the same as a RET instruction.
-      if (insn == 0xC3 /* RET */ ||
-          (target < ptr &&
-           (insn == 0xEB /* JMP */ || insn == 0xE9 /* JMP */))) {
-        if (last >= ptr)
-          continue;
-        else {
-          // The function can optionally be followed by more functions in the
-          // same VSyscall slot.  Allow for alignment to a 16 byte boundary.
-          // If we then find more non-zero bytes, and if this is not the known
-          // start of the variables, assume a new function started.
-          for (; ptr < vars; ++ptr) {
-            if ((long)ptr & 0xF) {
-              if (*ptr && *ptr != '\x90' /* NOP */)
-                goto new_function;
-              *ptr = '\x90';  // NOP
-            } else {
-              if (*ptr && *ptr != '\x90' /* NOP */)
-                goto new_function;
-              break;
-            }
-          }
-
-          // Translate all SYSCALLs to jumps into our system call handler.
-          patch_syscalls_in_func(
-              lib, 0, start, ptr, &extra_space, &extra_len, false);
-          break;
-        }
-      }
-
-      // Adjust assumed end address for this function, if a valid jump target
-      // has been found that originates from the current instruction.
-      if (target > last && target < start + 0x100)
-        last = target;
-    }
-  }
-
-  // Write-protect our code and make it executable.
-  mprotect(copy, 0x1000, PROT_READ | PROT_EXEC);
-}
-
 static void patch_syscalls_in_range(struct library *lib,
                                      char *start,
                                      char *stop,
@@ -1867,8 +1628,7 @@ static void patch_syscalls_in_range(struct library *lib,
   int nopcount = 0;
   bool has_syscall = false;
   for (char *ptr = start; ptr < stop; ptr++) {
-    if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) ||
-        (lib->vdso && *ptr == '\xFF') || is_call_to_vsyscall_page(ptr)) {
+    if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) || (lib->vdso && *ptr == '\xFF')) {
       ptr++;
       has_syscall = true;
       nopcount = 0;
@@ -1888,8 +1648,7 @@ static void patch_syscalls_in_range(struct library *lib,
           // Quick scan of the function found a potential syscall, do thorough
           // scan
           _nx_debug_printf("patch syscalls in func after quick scan\n");
-          // TODO(andronat): i think vsys_offset is not required
-          patch_syscalls_in_func(lib, 0, func, stop, extra_space, extra_len, loader);
+          patch_syscalls_in_func(lib, func, stop, extra_space, extra_len, loader);
         }
         func = ptr;
       }
@@ -1902,7 +1661,7 @@ static void patch_syscalls_in_range(struct library *lib,
   if (has_syscall) {
     // Patch any remaining system calls that were in the last function before
     // the loop terminated.
-    patch_syscalls_in_func(lib, 0, func, stop, extra_space, extra_len, loader);
+    patch_syscalls_in_func(lib, func, stop, extra_space, extra_len, loader);
   }
   _nx_debug_printf("patched syscalls in range\n");
 }
@@ -2241,14 +2000,6 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
   // main kernel entry point might be inside of the VDSO and we need to
   // determine its address before we can compare it to jumps from inside
   // other libraries.
-
-  if (maps->lib_vsyscall != NULL) {
-    _nx_debug_printf("memrewrite: patching vsyscalls\n");
-    // If a SIGSEGV rises here please check the following issue:
-    // https://github.com/srg-imperial/varan/issues/119
-    patch_vsyscalls(maps->lib_vsyscall, maps->fd);
-    _nx_debug_printf("memrewrite: vsyscalls done\n");
-  }
 
   if (maps->lib_vdso != NULL && parse_elf(maps->lib_vdso, bin)) {
     _nx_debug_printf("memrewrite: patching vdso\n");

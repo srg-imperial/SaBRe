@@ -27,7 +27,6 @@ enum region_type {
   REGION_STACK = 0x8,
   REGION_BSS = 0x10,
   REGION_VDSO = 0x20,
-  REGION_VSYSCALL = 0x40,
   REGION_ALL = 0x7F,
 };
 
@@ -40,7 +39,6 @@ struct maps {
   int fd;
 
   struct library* lib_vdso;
-  struct library* lib_vsyscall;
 
   // This is a hash table: <library_hashfn(lib_pathname), struct library>
   struct hlist_head libraries[LIBS_HASHTABLE_SIZE];
