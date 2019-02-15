@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -6,6 +7,7 @@
 #include <linux/limits.h>
 #include <stdbool.h>
 #include <dlfcn.h>
+#include <signal.h>
 
 #include "compiler.h"
 #include "macros.h"
@@ -14,6 +16,7 @@
 #include "sbr_api_defs.h"
 #include "global_vars.h"
 #include "handle_syscall.h"
+#include "handle_rdtsc.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 
@@ -55,6 +58,43 @@ void *find_auxv(void *argv) {
     ;
 
   return (void *)(search_ptr + 1);
+}
+
+static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
+  assert(sig == SIGILL);
+  ucontext_t* ctx = ucontext;
+  uint16_t faulting_insn = *(uint16_t*) info->si_addr;
+  // WARNING endianness
+  if (faulting_insn == 0xFF0F) { // syscall
+    // restore arguments into registers using syscall convention
+    greg_t* regs = ctx->uc_mcontext.gregs;
+    asm("movq %0, %%rax \n"
+        "movq %1, %%rdi \n"
+        "movq %2, %%rsi \n"
+        "movq %3, %%rdx \n"
+        "movq %4, %%r10 \n"
+        "movq %5, %%r8 \n"
+        "movq %6, %%r9 \n"
+        "callq handle_syscall \n"
+    :: "m"(regs[REG_RAX]), "m"(regs[REG_RDI]), "m"(regs[REG_RSI]), "m"(regs[REG_RDX]),
+     "m"(regs[REG_R10]), "m"(regs[REG_R8]), "m"(regs[REG_R9])
+     : "%rax", "%rdi", "%rsi", "%rdx", "%r10", "%r8", "%r9");
+  } else if (faulting_insn == 0x0B0F) { // RDTSC
+    rdtsc_entrypoint();
+  } else {
+    // not from SaBRe, so use default handler
+    const struct sigaction dfl_sa = {.sa_handler = SIG_DFL};
+    sigaction(SIGILL, &dfl_sa, NULL);
+    raise(SIGILL);
+
+    // wait for SIGILL to be delivered
+    sigset_t consume_mask;
+    sigfillset(&consume_mask);
+    sigdelset(&consume_mask, SIGILL);
+    sigsuspend(&consume_mask);
+  }
+
+  ctx->uc_mcontext.gregs[REG_RIP] += 2;
 }
 
 // Returns the address of entry point and also populates a pointer
@@ -186,6 +226,11 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   if (post_load != NULL)
     post_load(interp);
+
+  // Set up SIGILL handler for dealing with RDTSC instructions and system calls
+  // that have been rewritten to use UD
+  struct sigaction sa_ill = {.sa_sigaction = sigill_handler, .sa_flags = SA_SIGINFO | SA_NODEFER};
+  sigaction(SIGILL, &sa_ill, NULL);
 
   // Modify the original process stack to represent arguments modified
   // by the plugin.
