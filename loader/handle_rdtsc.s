@@ -5,6 +5,14 @@
   .type rdtsc_entrypoint, @function
 
 rdtsc_entrypoint:
+  .cfi_startproc
+
+  # Prologue
+  push %rbp
+  .cfi_adjust_cfa_offset 8
+  mov %rsp, %rbp
+  .cfi_def_cfa_register rbp
+
   # Save the registers
   pushq %rbx
   pushq %rcx
@@ -23,6 +31,7 @@ rdtsc_entrypoint:
   # Align the stack on a 16-byte boundary before the call
   push %rbp
   mov %rsp, %rbp
+  .cfi_adjust_cfa_offset 0x70
   and $0xfffffffffffffff0, %rsp
 
   # Call the actual handler
@@ -39,6 +48,7 @@ rdtsc_entrypoint:
   # Restore the stack
   mov %rbp, %rsp
   pop %rbp
+  .cfi_def_cfa rbp, 0x10
 
   # Reload registers
   popq %r15
@@ -56,7 +66,10 @@ rdtsc_entrypoint:
   popq %rbx
 
   # Epilogue
-  addq $8, %rsp # I hate this.
+  pop %rbp
+  .cfi_def_cfa rsp, 8
+  addq $8, %rsp	# drop fake return address
   ret
+  .cfi_endproc
   .size rdtsc_entrypoint, .-rdtsc_entrypoint
   .section .note.GNU-stack,"",@progbits

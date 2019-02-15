@@ -5,9 +5,13 @@
   .type handle_vdso, @function
 
 handle_vdso:
-  # Function prologue
-  pushq %rbp
-  movq %rsp, %rbp
+  .cfi_startproc
+
+  # Prologue
+  push %rbp
+  .cfi_adjust_cfa_offset 8
+  mov %rsp, %rbp
+  .cfi_def_cfa_register rbp
 
   # Save the registers
   pushq %rbx
@@ -26,6 +30,7 @@ handle_vdso:
   # Align the stack on a 16-byte boundary before the call
   push %rbp
   mov %rsp, %rbp
+  .cfi_adjust_cfa_offset 0x68
   and $0xfffffffffffffff0, %rsp
 
   # Check if vDSO handler is provided
@@ -52,6 +57,7 @@ end:
   # Restore the stack
   mov %rbp, %rsp
   pop %rbp
+  .cfi_def_cfa rbp, 0x10
 
   popq %r9
   popq %r14
@@ -67,9 +73,10 @@ end:
   popq %rbx
 
   # Epilogue
-  movq %rbp, %rsp
-  popq %rbp
-  addq $8, %rsp # I hate this.
+  pop %rbp
+  .cfi_def_cfa rsp, 8
+  addq $8, %rsp	# drop fake return address
   ret
+  .cfi_endproc
   .size handle_vdso, .-handle_vdso
   .section .note.GNU-stack,"",@progbits
