@@ -1628,7 +1628,11 @@ static void patch_syscalls_in_range(struct library *lib,
   int nopcount = 0;
   bool has_syscall = false;
   for (char *ptr = start; ptr < stop; ptr++) {
-    if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) || (lib->vdso && *ptr == '\xFF')) {
+    if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) || (lib->vdso && *ptr == '\xFF')
+#ifdef __NX_INTERCEPT_RDTSC
+        || (*ptr == '\x0F' && ptr[1] == '\x31' /* RDTSC */)
+#endif
+    ) {
       ptr++;
       has_syscall = true;
       nopcount = 0;
@@ -2013,11 +2017,13 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
   struct library *l;
   for_each_library(l, maps) {
     _nx_debug_printf("memrewrite: processing library %s\n", l->pathname);
-    if ((which_lib_name_interesting(libs, l->pathname) >= 0 || (bin && !strcmp(l->pathname, bin))) // FIXME here bin should be the full path
-            && parse_elf(l, bin)) {
+    bool is_bin = false;
+    if ((which_lib_name_interesting(libs, l->pathname) >= 0
+            || (bin && (is_bin = !strcmp(l->pathname, bin)))) // FIXME here bin should be the full path
+        && parse_elf(l, bin)) {
       _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
       library_make_writable(l, true);
-      patch_syscalls(l, loader);
+      patch_syscalls(l, is_bin ? false : loader);
       library_make_writable(l, false);
     }
   }

@@ -8,6 +8,14 @@
   .type handle_syscall, @function
 
 handle_syscall:
+  .cfi_startproc
+
+  # Prologue
+  push %rbp
+  .cfi_adjust_cfa_offset 8
+  mov %rsp, %rbp
+  .cfi_def_cfa_register rbp
+
   # Check for rt_sigreturn(). It needs to be handled specially.
   #
   # When a user registers a signal through rt_sigaction, glibc (or others) add
@@ -61,6 +69,7 @@ handle_syscall:
   # Align the stack on a 16-byte boundary before the call
   push %rbp
   mov %rsp, %rbp
+  .cfi_adjust_cfa_offset 0x68
   and $0xfffffffffffffff0, %rsp
 
   # Adjust the arguments
@@ -96,6 +105,7 @@ handle_syscall:
   # Restore the stack
   mov %rbp, %rsp
   pop %rbp
+  .cfi_def_cfa rbp, 0x10
 
   # Reload registers
   popq %r15
@@ -112,7 +122,10 @@ handle_syscall:
   popq %rbx
 
   # Epilogue
-  addq $8, %rsp # I hate this.
+  pop %rbp
+  .cfi_def_cfa rsp, 8
+  addq $8, %rsp	# drop fake return address
   ret
+  .cfi_endproc
   .size handle_syscall, .-handle_syscall
   .section .note.GNU-stack,"",@progbits
