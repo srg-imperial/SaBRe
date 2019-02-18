@@ -16,7 +16,9 @@
 #include "sbr_api_defs.h"
 #include "global_vars.h"
 #include "handle_syscall.h"
+#ifdef __NX_INTERCEPT_RDTSC
 #include "handle_rdtsc.h"
+#endif
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 
@@ -79,8 +81,10 @@ static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
     :: "m"(regs[REG_RAX]), "m"(regs[REG_RDI]), "m"(regs[REG_RSI]), "m"(regs[REG_RDX]),
      "m"(regs[REG_R10]), "m"(regs[REG_R8]), "m"(regs[REG_R9])
      : "%rax", "%rdi", "%rsi", "%rdx", "%r10", "%r8", "%r9");
+#ifdef __NX_INTERCEPT_RDTSC
   } else if (faulting_insn == 0x0B0F) { // RDTSC
     rdtsc_entrypoint();
+#endif
   } else {
     // not from SaBRe, so use default handler
     const struct sigaction dfl_sa = {.sa_handler = SIG_DFL};
@@ -170,6 +174,11 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   if (!sc_handler)
     _nx_fatal_printf("No syscall handler provided by plugin.\n");
+
+#ifdef __NX_INTERCEPT_RDTSC
+  if (!rdtsc_handler)
+    _nx_fatal_printf("No RDTSC handler provided by plugin.\n");
+#endif
 
   // Mask out loader and plugin
   binrw_rd_init_maps();
