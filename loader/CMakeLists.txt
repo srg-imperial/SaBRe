@@ -9,7 +9,6 @@ set(SRCS
   handle_syscall.S
   handle_syscall_loader.s
   handle_vdso.s
-  handle_rdtsc.s
   ld_sc_handler.c
   rewriter.c
   loader.c
@@ -25,6 +24,7 @@ endif(DEBUG)
 
 if (RDTSC)
   add_definitions(-D__NX_INTERCEPT_RDTSC)
+  set(SRCS ${SRCS} handle_rdtsc.s)
 endif(RDTSC)
 
 # Build library
