@@ -6,12 +6,16 @@
 
 handle_vdso:
   .cfi_startproc
+  .cfi_def_cfa rsp, 0x90
+  .cfi_offset rip, -0x90
+  .cfi_remember_state
 
   # Prologue
   push %rbp
   .cfi_adjust_cfa_offset 8
   mov %rsp, %rbp
   .cfi_def_cfa_register rbp
+  .cfi_remember_state
 
   # Save the registers
   pushq %rbx
@@ -57,7 +61,7 @@ end:
   # Restore the stack
   mov %rbp, %rsp
   pop %rbp
-  .cfi_def_cfa rbp, 0x10
+  .cfi_restore_state
 
   popq %r9
   popq %r14
@@ -74,8 +78,9 @@ end:
 
   # Epilogue
   pop %rbp
-  .cfi_def_cfa rsp, 8
+  .cfi_restore_state
   addq $8, %rsp	# drop fake return address
+  .cfi_undefined rip
   ret
   .cfi_endproc
   .size handle_vdso, .-handle_vdso

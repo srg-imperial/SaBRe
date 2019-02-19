@@ -918,7 +918,7 @@ static void patch_syscalls_in_func(struct library *lib,
               "\x50"                         // PUSH %rax
               "\x48\x8D\x05\x00\x00\x00\x00" // LEA  ...(%rip), %rax
               "\x50"                         // PUSH %rax
-              "\x48\xB8\x00\x00\x00\x00\x00" // MOV $handler,
+              "\x48\xB8\x00\x00\x00\x00\x00" // MOV $entrypoint,
               "\x00\x00\x00"                 //     %rax
               "\x50"                         // PUSH %rax
               "\x48\x8D\x05\x06\x00\x00\x00" // LEA  6(%rip), %rax
@@ -1352,29 +1352,29 @@ static inline void detour_func(struct library *lib,
   trampoline_addr = dest + 67;
 #endif
 
-  void *handler;
+  void *plugin_handler;
 
   if (vdso_callback)
-    handler = vdso_callback(syscall_no, trampoline_addr);
+    plugin_handler = vdso_callback(syscall_no, trampoline_addr);
   else
-    handler = NULL;
+    plugin_handler = NULL;
 
   // Copy the static body of the assembly code.
   memcpy(dest,
-         "\xb8\x00\x00\x00\x00"          // MOV ..., %eax
+         "\xb8\x00\x00\x00\x00"          // MOV $syscall_no, %eax
          "\x48\x81\xEC\x80\x00\x00\x00"  // SUB  $0x80, %rsp
          "\x41\x57"                      // PUSH %r15
-         "\x49\xBF\x00\x00\x00\x00\x00"  // MOV ...
+         "\x49\xBF\x00\x00\x00\x00\x00"  // MOV $plugin_handler
          "\x00\x00\x00"                  //     %r15
          "\x50"                          // PUSH %rax
 #if defined(USE_ABS_JMP_DETOUR)
          "\x48\xB8\x00\x00\x00\x00\x00"  // MOV ...,
          "\x00\x00\x00"                  //     %rax
 #else
-         "\x48\x8D\x05\x00\x00\x00\x00"  // LEA  ...(%rip), %rax
+         "\x48\x8D\x05\x00\x00\x00\x00"  // LEA $fake_ret_addr(%rip), %rax
 #endif
          "\x50"                          // PUSH %rax
-         "\x48\xB8\x00\x00\x00\x00\x00"  // MOV $handler,
+         "\x48\xB8\x00\x00\x00\x00\x00"  // MOV $handle_vdso,
          "\x00\x00\x00"                  //     %rax
          "\x50"                          // PUSH %rax
          "\x48\x8D\x05\x06\x00\x00\x00"  // LEA  6(%rip), %rax
@@ -1418,12 +1418,13 @@ static inline void detour_func(struct library *lib,
       (code[second].addr + code[second].len) - (dest + post + JUMP_SIZE);
 #endif
   *(int *)(dest + 1) = syscall_no;
-  *(void **)(dest + 16) = handler;
+  *(void **)(dest + 16) = plugin_handler;
 #if defined(USE_ABS_JMP_DETOUR)
   *(void **)(dest + 27) = (void *)code[second].addr;
   *(void **)(dest + 38) = handle_vdso;
 #else
-  *(int *)(dest + 28) = (code[second].addr + code[second].len) - (dest + 32);
+  ptrdiff_t fake_ret_addr = (code[second].addr + code[second].len) - (dest + 32);
+  *(int *)(dest + 28) = fake_ret_addr;
   *(void **)(dest + 35) = handle_vdso;
 #endif
 

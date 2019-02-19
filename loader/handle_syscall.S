@@ -9,12 +9,16 @@
 
 handle_syscall:
   .cfi_startproc
+  .cfi_def_cfa rsp, 0x88
+  .cfi_offset rip, -0x88
+  .cfi_remember_state
 
   # Prologue
   push %rbp
   .cfi_adjust_cfa_offset 8
   mov %rsp, %rbp
   .cfi_def_cfa_register rbp
+  .cfi_remember_state
 
   # Check for rt_sigreturn(). It needs to be handled specially.
   #
@@ -105,7 +109,7 @@ handle_syscall:
   # Restore the stack
   mov %rbp, %rsp
   pop %rbp
-  .cfi_def_cfa rbp, 0x10
+  .cfi_restore_state
 
   # Reload registers
   popq %r15
@@ -123,8 +127,9 @@ handle_syscall:
 
   # Epilogue
   pop %rbp
-  .cfi_def_cfa rsp, 8
+  .cfi_restore_state
   addq $8, %rsp	# drop fake return address
+  .cfi_undefined rip
   ret
   .cfi_endproc
   .size handle_syscall, .-handle_syscall
