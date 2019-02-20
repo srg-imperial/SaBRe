@@ -5,7 +5,10 @@
 
 // Stack frame built by handle_syscall and in the patching code in library.c
 struct syscall_stackframe {
-  void *rbp_stackalign;
+  // handle_syscall
+  void *r9;
+  void *wrapper_sp;
+  void *rbp;
   void *r15;
   void *r14;
   void *r13;
@@ -18,7 +21,6 @@ struct syscall_stackframe {
   void *rdx;
   void *rcx;
   void *rbx;
-  void *rbp_prologue;
   // trampoline
   void *fake_ret;
   void *ret;
