@@ -13,12 +13,6 @@ handle_syscall:
   .cfi_offset rip, -0x88
   .cfi_remember_state
 
-  # Prologue
-  push %rbp
-  .cfi_adjust_cfa_offset 8
-  mov %rsp, %rbp
-  .cfi_def_cfa_register rbp
-  .cfi_remember_state
 
   # Check for rt_sigreturn(). It needs to be handled specially.
   #
@@ -56,6 +50,13 @@ handle_syscall:
   jmp  0b
 
   1:
+  # Prologue
+  push %rbp
+  .cfi_adjust_cfa_offset 8
+  mov %rsp, %rbp
+  .cfi_def_cfa_register rbp
+  .cfi_remember_state
+
   # Save the registers
   pushq %rbx
   pushq %rcx
@@ -77,9 +78,8 @@ handle_syscall:
   and $0xfffffffffffffff0, %rsp
 
   # Adjust the arguments
-  pushq %rsp         # reserve space for wrapper_sp
+  pushq %rbp         # wrapper_sp
   pushq %r9          # arg6
-  movq %rsp, 8(%rsp) # wrapper_sp
   movq %r8, %r9      # arg5
   movq %r10, %r8     # arg4
   movq %rdx, %rcx    # arg3
