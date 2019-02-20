@@ -78,9 +78,8 @@ handle_syscall:
   and $0xfffffffffffffff0, %rsp
 
   # Adjust the arguments
-  pushq %rsp         # reserve space for wrapper_sp
+  pushq %rbp         # wrapper_sp
   pushq %r9          # arg6
-  movq %rsp, 8(%rsp) # wrapper_sp
   movq %r8, %r9      # arg5
   movq %r10, %r8     # arg4
   movq %rdx, %rcx    # arg3
