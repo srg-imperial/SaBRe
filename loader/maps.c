@@ -107,140 +107,20 @@ static bool maps_check(unsigned long check_addr, long no_touch_addrs[], int addr
   return true;
 }
 
-struct maps* maps_read_only(const char* libname) {
-  int fd = open("/proc/self/maps", O_RDONLY, 0);
-  if (fd < 0)
-    _nx_fatal_printf("opening /proc/self/maps failed\n"); // !exits!
-
-  if (lseek(fd, 0, SEEK_SET) < 0)
-    _nx_fatal_printf("lseek /proc/self/maps failed\n"); // !exits!
-
-  struct maps* maps = malloc(sizeof(struct maps));
-  maps_init(maps, fd);
-
-  struct library* lib = malloc(sizeof(*lib));
-  library_init(lib, libname, maps);
-  library_add(maps->libraries, lib);
-
-  char buf[MAX_BUF_SIZE] = {'\0'};
-  char *from = buf, *to = buf, *next = buf;
-  char *bufend = buf + MAX_BUF_SIZE - 1;
-
-  _nx_debug_printf("searching /proc/self/maps for %s\n", libname);
-  do {
-    from = next; /* advance to the start of the next line */
-    next = (char *)memchr(
-        from, '\n', to - from); /* check if we have another line */
-    if (!next) {
-      /* shift/fill the buffer */
-      size_t len = to - from;
-      /* move the current text to the start of the buffer */
-      memmove(buf, from, len);
-      from = buf;
-      to = buf + len;
-      /* fill up buffer with text */
-      size_t nread = 0;
-      while (to < bufend) {
-        nread = read(fd, to, bufend - to);
-        if (nread > 0)
-          to += nread;
-        else
-          break;
-      }
-      if (to != bufend && !nread)
-        memset(to, 0, bufend - to); /* zero-out remaining space */
-      *to = '\n';                   /* sentinel */
-      next = (char *)memchr(from, '\n', to + 1 - from);
-    }
-    *next = 0;                 /* turn newline into 0 */
-    next += next < to ? 1 : 0; /* skip NULL if not end of text */
-
-    if (to > buf) {
-      char *ptr = from;
-      unsigned long start = strtoul(ptr, &ptr, 16);
-      unsigned long end = strtoul(ptr + 1, &ptr, 16);
-      while (*ptr == ' ' || *ptr == '\t')
-        ++ptr;
-      char *flags = ptr;
-      while (*ptr && *ptr != ' ' && *ptr != '\t')
-        ++ptr;
-      assert(ptr - flags >= 4);
-      unsigned long offset = strtoul(ptr, &ptr, 16);
-      while (*ptr == ' ' || *ptr == '\t')
-        ++ptr;
-      char *id = ptr;
-      unreferenced_var(id);
-      while (*ptr && *ptr != ' ' && *ptr != '\t')
-        ++ptr;
-      while (*ptr == ' ' || *ptr == '\t')
-        ++ptr;
-      while (*ptr && *ptr != ' ' && *ptr != '\t')
-        ++ptr;
-      assert(ptr - id > 0);
-      while (*ptr == ' ' || *ptr == '\t')
-        ++ptr;
-      char *pathname = ptr;
-      while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n')
-        ++ptr;
-
-      // If it is not the library we are looking for, there is
-      // no point to continue and malloc a new region struct.
-      const char* name = strstr(pathname, libname);
-      if (name == NULL)
-        continue;
-      // Ensure the full name of the library has been matched:
-      // the next character should not be a letter.
-      // This prevents e.g. libc from matching libcap.
-      char ch = name[strlen(libname)];
-      bool is_letter = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
-      if (is_letter)
-	continue;
-
-      if ((flags[0] == 'r') && ((end - start) > 0)
-          && maps_check(start, initial_mappings, initial_mapping_cnt)) {
-        /* allocate a new region structure */
-        struct region *reg = (struct region *)malloc(sizeof(struct region));
-        assert(reg != NULL);
-
-        reg->start = (void *)start;
-        reg->end = (void *)end;
-        reg->size = (size_t)(end - start);
-
-        // Setup protection permissions
-        int perms = PROT_NONE;
-        if (flags[0] == 'r')
-          perms |= PROT_READ;
-        if (flags[1] == 'w')
-          perms |= PROT_WRITE;
-        if (flags[2] == 'x')
-          perms |= PROT_EXEC;
-
-        if (flags[3] == 'p')
-          perms |= MAP_PRIVATE;
-        else if (flags[3] == 's')
-          perms |= MAP_SHARED;
-        reg->perms = perms;
-
-        // Set region offset
-        reg->offset = (Elf_Addr)offset;
-
-        reg->type = REGION_LIBRARY;
-
-        rb_insert_region(lib, offset, &reg->rb_region);
-      }
-    }
-  } while (to > buf);
-
-  return maps;
-}
-
-struct maps* maps_read(void) {
+struct maps* maps_read(const char* libname) {
   int fd = open("/proc/self/maps", O_RDONLY, 0);
   if (fd < 0)
     _nx_fatal_printf("opening /proc/self/maps failed\n");
 
   struct maps* maps = malloc(sizeof(struct maps));
   maps_init(maps, fd);
+
+  struct library* lib = NULL;
+  if (libname != NULL) {
+    lib = malloc(sizeof(*lib));
+    library_init(lib, libname, maps);
+    library_add(maps->libraries, lib);
+  }
 
   char buf[MAX_BUF_SIZE] = {'\0'};
   char *from = buf, *to = buf, *next = buf;
@@ -303,6 +183,21 @@ struct maps* maps_read(void) {
       while (*ptr && *ptr != ' ' && *ptr != '\t' && *ptr != '\n')
         ++ptr;
 
+      if (libname != NULL) {
+        // If it is not the library we are looking for, there is
+        // no point to continue and malloc a new region struct.
+        const char* name = strstr(pathname, libname);
+        if (name == NULL)
+          continue;
+        // Ensure the full name of the library has been matched:
+        // the next character should not be a letter.
+        // This prevents e.g. libc from matching libcap.
+        char ch = name[strlen(libname)];
+        bool is_letter = (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+        if (is_letter)
+          continue;
+      }
+
       if ((flags[0] == 'r') && ((end - start) > 0)
           && maps_check(start, initial_mappings, initial_mapping_cnt)) {
         /* allocate a new region structure */
@@ -331,7 +226,12 @@ struct maps* maps_read(void) {
         // Set region offset
         reg->offset = (Elf_Addr)offset;
 
-        if (strncmp(pathname, "[vdso]", 6) == 0) {
+        if (libname != NULL) {
+          reg->type = REGION_LIBRARY;
+
+          rb_insert_region(lib, offset, &reg->rb_region);
+        }
+        else if (strncmp(pathname, "[vdso]", 6) == 0) {
           _nx_debug_printf("vdso library found\n");
 
           assert(maps->lib_vdso == NULL); // We currently support only 1 memory region
@@ -348,7 +248,7 @@ struct maps* maps_read(void) {
 
           // TODO(andronat): library_find uses hashing. This needs benchmarking
           // as we had issues with hashing in the past.
-          struct library* lib = library_find(maps->libraries, pathname);
+          lib = library_find(maps->libraries, pathname);
           if (lib == NULL) {
             _nx_debug_printf("new library found: %s\n", pathname);
             lib = malloc(sizeof(*lib));

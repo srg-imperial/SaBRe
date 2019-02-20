@@ -1971,7 +1971,7 @@ bool is_lib_name_interesting (const char * interesting_lib, const char * pathnam
 }
 
 void memorymaps_rewrite_lib(const char* libname) {
-  struct maps* maps = maps_read_only(libname);
+  struct maps* maps = maps_read(libname);
   if (maps == NULL)
     _nx_fatal_printf("memrewrite: couldn't find library %s, when we should had\n", libname);
 
@@ -1998,7 +1998,7 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
   // be terminated by the kernel's seccomp code. So, from a security point of
   // view, if this code fails to identify system calls, we are still behaving
   // correctly.
-  struct maps* maps = maps_read();
+  struct maps* maps = maps_read(NULL);
 
   // Intercept system calls in the VDSO segment (if any). This has to happen
   // before intercepting system calls in any of the other libraries, as the
