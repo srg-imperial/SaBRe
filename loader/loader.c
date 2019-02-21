@@ -68,22 +68,16 @@ static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
   uint16_t faulting_insn = *(uint16_t*) info->si_addr;
   // WARNING endianness
   if (faulting_insn == 0xFF0F) { // syscall
-    // restore arguments into registers using syscall convention
+    // call syscall handler with proper arguments
     greg_t* regs = ctx->uc_mcontext.gregs;
-    asm("movq %0, %%rax \n"
-        "movq %1, %%rdi \n"
-        "movq %2, %%rsi \n"
-        "movq %3, %%rdx \n"
-        "movq %4, %%r10 \n"
-        "movq %5, %%r8 \n"
-        "movq %6, %%r9 \n"
-        "callq handle_syscall \n"
-    :: "m"(regs[REG_RAX]), "m"(regs[REG_RDI]), "m"(regs[REG_RSI]), "m"(regs[REG_RDX]),
-     "m"(regs[REG_R10]), "m"(regs[REG_R8]), "m"(regs[REG_R9])
-     : "%rax", "%rdi", "%rsi", "%rdx", "%r10", "%r8", "%r9");
+    uintptr_t ret_addr = regs[REG_RIP] + 2;
+    // simulate a syscall stack frame, as would be built by handle_syscall
+    void *wrapper_sp = (void *)((intptr_t)&ret_addr - offsetof(struct syscall_stackframe, ret));
+    sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
+               regs[REG_R10], regs[REG_R8], regs[REG_R9], wrapper_sp);
 #ifdef __NX_INTERCEPT_RDTSC
   } else if (faulting_insn == 0x0B0F) { // RDTSC
-    rdtsc_entrypoint();
+    rdtsc_handler();
 #endif
   } else {
     // not from SaBRe, so use default handler
@@ -98,6 +92,7 @@ static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
     sigsuspend(&consume_mask);
   }
 
+  // Skip UD insn to point to return address
   ctx->uc_mcontext.gregs[REG_RIP] += 2;
 }
 
