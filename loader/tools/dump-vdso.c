@@ -17,7 +17,7 @@
 
 int main(int argc, char **argv, char **envp) {
   int out_fd = sys_open(argv[1], O_WRONLY | O_CREAT, 00600);
-  struct maps *maps = maps_read();
+  struct maps *maps = maps_read(NULL);
 
   struct library *l;
   struct region *reg;

@@ -68,8 +68,7 @@ struct region {
   struct rb_node rb_region;
 };
 
-struct maps* maps_read(void) attribute_hidden;
-struct maps* maps_read_only(const char* libname) attribute_hidden;
+struct maps* maps_read(const char* libname) attribute_hidden;
 void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near) attribute_hidden;
 void maps_release(struct maps *maps) attribute_hidden;
 void binrw_rd_init_maps(void) attribute_hidden;
