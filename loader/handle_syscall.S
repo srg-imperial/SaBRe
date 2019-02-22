@@ -99,7 +99,7 @@ handle_syscall:
 
   2:
   # Call the actual handler
-  call *sc_handler(%rip)
+  call *plugin_sc_handler(%rip)
 
   3:
   # Pop arguments
