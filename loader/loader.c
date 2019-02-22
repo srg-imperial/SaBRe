@@ -62,7 +62,7 @@ void *find_auxv(void *argv) {
   return (void *)(search_ptr + 1);
 }
 
-static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
+static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   assert(sig == SIGILL);
   ucontext_t* ctx = ucontext;
   uint16_t faulting_insn = *(uint16_t*) info->si_addr;
