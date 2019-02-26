@@ -27,10 +27,10 @@ typedef uintptr_t __attribute__((may_alias)) stack_val_t;
 // Global variables
 sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 int registered_icept_cnt = 0;
-sbr_sc_handler_fn sc_handler = NULL;
+sbr_sc_handler_fn plugin_sc_handler = NULL;
 sbr_icept_vdso_callback_fn vdso_callback = NULL;
 #ifdef __NX_INTERCEPT_RDTSC
-sbr_rdtsc_handler_fn rdtsc_handler;
+sbr_rdtsc_handler_fn plugin_rdtsc_handler;
 #endif
 
 void *get_syscall_return_address (struct syscall_stackframe* stack_frame) {
@@ -62,7 +62,7 @@ void *find_auxv(void *argv) {
   return (void *)(search_ptr + 1);
 }
 
-static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
+static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   assert(sig == SIGILL);
   ucontext_t* ctx = ucontext;
   uint16_t faulting_insn = *(uint16_t*) info->si_addr;
@@ -73,11 +73,11 @@ static void sigill_handler (int sig, siginfo_t* info, void* ucontext) {
     uintptr_t ret_addr = regs[REG_RIP] + 2;
     // simulate a syscall stack frame, as would be built by handle_syscall
     void *wrapper_sp = (void *)((intptr_t)&ret_addr - offsetof(struct syscall_stackframe, ret));
-    sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
+    plugin_sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
                regs[REG_R10], regs[REG_R8], regs[REG_R9], wrapper_sp);
 #ifdef __NX_INTERCEPT_RDTSC
   } else if (faulting_insn == 0x0B0F) { // RDTSC
-    rdtsc_handler();
+    plugin_rdtsc_handler();
 #endif
   } else {
     // not from SaBRe, so use default handler
@@ -158,20 +158,20 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
               &argv,
               &register_function_intercepts,
               &vdso_callback,
-              &sc_handler,
+              &plugin_sc_handler,
 #ifdef __NX_INTERCEPT_RDTSC
-              &rdtsc_handler,
+              &plugin_rdtsc_handler,
 #endif
               &post_load);
 
   if (argv == argv_plugin)
     _nx_fatal_printf("argv[0] must point to the client ELF path.\n");
 
-  if (!sc_handler)
+  if (!plugin_sc_handler)
     _nx_fatal_printf("No syscall handler provided by plugin.\n");
 
 #ifdef __NX_INTERCEPT_RDTSC
-  if (!rdtsc_handler)
+  if (!plugin_rdtsc_handler)
     _nx_fatal_printf("No RDTSC handler provided by plugin.\n");
 #endif
 

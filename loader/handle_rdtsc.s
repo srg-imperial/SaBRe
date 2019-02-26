@@ -39,7 +39,7 @@ rdtsc_entrypoint:
   and $0xfffffffffffffff0, %rsp
 
   # Call the actual handler
-  call *rdtsc_handler(%rip)
+  call *plugin_rdtsc_handler(%rip)
 
   # Move high part of rax to rdx
   mov %rax, %rdx

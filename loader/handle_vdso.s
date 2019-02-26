@@ -50,7 +50,7 @@ handle_vdso:
   movq %rax, %rdi    # sc_no
 
   # Call the actual handler
-  call *sc_handler(%rip)
+  call *plugin_sc_handler(%rip)
   jmp end
 
 handler_provided:

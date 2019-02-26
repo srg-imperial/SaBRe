@@ -15,7 +15,7 @@ typedef struct {
 extern int registered_icept_cnt;
 extern sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 extern sbr_icept_vdso_callback_fn vdso_callback;
-extern sbr_sc_handler_fn sc_handler;
+extern sbr_sc_handler_fn plugin_sc_handler;
 extern const char *known_syscall_libs[];
 
 #endif /* !GLOBAL_VARS_H */

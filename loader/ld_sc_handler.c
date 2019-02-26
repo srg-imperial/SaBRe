@@ -206,7 +206,7 @@ long arch_set_fs_handler (unsigned long addr) {
   else
     _nx_fatal_printf("ARCH_SET_FS called more than once from client\n");
 
-  return sc_handler(__NR_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
+  return plugin_sc_handler(__NR_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
 }
 
 long ld_sc_handler(long sc_no,
@@ -234,7 +234,7 @@ long ld_sc_handler(long sc_no,
 
       _nx_debug_printf("open: enter loader syscall\n");
 
-      long fd = sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
+      long fd = plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
 
       ret = process_fd(fd, pathname, flags, mode);
       break;
@@ -251,7 +251,7 @@ long ld_sc_handler(long sc_no,
 
       _nx_debug_printf("openat: enter loader syscall\n");
 
-      long fd = sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
+      long fd = plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
 
       ret = process_fd(fd, pathname, flags, mode);
       break;
@@ -285,13 +285,13 @@ long ld_sc_handler(long sc_no,
         int nb_chunks = intercept_sbr(mmaps);
 
         int c = 0;
-        mmap_addr = (void *)sc_handler(sc_no, mmaps[c].start, (mmaps[c].end - mmaps[c].start), prot, flags, fd, offset, wrapper_sp);
+        mmap_addr = (void *)plugin_sc_handler(sc_no, mmaps[c].start, (mmaps[c].end - mmaps[c].start), prot, flags, fd, offset, wrapper_sp);
 
         for (c = 1; c < nb_chunks; c++) {
-          sc_handler(sc_no, mmaps[c].start, (mmaps[c].end - mmaps[c].start), prot, flags, fd, offset, wrapper_sp);
+          plugin_sc_handler(sc_no, mmaps[c].start, (mmaps[c].end - mmaps[c].start), prot, flags, fd, offset, wrapper_sp);
         }
       } else {
-        mmap_addr = (void *)sc_handler(sc_no, (long)addr, length, prot, flags, fd, offset, wrapper_sp);
+        mmap_addr = (void *)plugin_sc_handler(sc_no, (long)addr, length, prot, flags, fd, offset, wrapper_sp);
       }
 
       if (fd > 0 && fd == interesting_fd && (prot & PROT_EXEC)) {
@@ -314,11 +314,11 @@ long ld_sc_handler(long sc_no,
       if (code == ARCH_SET_FS)
         return arch_set_fs_handler(addr);
       else
-        return sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
+        return plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
     }
 
     default:
-      ret = sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
+      ret = plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
   }
 
   if (client_tls_addr != 0) {
