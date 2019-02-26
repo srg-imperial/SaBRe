@@ -1743,7 +1743,6 @@ static bool lib_is_icepted(const char *pathname)
   return false;
 }
 
-// TODO extract symbol (function) interception to a different function
 static void patch_syscalls(struct library *lib, bool loader) {
   if (!lib->valid)
     return;
@@ -1752,48 +1751,6 @@ static void patch_syscalls(struct library *lib, bool loader) {
 
   int extra_len = 0;
   char *extra_space = NULL;
-
-  /****************** TODO START extract symbol... ******************/
-  if (lib_is_icepted(lib->pathname))
-  {
-    const char *short_libname = lib_get_stripped_name(lib->pathname);
-
-    for (int i = 0; i < registered_icept_cnt; ++i)
-    {
-      if (!strcmp(short_libname, intercept_records[i].lib_name))
-      {
-        _nx_debug_printf("patching intercepts: %s\n", lib->pathname);
-        struct section *scn = section_find(lib->section_hash, ".text");
-        _nx_debug_printf(".text section %p\n", scn);
-        if (!scn)
-          return;
-
-        const Elf_Shdr *shdr = &scn->shdr;
-        char *addr = (char *)(shdr->sh_addr + lib->asr_offset);
-        size_t size = round_up(shdr->sh_size, 0x1000);
-
-        if (mprotect((void *)((long)addr & ~0xFFF),
-                     size,
-                     PROT_READ | PROT_WRITE | PROT_EXEC)) {
-          _nx_debug_printf("mprotect failed\n");
-          return;
-        }
-        _nx_debug_printf("mprotect done\n");
-
-        struct symbol *sym = symbol_find(lib->symbol_hash, intercept_records[i].fn_name);
-        if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-          _nx_debug_printf("patching at address %lx\n", (long)lib->asr_offset + sym->sym.st_value);
-          api_detour_func(lib,
-                                  lib->asr_offset + sym->sym.st_value,
-                                  lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-                                  intercept_records[i].callback,
-                                  &extra_space,
-                                  &extra_len);
-        }
-      }
-    }
-  }
-  /****************** TODO END extract symbol... ******************/
 
   struct section *scn = section_find(lib->section_hash, ".text");
   // TODO if the section table has been stripped, we should look at executable segments instead
@@ -1812,6 +1769,51 @@ static void patch_syscalls(struct library *lib, bool loader) {
     mprotect(extra_space, 0x1000, PROT_READ | PROT_EXEC);
   }
   _nx_debug_printf("mprotected\n");
+}
+
+static void patch_funcs(struct library *lib) {
+  if (!lib->valid)
+    return;
+
+  int extra_len = 0;
+  char *extra_space = NULL;
+
+  const char *short_libname = lib_get_stripped_name(lib->pathname);
+
+  for (int i = 0; i < registered_icept_cnt; ++i)
+  {
+    if (!strcmp(short_libname, intercept_records[i].lib_name))
+    {
+      _nx_debug_printf("patching intercepts: %s\n", lib->pathname);
+      struct section *scn = section_find(lib->section_hash, ".text");
+      _nx_debug_printf(".text section %p\n", scn);
+      if (!scn)
+        return;
+
+      const Elf_Shdr *shdr = &scn->shdr;
+      char *addr = (char *)(shdr->sh_addr + lib->asr_offset);
+      size_t size = round_up(shdr->sh_size, 0x1000);
+
+      if (mprotect((void *)((long)addr & ~0xFFF),
+                   size,
+                   PROT_READ | PROT_WRITE | PROT_EXEC)) {
+        _nx_debug_printf("mprotect failed\n");
+        return;
+      }
+      _nx_debug_printf("mprotect done\n");
+
+      struct symbol *sym = symbol_find(lib->symbol_hash, intercept_records[i].fn_name);
+      if (sym != NULL && (void *)sym->sym.st_value != NULL) {
+        _nx_debug_printf("patching at address %lx\n", (long)lib->asr_offset + sym->sym.st_value);
+        api_detour_func(lib,
+                                lib->asr_offset + sym->sym.st_value,
+                                lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
+                                intercept_records[i].callback,
+                                &extra_space,
+                                &extra_len);
+      }
+    }
+  }
 }
 
 static bool parse_symbols(struct library *lib) {
@@ -1982,6 +1984,8 @@ void memorymaps_rewrite_lib(const char* libname) {
       _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
       library_make_writable(l, true);
       patch_syscalls(l, false);
+      if (lib_is_icepted(l->pathname))
+        patch_funcs(l);
       library_make_writable(l, false);
     }
     guard++;
@@ -2025,6 +2029,8 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
       _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
       library_make_writable(l, true);
       patch_syscalls(l, is_bin ? false : loader);
+      if (lib_is_icepted(l->pathname))
+        patch_funcs(l);
       library_make_writable(l, false);
     }
   }
