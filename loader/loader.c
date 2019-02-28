@@ -12,12 +12,12 @@
 #include "compiler.h"
 #include "macros.h"
 #include "elf_loading.h"
-#include "rewriter.h"
-#include "sbr_api_defs.h"
+#include "arch/rewriter.h"
+#include "plugins/sbr_api_defs.h"
 #include "global_vars.h"
-#include "handle_syscall.h"
+#include "arch/handle_syscall.h"
 #ifdef __NX_INTERCEPT_RDTSC
-#include "handle_rdtsc.h"
+#include "arch/handle_rdtsc.h"
 #endif
 
 #define MAX_BUF_SIZE PATH_MAX + 1024

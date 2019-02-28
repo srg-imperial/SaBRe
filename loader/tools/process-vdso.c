@@ -13,7 +13,7 @@
 #include "compiler.h"
 #include "kernel.h"
 #include "../maps.c"
-#include "../rewriter.c"
+#include "../arch/x86_64/rewriter.c"
 
 // TODO(andronat): We should use this code as a unit test
 

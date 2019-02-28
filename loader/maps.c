@@ -19,7 +19,7 @@
 #include "rbtree.h"
 
 #include "macros.h"
-#include "rewriter.h"
+#include "arch/rewriter.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 #define MAX_INITIAL_MAPPINGS 31
