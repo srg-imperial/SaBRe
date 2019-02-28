@@ -47,14 +47,10 @@ typedef Elf64_Versym Elf_Versym;
 
 static inline void section_init(struct section *s,
                                 const char *name,
-                                int idx,
                                 Elf_Shdr shdr) {
   s->name = name;
-  s->idx = idx;
   s->shdr = shdr;  // TODO: should we use malloc + memcpy
 
-  INIT_LIST_HEAD(&s->sections);
-  INIT_LIST_HEAD(&s->seg_entry);
   INIT_HLIST_NODE(&s->section_hash);
 }
 
@@ -1893,7 +1889,6 @@ bool parse_elf(struct library *lib, const char * prog_name) {
     struct section *scn = malloc(sizeof(*scn));
     section_init(scn,
                  library_copy_original(lib, str_shdr.sh_offset + shdr.sh_name),
-                 i,
                  shdr);
     section_add(lib->section_hash, scn);
     _nx_debug_printf("[%u] section %s\n", i, scn->name);
