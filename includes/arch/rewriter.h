@@ -70,15 +70,6 @@ struct library {
   struct hlist_node library_hash;
 };
 
-extern char *__kernel_sigreturn __internal;
-extern char *__kernel_rt_sigreturn __internal;
-
-extern char *__vdso_gettimeofday __internal;
-extern char *__vdso_getcpu __internal;
-extern char *__vdso_clock_gettime __internal;
-extern char *__vdso_time __internal;
-
-
 void library_init(struct library *,
                   const char *name,
                   struct maps *maps) attribute_hidden;

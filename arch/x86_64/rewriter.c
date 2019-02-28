@@ -41,9 +41,6 @@ typedef Elf64_Off Elf_Off;
 typedef Elf64_Section Elf_Section;
 typedef Elf64_Versym Elf_Versym;
 
-char *__kernel_sigreturn __internal;
-char *__kernel_rt_sigreturn __internal;
-
 #define section_hashfn(n) jhash(n, strlen(n), 0) & (sectionhash_size - 1)
 #define sectionhash_size 16
 #define sectionhash_shift 4
