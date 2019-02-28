@@ -1,7 +1,7 @@
 #ifndef GLOBAL_VARS_H
 #define GLOBAL_VARS_H
 
-#include "sbr_api_defs.h"
+#include "plugins/sbr_api_defs.h"
 
 #define MAX_ICEPT_RECORDS 50
 #define MAX_ICEPT_STRLEN 80

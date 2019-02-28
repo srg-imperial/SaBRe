@@ -10,7 +10,7 @@
 #include "compiler.h"
 #include "global_vars.h"
 #include "macros.h"
-#include "rewriter.h"
+#include "arch/rewriter.h"
 
 // TODO: This code needs refactoring. Split open and mmap syscalls. Find a more
 // elegant way for interesting_libs and the other static variables

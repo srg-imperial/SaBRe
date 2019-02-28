@@ -22,7 +22,7 @@
 
 #include "x86_decoder.h"
 #include "macros.h"
-#include "global_vars.h"
+#include "loader/global_vars.h"
 
 #include "handle_syscall.h"
 #include "handle_syscall_loader.h"

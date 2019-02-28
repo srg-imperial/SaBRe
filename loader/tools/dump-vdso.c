@@ -11,8 +11,8 @@
 #include "config.h"
 #include "kernel.h"
 #include "linux_syscall_support.h"
-#include "../rewriter.h"
-#include "../maps.h"
+#include "arch/rewriter.h"
+#include "loader/maps.h"
 
 
 int main(int argc, char **argv, char **envp) {
