@@ -298,7 +298,7 @@ out:
   return ret;
 }
 
-inline void library_init(struct library *l,
+void library_init(struct library *l,
                          const char *name,
                          struct maps *maps) {
   l->pathname = strdup(name);
@@ -325,29 +325,6 @@ void library_release(struct library *lib) {
   free(lib->pathname);
   free(lib->section_hash);
   free(lib->symbol_hash);
-}
-
-// TODO(andronat): Mechanism to destroy custom allocated regions
-void library_destroy(struct library *lib) {
-  if (!lib->image_size)
-    return;
-
-  mprotect(lib->image, 4096, PROT_READ | PROT_WRITE | PROT_EXEC);
-
-  struct rb_node *node = rb_last(&lib->rb_region);
-  if (node) {
-    struct region *reg = rb_entry_region(node);
-    if (memcmp(lib->image, reg->start, 4096)) {
-      /* only copy data, if we made any changes in this data */
-      memcpy(lib->image, reg->start, 4096);
-    }
-    mprotect(lib->image, 4096, PROT_READ | PROT_EXEC);
-    mremap(lib->image,
-               lib->image_size,
-               4096,
-               MREMAP_MAYMOVE | MREMAP_FIXED,
-               reg->start);
-  }
 }
 
 static char *memcpy_fromlib(void *dst,
@@ -1665,7 +1642,7 @@ static void patch_syscalls_in_range(struct library *lib,
 }
 // Returns a pointer to a stripped version of pathname that corresponds
 // to the library
-const char *strip_pathname(const char *pathname)
+static const char *strip_pathname(const char *pathname)
 {
   const char *real = pathname;
 
@@ -1862,7 +1839,7 @@ error:
   return false;
 }
 
-bool parse_elf(struct library *lib, const char * prog_name) {
+static bool parse_elf(struct library *lib, const char * prog_name) {
   lib->valid = true;
 
   // Verify ELF header
@@ -1957,11 +1934,6 @@ int which_lib_name_interesting(const char * interesting_libs[], const char * pat
   }
 
   return -1;
-}
-
-bool is_lib_name_interesting (const char * interesting_lib, const char * pathname) {
-  const char * libnames[] = { interesting_lib, NULL };
-  return which_lib_name_interesting(libnames, pathname) == 0;
 }
 
 void memorymaps_rewrite_lib(const char* libname) {

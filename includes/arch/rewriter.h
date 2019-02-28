@@ -43,11 +43,8 @@ struct library {
 void library_init(struct library *,
                   const char *name,
                   struct maps *maps) attribute_hidden;
-bool library_parse_elf(struct library *, const char *) attribute_hidden;
-
-
+void library_release(struct library *lib);
 int which_lib_name_interesting(const char * interesting_libs[], const char * pathname);
-
 void memorymaps_rewrite_all(const char* libs[], const char* bin, bool loader);
 void memorymaps_rewrite_lib(const char* libname);
 
