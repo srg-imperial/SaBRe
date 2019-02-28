@@ -48,9 +48,10 @@
 #define DEFINE_PVALLOC 1
 
 #include <assert.h>
+#include <errno.h>
+#include <sys/mman.h>
 
 #include "kernel.h"
-#include "linux_syscall_support.h"
 
 #ifndef MAX
 #define MAX(a, b) ((a) >= (b) ? (a) : (b))
@@ -163,7 +164,7 @@ static void *sbrk_aligned(size_t *s) {
   length = (size_t)ALIGN_TO(*s, MALLOC_QUANTUM);
 
   /* allocate new block using mmap */
-  result = sys_mmap(
+  result = mmap(
       0, length, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
   /* mmap failed to allocate the block */

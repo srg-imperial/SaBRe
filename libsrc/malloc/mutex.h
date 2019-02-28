@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include "futex.h"
-#include "linux_syscall_support.h"
 
 __BEGIN_DECLS
 
@@ -52,7 +51,7 @@ static __attribute__((__used__)) void mutex_unlock(mutex_t *mutex) {
     return;
   }
   // Wake up other waiters
-  sys_futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
+  futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0);
 }
 
 static __attribute__((__used__)) bool mutex_lock(mutex_t *mutex, int timeout) {
@@ -91,7 +90,7 @@ static __attribute__((__used__)) bool mutex_lock(mutex_t *mutex, int timeout) {
       continue;
     }
 
-    struct kernel_timespec tm;
+    struct timespec tm;
     if (timeout != 0) {
       tm.tv_sec = timeout / 1000;
       tm.tv_nsec = (timeout % 1000) * 1000 * 1000;
@@ -100,7 +99,7 @@ static __attribute__((__used__)) bool mutex_lock(mutex_t *mutex, int timeout) {
       tm.tv_nsec = 0;
     }
 
-    if (NOINTR_RAW(sys_futex(mutex, FUTEX_WAIT, value, &tm, NULL, 0)) &&
+    if (NOINTR_LIBC(futex(mutex, FUTEX_WAIT, value, &tm, NULL, 0)) &&
         errno == ETIMEDOUT) {
       ret = false;
       goto done;
@@ -127,12 +126,12 @@ static __attribute__((__used__)) bool mutex_wait_for_unlock(mutex_t *mutex,
 #else
 #error Unsupported target platform
 #endif
-      (void)NOINTR_RAW(sys_futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0));
+      (void)NOINTR_LIBC(futex(mutex, FUTEX_WAKE, 1, NULL, NULL, 0));
       return ret;
     }
 
     // wait for mutex to become unlocked
-    struct kernel_timespec tm;
+    struct timespec tm;
     if (timeout) {
       tm.tv_sec = timeout / 1000;
       tm.tv_nsec = (timeout % 1000) * 1000 * 1000;
@@ -141,7 +140,7 @@ static __attribute__((__used__)) bool mutex_wait_for_unlock(mutex_t *mutex,
       tm.tv_nsec = 0;
     }
 
-    if (NOINTR_RAW(sys_futex(mutex, FUTEX_WAIT, value, &tm, NULL, 0)) &&
+    if (NOINTR_LIBC(futex(mutex, FUTEX_WAIT, value, &tm, NULL, 0)) &&
         errno == ETIMEDOUT) {
       ret = false;
       goto done;
