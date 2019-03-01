@@ -40,6 +40,13 @@ struct library {
   struct hlist_node library_hash;
 };
 
+struct s_code {
+  char *addr;
+  int len;
+  unsigned short insn;
+  bool is_ip_relative;
+};
+
 int which_lib_name_interesting(const char * interesting_libs[], const char * pathname);
 void memorymaps_rewrite_all(const char* libs[], const char* bin, bool loader);
 void memorymaps_rewrite_lib(const char* libname);
