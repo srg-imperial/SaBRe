@@ -132,24 +132,6 @@ static inline void symbol_add(struct hlist_head *hash, struct symbol *sym) {
 
 #define rb_entry_region(node) rb_entry((node), struct region, rb_region)
 
-static inline struct region *rb_search_region(struct library *lib,
-                                              Elf_Addr offset) {
-  struct rb_node *n = lib->rb_region.rb_node;
-  struct region *region;
-
-  while (n) {
-    region = rb_entry_region(n);
-
-    if (offset > region->offset)
-      n = n->rb_left;
-    else if (offset < region->offset)
-      n = n->rb_right;
-    else
-      return region;
-  }
-  return NULL;
-}
-
 /**
  * Returns an iterator pointing to the first region whose offset does not
  * compare less than @p offset
@@ -172,52 +154,12 @@ static inline struct region *rb_lower_bound_region(struct library *lib,
   return parent ? rb_entry_region(parent) : NULL;
 }
 
-/**
- * Returns an iterator pointing to the first region whose offset compares
- * greater than @p offset
- */
-static inline struct region *rb_upper_bound_region(struct library *lib,
-                                                   Elf_Addr offset) {
-  struct rb_node *n = lib->rb_region.rb_node;
-  struct rb_node *parent = NULL;
-  struct region *region;
-
-  while (n) {
-    region = rb_entry_region(n);
-
-    if (region->offset < offset) {
-      parent = n;
-      n = n->rb_left;
-    } else
-      n = n->rb_right;
-  }
-  return parent ? rb_entry_region(parent) : NULL;
-}
-
 struct branch_target {
   char *addr;
   struct rb_node rb_target;
 };
 
 #define rb_entry_target(node) rb_entry((node), struct branch_target, rb_target)
-
-static inline struct branch_target *rb_search_target(struct rb_root *root,
-                                                     char *addr) {
-  struct rb_node *n = root->rb_node;
-  struct branch_target *target;
-
-  while (n) {
-    target = rb_entry_target(n);
-
-    if (addr < target->addr)
-      n = n->rb_left;
-    else if (addr > target->addr)
-      n = n->rb_right;
-    else
-      return target;
-  }
-  return NULL;
-}
 
 /**
  * Returns a pointer pointing to the first target whose address does not compare
