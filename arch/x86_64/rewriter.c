@@ -42,8 +42,6 @@ typedef Elf64_Section Elf_Section;
 typedef Elf64_Versym Elf_Versym;
 
 #define section_hashfn(n) jhash(n, strlen(n), 0) & (sectionhash_size - 1)
-#define sectionhash_size 16
-#define sectionhash_shift 4
 
 static inline void section_init(struct section *s,
                                 const char *name,
@@ -60,7 +58,6 @@ static inline struct section *section_find(struct hlist_head *hash,
   struct hlist_node *node;
   struct section *s;
 
-  // head = &lib->section_hash[hash & (sectionhash_size - 1)];
   head = &hash[section_hashfn(name)];
   _nx_debug_printf(
       "search: %s = %u (%zu)\n", name, section_hashfn(name), strlen(name));
@@ -91,8 +88,6 @@ static inline void section_add(struct hlist_head *hash, struct section *scn) {
 }
 
 #define symbol_hashfn(n) jhash(n, strlen(n), 0) & (symbolhash_size - 1)
-#define symbolhash_size 16
-#define symbolhash_shift 4
 
 static inline void symbol_init(struct symbol *s,
                                const char *name,
@@ -238,35 +233,6 @@ static inline struct branch_target *rb_insert_target(struct rb_root *root,
   rb_insert_color(node, root);
 out:
   return ret;
-}
-
-void library_init(struct library *l,
-                         const char *name,
-                         struct maps *maps) {
-  l->pathname = strdup(name);
-
-  l->rb_region = RB_ROOT;
-  l->section_hash = malloc(sizeof(struct hlist_head) * sectionhash_size);
-  for (int i = 0; i < sectionhash_size; i++)
-    INIT_HLIST_HEAD(&l->section_hash[i]);
-  l->symbol_hash = malloc(sizeof(struct hlist_head) * symbolhash_size);
-  for (int i = 0; i < symbolhash_size; i++)
-    INIT_HLIST_HEAD(&l->symbol_hash[i]);
-
-  INIT_HLIST_NODE(&l->library_hash);
-
-  l->valid = false;
-  l->vdso = false;
-  l->asr_offset = 0;
-  l->image = NULL;
-  l->image_size = 0;
-  l->maps = maps;
-}
-
-void library_release(struct library *lib) {
-  free(lib->pathname);
-  free(lib->section_hash);
-  free(lib->symbol_hash);
 }
 
 static char *memcpy_fromlib(void *dst,
