@@ -1,3 +1,4 @@
+
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,7 +13,7 @@
 #include "compiler.h"
 #include "macros.h"
 #include "elf_loading.h"
-#include "arch/rewriter.h"
+#include <arch/rewriter_tools.h>
 #include "plugins/sbr_api_defs.h"
 #include "global_vars.h"
 #include "arch/handle_syscall.h"

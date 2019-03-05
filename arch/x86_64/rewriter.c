@@ -1,5 +1,21 @@
 #include "config.h"
 
+#include "loader/global_vars.h"
+#include "loader/rewriter.h"
+
+#include "handle_rdtsc.h"
+#include "handle_syscall.h"
+#include "handle_syscall_loader.h"
+#include "handle_vdso.h"
+#include "rewriter_tools.h"
+#include "x86_decoder.h"
+
+#include <assert.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+
 static inline bool is_safe_insn(unsigned short insn) {
   /* Check if the instruction has no unexpected side-effects. If so, it can
      be safely relocated from the function that we are patching into the
@@ -603,12 +619,12 @@ static inline void copy_postamble(void * dest, struct s_code code[], int second)
   }
 }
 
-static inline void detour_func(struct library *lib,
-                                        char *start,
-                                        char *end,
-                                        int syscall_no,
-                                        char **extra_space,
-                                        int *extra_len) {
+void detour_func(struct library *lib,
+                 char *start,
+                 char *end,
+                 int syscall_no,
+                 char **extra_space,
+                 int *extra_len) {
   void *trampoline_addr = NULL;
   struct rb_root *branch_targets;
   struct s_code code[JUMP_SIZE] = {{0}};
@@ -657,11 +673,11 @@ static inline void detour_func(struct library *lib,
   int needed, postamble, second;
   needed_space(code, &needed, &postamble, &second,
 #if defined(USE_ABS_JMP_DETOUR)
-		       70
+		       70,
 #else
-		       67
+		       67,
 #endif
-		       );
+		       JUMP_SIZE);
 
   // Allocate scratch space and copy the preamble of code that was moved
   // from the function that we are patching.
@@ -776,7 +792,7 @@ static inline void detour_func(struct library *lib,
 }
 
 
-static void api_detour_func(struct library *lib,
+void api_detour_func(struct library *lib,
                                         char *start,
                                         char *end,
                                            sbr_icept_callback_fn callback,
@@ -829,7 +845,7 @@ static void api_detour_func(struct library *lib,
   }
 
   int needed, postamble, second;
-  needed_space(code, &needed, &postamble, &second, DETOUR_ASM_SIZE);
+  needed_space(code, &needed, &postamble, &second, DETOUR_ASM_SIZE, JUMP_SIZE);
 
   // Allocate scratch space and copy the preamble of code that was moved
   // from the function that we are patching.
@@ -880,7 +896,7 @@ static void api_detour_func(struct library *lib,
 
 }
 
-static void patch_syscalls_in_range(struct library *lib,
+void patch_syscalls_in_range(struct library *lib,
                                      char *start,
                                      char *stop,
                                      char **extra_space,

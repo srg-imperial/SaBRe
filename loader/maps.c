@@ -1,3 +1,4 @@
+#include <arch/rewriter_tools.h>
 #include "maps.h"
 
 #include <assert.h>
@@ -19,7 +20,6 @@
 #include "rbtree.h"
 
 #include "macros.h"
-#include "arch/rewriter.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 #define MAX_INITIAL_MAPPINGS 31

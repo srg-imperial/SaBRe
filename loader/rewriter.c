@@ -1,3 +1,18 @@
+#include "config.h"
+#include "rewriter.h"
+
+#include "global_vars.h"
+#include "macros.h"
+#include "maps.h"
+
+#include "arch/rewriter_api.h"
+
+#include <asm/unistd.h>
+#include <assert.h>
+#include <errno.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+
 typedef Elf64_Phdr Elf_Phdr;
 typedef Elf64_Rela Elf_Rel;
 
@@ -118,91 +133,6 @@ static inline struct region *rb_lower_bound_region(struct library *lib,
   return parent ? rb_entry_region(parent) : NULL;
 }
 
-struct branch_target {
-  char *addr;
-  struct rb_node rb_target;
-};
-
-#define rb_entry_target(node) rb_entry((node), struct branch_target, rb_target)
-
-/**
- * Returns a pointer pointing to the first target whose address does not compare
- * less than @p addr
- */
-static inline struct branch_target *rb_lower_bound_target(struct rb_root *root,
-                                                          char *addr) {
-  struct rb_node *n = root->rb_node;
-  struct rb_node *parent = NULL;
-  struct branch_target *target;
-
-  while (n) {
-    target = rb_entry_target(n);
-
-    if (!(target->addr < addr)) {
-      parent = n;
-      n = n->rb_left;
-    } else
-      n = n->rb_right;
-  }
-  return parent ? rb_entry_target(parent) : NULL;
-}
-
-/**
- * Returns an iterator pointing to the first target whose address compares
- * greater than @p addr
- */
-static inline struct branch_target *rb_upper_bound_target(struct rb_root *root,
-                                                          char *addr) {
-  struct rb_node *n = root->rb_node;
-  struct rb_node *parent = NULL;
-  struct branch_target *target;
-
-  while (n) {
-    target = rb_entry_target(n);
-
-    if (target->addr > addr) {
-      parent = n;
-      n = n->rb_left;
-    } else
-      n = n->rb_right;
-  }
-  return parent ? rb_entry_target(parent) : NULL;
-}
-
-static inline struct branch_target *__rb_insert_target(struct rb_root *root,
-                                                       char *addr,
-                                                       struct rb_node *node) {
-  struct rb_node **p = &root->rb_node;
-  struct rb_node *parent = NULL;
-  struct branch_target *target;
-
-  while (*p) {
-    parent = *p;
-    target = rb_entry(parent, struct branch_target, rb_target);
-
-    if (addr < target->addr)
-      p = &(*p)->rb_left;
-    else if (addr > target->addr)
-      p = &(*p)->rb_right;
-    else
-      return target;
-  }
-
-  rb_link_node(node, parent, p);
-
-  return NULL;
-}
-
-static inline struct branch_target *rb_insert_target(struct rb_root *root,
-                                                     char *addr,
-                                                     struct rb_node *node) {
-  struct branch_target *ret;
-  if ((ret = __rb_insert_target(root, addr, node)))
-    goto out;
-  rb_insert_color(node, root);
-out:
-  return ret;
-}
 
 static char *memcpy_fromlib(void *dst,
                             const void *src,
@@ -465,55 +395,6 @@ static void library_make_writable(struct library *l, bool state) {
   rbtree_postorder_for_each_entry_safe(reg, n, &l->rb_region, rb_region) {
     mprotect(reg->start, reg->size, reg->perms | (state ? PROT_WRITE : 0));
   }
-}
-
-static char *alloc_scratch_space(int fd,
-                                 char *addr,
-                                 int needed,
-                                 char **extra_space,
-                                 int *extra_len,
-                                 bool near) {
-  if (needed > *extra_len || (near &&
-      labs(*extra_space - (char *)(addr)) > (1536 << 20))) {
-    // Start a new scratch page and mark any previous page as write-protected
-    if (*extra_space)
-      mprotect(*extra_space, 4096, PROT_READ | PROT_EXEC);
-    // Our new scratch space is initially executable and writable.
-    *extra_len = 4096;
-    *extra_space = maps_alloc_near(
-        fd, addr, *extra_len, PROT_READ | PROT_WRITE | PROT_EXEC, near);
-    _nx_debug_printf("alloc_scratch_space: mapped %x at %p (near %p)\n",
-        *extra_len, *extra_space, addr);
-  }
-  if (*extra_space) {
-    *extra_len -= needed;
-    return *extra_space + *extra_len;
-  }
-  _nx_fatal_printf("No space left to allocate scratch space");
-}
-
-/**
- * Compute the amount of space needed to accommodate relocated instructions
- *
- * @param[in]  code              relocatable instructions
- * @param[out] needed            total amount of bytes to write
- * @param[out] postamble         amount of bytes to relocate
- * @param[out] second            first instruction not to be relocated
- * @param[in]  detour_asm_size   size of static ASM body
- *
- */
-static inline void needed_space(const struct s_code * code, int * needed, int * postamble, int * second, size_t detour_asm_size) {
-  int additional_bytes_to_relocate = (__WORDSIZE == 32 ? 6 : JUMP_SIZE) - code[0].len;
-  *second = 0;
-  while (additional_bytes_to_relocate > 0) {
-    *second = (*second + 1) % JUMP_SIZE;
-    additional_bytes_to_relocate -= code[*second].len;
-  }
-  *postamble = (code[*second].addr + code[*second].len) - code[0].addr;
-
-  // The following is all the code that construct the various bits of
-  // assembly code.
-  *needed = detour_asm_size + *postamble + JUMP_SIZE;
 }
 
 static void patch_vdso(struct library *lib) {

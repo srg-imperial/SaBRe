@@ -10,6 +10,7 @@ set(SRCS
   ld_sc_handler.c
   loader.c
   maps.c
+  rewriter.c
 )
 
 option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
