@@ -1,3 +1,4 @@
+#include <arch/rewriter_tools.h>
 #include <assert.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -10,7 +11,6 @@
 #include "compiler.h"
 #include "global_vars.h"
 #include "macros.h"
-#include "arch/rewriter.h"
 
 // TODO: This code needs refactoring. Split open and mmap syscalls. Find a more
 // elegant way for interesting_libs and the other static variables

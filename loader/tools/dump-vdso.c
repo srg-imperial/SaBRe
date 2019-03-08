@@ -1,3 +1,4 @@
+#include <arch/rewriter_tools.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
@@ -10,7 +11,6 @@
 #include "compiler.h"
 #include "config.h"
 #include "kernel.h"
-#include "arch/rewriter.h"
 #include "loader/maps.h"
 
 

@@ -1,3 +1,4 @@
+#include <arch/rewriter_tools.h>
 #include "maps.h"
 
 #include <assert.h>
@@ -19,13 +20,42 @@
 #include "rbtree.h"
 
 #include "macros.h"
-#include "arch/rewriter.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 #define MAX_INITIAL_MAPPINGS 31
 
 static long initial_mappings[MAX_INITIAL_MAPPINGS];
 static int initial_mapping_cnt = 0;
+
+
+static void library_init(struct library *l,
+                         const char *name,
+                         struct maps *maps) {
+  l->pathname = strdup(name);
+
+  l->rb_region = RB_ROOT;
+  l->section_hash = malloc(sizeof(struct hlist_head) * sectionhash_size);
+  for (int i = 0; i < sectionhash_size; i++)
+    INIT_HLIST_HEAD(&l->section_hash[i]);
+  l->symbol_hash = malloc(sizeof(struct hlist_head) * symbolhash_size);
+  for (int i = 0; i < symbolhash_size; i++)
+    INIT_HLIST_HEAD(&l->symbol_hash[i]);
+
+  INIT_HLIST_NODE(&l->library_hash);
+
+  l->valid = false;
+  l->vdso = false;
+  l->asr_offset = 0;
+  l->image = NULL;
+  l->image_size = 0;
+  l->maps = maps;
+}
+
+static void library_release(struct library *lib) {
+  free(lib->pathname);
+  free(lib->section_hash);
+  free(lib->symbol_hash);
+}
 
 static inline struct library* library_find(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
                                             const char* pathname) {
@@ -92,7 +122,10 @@ static void maps_init(struct maps *maps, int fd) {
 }
 
 void maps_release(struct maps *maps) {
-  // TODO(andronat): finish implementation
+  struct library *lib;
+  for_each_library(lib, maps) {
+    library_release(lib);
+  }
   close(maps->fd);
 }
 

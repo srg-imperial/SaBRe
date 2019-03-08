@@ -35,6 +35,9 @@ enum region_type {
 #define libraryhash_entry(node) \
   hlist_entry((node), struct library, library_hash)
 
+#define sectionhash_size 16
+#define symbolhash_size 16
+
 struct maps {
   int fd;
 
