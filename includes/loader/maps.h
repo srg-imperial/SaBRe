@@ -72,7 +72,8 @@ struct region {
 };
 
 struct maps* maps_read(const char* libname) attribute_hidden;
-void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near) attribute_hidden;
+void* maps_alloc_near(int maps_fd, void *addr, size_t size,
+                      int prot, bool near, uint64_t max_distance) attribute_hidden;
 void maps_release(struct maps *maps) attribute_hidden;
 void binrw_rd_init_maps(void) attribute_hidden;
 

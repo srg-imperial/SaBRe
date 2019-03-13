@@ -99,16 +99,17 @@ static inline char *alloc_scratch_space(int fd,
                                  int needed,
                                  char **extra_space,
                                  int *extra_len,
-                                 bool near) {
+                                 bool near,
+                                 uint64_t max_distance) {
   if (needed > *extra_len || (near &&
-      labs(*extra_space - (char *)(addr)) > (1536 << 20))) {
+      labs(*extra_space - (char *)(addr)) > max_distance)) {
     // Start a new scratch page and mark any previous page as write-protected
     if (*extra_space)
       mprotect(*extra_space, 4096, PROT_READ | PROT_EXEC);
     // Our new scratch space is initially executable and writable.
     *extra_len = 4096;
     *extra_space = maps_alloc_near(
-        fd, addr, *extra_len, PROT_READ | PROT_WRITE | PROT_EXEC, near);
+        fd, addr, *extra_len, PROT_READ | PROT_WRITE | PROT_EXEC, near, max_distance);
     _nx_debug_printf("alloc_scratch_space: mapped %x at %p (near %p)\n",
         *extra_len, *extra_space, addr);
   }

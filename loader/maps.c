@@ -297,10 +297,9 @@ struct maps* maps_read(const char* libname) {
   return maps;
 }
 
-#define MAX_DISTANCE (1536 << 20)
 #define PAGE_ALIGNMENT 4096
 
-void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near) {
+void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near, uint64_t max_distance) {
   _nx_debug_printf("maps_alloc_near\n");
 
   if (lseek(maps_fd, 0, SEEK_SET) < 0)
@@ -361,7 +360,7 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near)
       if (gap_end - gap_start >= size) {
         // Is the gap before our target address?
         if (((long)addr - (long)gap_end >= 0)) {
-          if (!near || ((long)addr - (gap_end - size) < MAX_DISTANCE)) {
+          if (!near || ((long)addr - (gap_end - size) < max_distance)) {
             if (name == 0 || (size_t)name > strlen(from)) {
               name = strlen(from);
             }
@@ -371,11 +370,11 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near)
             unsigned long pos;
             if (strncmp(pathname, "[stack]", 7) == 0) {
               // Underflow protection when we're adjacent to the stack
-              if (!near || ((uintptr_t)addr < MAX_DISTANCE ||
-                            (uintptr_t)addr - MAX_DISTANCE < gap_start)) {
+              if (!near || ((uintptr_t)addr < max_distance ||
+                            (uintptr_t)addr - max_distance < gap_start)) {
                 pos = gap_start;
               } else {
-                pos = ((uintptr_t)addr - MAX_DISTANCE) & ~4095;
+                pos = ((uintptr_t)addr - max_distance) & ~4095;
                 if (pos < gap_start)
                   pos = gap_start;
               }
@@ -393,7 +392,7 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near)
             if (ptr != MAP_FAILED)
               return ptr;
           }
-        } else if (!near || (gap_start + size - (uintptr_t)addr < MAX_DISTANCE)) {
+        } else if (!near || (gap_start + size - (uintptr_t)addr < max_distance)) {
           // Gap is after the address, above checks that we can wrap around
           // through 0 to a space we'd use
           void *ptr = mmap((void *)gap_start,
