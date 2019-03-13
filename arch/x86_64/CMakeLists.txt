@@ -1,3 +1,5 @@
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+
 include_directories(${CMAKE_SOURCE_DIR}/includes)
 include_directories(${CMAKE_SOURCE_DIR}/includes/arch)
 
@@ -26,3 +28,5 @@ endif(RDTSC)
 # Build library
 add_library(x86_64 STATIC ${SRCS})
 target_link_libraries(x86_64 loader)
+
+endif()
