@@ -79,7 +79,7 @@ static inline void library_add(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
 }
 
 static inline struct region *__rb_insert_region(struct library *library,
-                                                Elf_Addr offset,
+                                                ElfW(Addr) offset,
                                                 struct rb_node *node) {
   struct rb_node **p = &library->rb_region.rb_node;
   struct rb_node *parent = NULL;
@@ -103,7 +103,7 @@ static inline struct region *__rb_insert_region(struct library *library,
 }
 
 static inline struct region *rb_insert_region(struct library *library,
-                                              Elf_Addr offset,
+                                              ElfW(Addr) offset,
                                               struct rb_node *node) {
   struct region *ret;
   if ((ret = __rb_insert_region(library, offset, node)))
@@ -257,7 +257,7 @@ struct maps* maps_read(const char* libname) {
         reg->perms = perms;
 
         // Set region offset
-        reg->offset = (Elf_Addr)offset;
+        reg->offset = (ElfW(Addr))offset;
 
         if (libname != NULL) {
           reg->type = REGION_LIBRARY;

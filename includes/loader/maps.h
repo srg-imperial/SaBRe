@@ -2,6 +2,7 @@
 #define MAPS_H_
 
 #include <elf.h>
+#include <link.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -12,12 +13,6 @@
 #include "jhash.h"
 #include "list.h"
 #include "rbtree.h"
-
-#if defined(__x86_64__)
-typedef Elf64_Addr Elf_Addr;
-#else
-#error Undefined target platform
-#endif
 
 /** Process memory regions */
 enum region_type {
@@ -58,7 +53,7 @@ struct region {
   /** Access protection */
   int perms;
   /** Region offset */
-  Elf_Addr offset;
+  ElfW(Addr) offset;
   /** Device identifier */
   dev_t dev;
   /** Device inode */

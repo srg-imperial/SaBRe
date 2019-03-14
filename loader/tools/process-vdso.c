@@ -18,7 +18,7 @@
 // TODO(andronat): We should use this code as a unit test
 
 extern struct region *rb_insert_region(struct library *library,
-                                              Elf_Addr offset,
+                                              ElfW(Addr) offset,
                                               struct rb_node *node);
 
 int main(int argc, char **argv, char **envp) {

@@ -2,26 +2,23 @@
 #define LIBRARY_H_
 
 #include <elf.h>
+#include <link.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
 #include "compiler.h"
 #include "loader/maps.h"
 
-typedef Elf64_Ehdr Elf_Ehdr;
-typedef Elf64_Shdr Elf_Shdr;
-typedef Elf64_Sym Elf_Sym;
-
 struct symbol {
   const char *name;
-  Elf_Sym sym;
+  ElfW(Sym) sym;
   struct hlist_node symbol_hash;
 };
 
 /* Internal data structure for sections. */
 struct section {
   const char *name;    /* section name */
-  Elf_Shdr shdr;       /* section header */
+  ElfW(Shdr) shdr;       /* section header */
   struct hlist_node section_hash;
 };
 
@@ -30,7 +27,7 @@ struct library {
   bool valid;
   bool vdso;
   char *asr_offset;
-  Elf_Ehdr ehdr;
+  ElfW(Ehdr) ehdr;
   struct rb_root rb_region;
   struct hlist_head *section_hash;
   struct hlist_head *symbol_hash;
