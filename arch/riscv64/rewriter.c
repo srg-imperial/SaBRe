@@ -8,6 +8,8 @@
 #include "handle_syscall_loader.h"
 #include "handle_vdso.h"
 #include "rewriter_tools.h"
+
+#include "riscv_utils.h"
 #include "riscv_decoder.h"
 
 #include <assert.h>
