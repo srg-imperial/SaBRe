@@ -25,10 +25,10 @@ endif(RDTSC)
 
 # Build library
 add_library(loader ${SRCS})
-target_link_libraries(loader dl x86_64)
+target_link_libraries(loader dl ${CMAKE_SYSTEM_PROCESSOR})
 
 # Build loader
-add_executable(sabre ${CMAKE_SOURCE_DIR}/arch/x86_64/main.s)
+add_executable(sabre ${CMAKE_SOURCE_DIR}/arch/${CMAKE_SYSTEM_PROCESSOR}/main.s)
 set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 target_link_libraries(sabre loader libsrc)
 
