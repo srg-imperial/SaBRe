@@ -11,6 +11,7 @@ set(SRCS
   handle_syscall_loader.s
   handle_vdso.s
   rewriter.c
+  syscall_stackframe.c
   x86_decoder.c
 )
 
