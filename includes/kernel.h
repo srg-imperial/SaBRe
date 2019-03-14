@@ -9,12 +9,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#if defined(__x86_64__) && !defined(__ILP32__)
-#define __WORDSIZE 64
-#else
-#define __WORDSIZE 32
-#endif
-
 #define __ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
 #define ALIGN(x, a) __ALIGN_MASK(x, (typeof(x))(a) - 1)
 #define PTR_ALIGN(p, a) ((typeof(p))ALIGN((unsigned long)(p), (a)))
