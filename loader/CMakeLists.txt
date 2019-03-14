@@ -30,7 +30,10 @@ target_link_libraries(loader dl ${CMAKE_SYSTEM_PROCESSOR})
 # Build loader
 add_executable(sabre ${CMAKE_SOURCE_DIR}/arch/${CMAKE_SYSTEM_PROCESSOR}/main.s)
 set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-target_link_libraries(sabre loader libsrc)
+target_link_libraries(sabre loader)
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+target_link_libraries(sabre libsrc)
+endif ()
 
 # Build tools
 add_executable(process-vdso tools/process-vdso.c)
