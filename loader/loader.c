@@ -60,6 +60,7 @@ void *find_auxv(void *argv) {
   return (void *)(search_ptr + 1);
 }
 
+#ifdef __x86_64__
 static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   assert(sig == SIGILL);
   ucontext_t* ctx = ucontext;
@@ -93,6 +94,7 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   // Skip UD insn to point to return address
   ctx->uc_mcontext.gregs[REG_RIP] += 2;
 }
+#endif // __x86_64__
 
 // Returns the address of entry point and also populates a pointer
 // for the top of the new stack
@@ -229,10 +231,12 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   if (post_load != NULL)
     post_load(interp);
 
+#ifdef __x86_64__
   // Set up SIGILL handler for dealing with RDTSC instructions and system calls
   // that have been rewritten to use UD
   struct sigaction sa_ill = {.sa_sigaction = sigill_handler, .sa_flags = SA_SIGINFO | SA_NODEFER};
   sigaction(SIGILL, &sa_ill, NULL);
+#endif // __x86_64__
 
   // Modify the original process stack to represent arguments modified
   // by the plugin.
