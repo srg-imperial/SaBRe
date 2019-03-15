@@ -187,7 +187,7 @@ inline bool is_control_flow_inst(uint32_t inst) {
 }
 
 inline bool is_store32(uint32_t inst) {
-    return (inst & RISCV_INST32_OP) == 0x0100011;
+    return (inst & RISCV_INST32_OP) == 0b0100011;
 }
 
 inline bool is_store16(uint16_t inst) {
