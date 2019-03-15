@@ -416,6 +416,7 @@ static void patch_vdso(struct library *lib) {
         &extra_space,
         &extra_len);
   }
+#ifdef __x86_64__
   sym = symbol_find(lib->symbol_hash, "__vdso_time");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
@@ -425,6 +426,7 @@ static void patch_vdso(struct library *lib) {
         &extra_space,
         &extra_len);
   }
+#endif // __x86_64__
   sym = symbol_find(lib->symbol_hash, "__vdso_gettimeofday");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
