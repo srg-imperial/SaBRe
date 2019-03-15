@@ -232,6 +232,7 @@ long ld_sc_handler(long sc_no,
   long ret;
   switch (sc_no)
   {
+#ifdef SYS_open
     case SYS_open:
     {
       const char *pathname = (const char *)arg1;
@@ -245,6 +246,7 @@ long ld_sc_handler(long sc_no,
       ret = process_fd(fd, pathname, flags, mode);
       break;
     }
+#endif // SYS_open
 
     // Since glibc 2.26, the glibc wrapper function for open()  employs  the
     // openat() system call, rather than the kernel's open() system call.
