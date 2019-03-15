@@ -4,7 +4,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __x86_64__
 #include <asm/prctl.h>
+#endif
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
@@ -185,6 +187,7 @@ static int intercept_sbr (struct mem_chunk mmaps []) {
   return c;
 }
 
+#ifdef __x86_64__
 static unsigned long loader_tls_addr;
 static unsigned long client_tls_addr;
 
@@ -208,6 +211,7 @@ long arch_set_fs_handler (unsigned long addr) {
 
   return plugin_sc_handler(__NR_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
 }
+#endif // __x86_64__
 
 long ld_sc_handler(long sc_no,
                    long arg1,
@@ -218,10 +222,12 @@ long ld_sc_handler(long sc_no,
                    long arg6,
                    void *wrapper_sp)
 {
+#ifdef __x86_64__
   if (loader_tls_addr != 0) {
     if (syscall(__NR_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to loader TLS\n");
   }
+#endif // __x86_64__
 
   long ret;
   switch (sc_no)
@@ -307,6 +313,7 @@ long ld_sc_handler(long sc_no,
       ret =  (long) mmap_addr;
       break;
     }
+#ifdef __x86_64__
     case __NR_arch_prctl:
     {
       int code = arg1;
@@ -316,15 +323,18 @@ long ld_sc_handler(long sc_no,
       else
         return plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
     }
+#endif // __x86_64__
 
     default:
       ret = plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
   }
 
+#ifdef __x86_64__
   if (client_tls_addr != 0) {
     if (syscall(__NR_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to client TLS\n");
   }
+#endif // __x86_64__
 
   return ret;
 }
