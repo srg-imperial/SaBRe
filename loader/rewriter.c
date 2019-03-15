@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 
 #define section_hashfn(n) jhash(n, strlen(n), 0) & (sectionhash_size - 1)
 
@@ -411,7 +412,7 @@ static void patch_vdso(struct library *lib) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_getcpu,
+        SYS_getcpu,
         &extra_space,
         &extra_len);
   }
@@ -420,7 +421,7 @@ static void patch_vdso(struct library *lib) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_time,
+        SYS_time,
         &extra_space,
         &extra_len);
   }
@@ -429,7 +430,7 @@ static void patch_vdso(struct library *lib) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_gettimeofday,
+        SYS_gettimeofday,
         &extra_space,
         &extra_len);
   }
@@ -438,7 +439,7 @@ static void patch_vdso(struct library *lib) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_clock_gettime,
+        SYS_clock_gettime,
         &extra_space,
         &extra_len);
   }

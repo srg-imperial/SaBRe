@@ -197,7 +197,7 @@ long arch_set_fs_handler (unsigned long addr) {
     assert(client_tls_addr == 0);
 
     // Save SaBRe TLS
-    if (syscall(__NR_arch_prctl, ARCH_GET_FS, &loader_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_GET_FS, &loader_tls_addr) == -1)
       _nx_fatal_printf("Failed to get loader TLS address\n");
     client_tls_addr = addr;
 
@@ -209,7 +209,7 @@ long arch_set_fs_handler (unsigned long addr) {
   else
     _nx_fatal_printf("ARCH_SET_FS called more than once from client\n");
 
-  return plugin_sc_handler(__NR_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
+  return plugin_sc_handler(SYS_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
 }
 #endif // __x86_64__
 
@@ -224,7 +224,7 @@ long ld_sc_handler(long sc_no,
 {
 #ifdef __x86_64__
   if (loader_tls_addr != 0) {
-    if (syscall(__NR_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to loader TLS\n");
   }
 #endif // __x86_64__
@@ -232,7 +232,7 @@ long ld_sc_handler(long sc_no,
   long ret;
   switch (sc_no)
   {
-    case __NR_open:
+    case SYS_open:
     {
       const char *pathname = (const char *)arg1;
       int flags = arg2;
@@ -248,7 +248,7 @@ long ld_sc_handler(long sc_no,
 
     // Since glibc 2.26, the glibc wrapper function for open()  employs  the
     // openat() system call, rather than the kernel's open() system call.
-    case __NR_openat:
+    case SYS_openat:
     {
       //int dirfd = arg1;
       const char *pathname = (const char *)arg2;
@@ -263,7 +263,7 @@ long ld_sc_handler(long sc_no,
       break;
     }
 
-    case __NR_mmap:
+    case SYS_mmap:
     {
       void *addr = (void *)arg1;
       size_t length = arg2;
@@ -314,7 +314,7 @@ long ld_sc_handler(long sc_no,
       break;
     }
 #ifdef __x86_64__
-    case __NR_arch_prctl:
+    case SYS_arch_prctl:
     {
       int code = arg1;
       unsigned long addr = arg2;
@@ -331,7 +331,7 @@ long ld_sc_handler(long sc_no,
 
 #ifdef __x86_64__
   if (client_tls_addr != 0) {
-    if (syscall(__NR_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to client TLS\n");
   }
 #endif // __x86_64__

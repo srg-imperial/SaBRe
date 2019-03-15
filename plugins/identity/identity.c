@@ -58,16 +58,16 @@ int handle_vdso_time(time_t *arg1) {
 void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   (void)actual_fn;
   switch (sc_no) {
-    case __NR_clock_gettime:
+    case SYS_clock_gettime:
       actual_clock_gettime = actual_fn;
       return (void_void_fn)handle_vdso_clock_gettime;
-    case __NR_getcpu:
+    case SYS_getcpu:
       actual_getcpu = actual_fn;
       return (void_void_fn)handle_vdso_getcpu;
-    case __NR_gettimeofday:
+    case SYS_gettimeofday:
       actual_gettimeofday = actual_fn;
       return (void_void_fn)handle_vdso_gettimeofday;
-    case __NR_time:
+    case SYS_time:
       actual_time = actual_fn;
       return (void_void_fn)handle_vdso_time;
     default:
