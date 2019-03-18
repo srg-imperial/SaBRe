@@ -90,8 +90,10 @@ static void print_mmap_flags(long flags, FILE *stream) {
   else
     fputs("MAP_PRIVATE", stream);
 
+#ifdef __x86_64__
   if (flags & MAP_32BIT)
     fputs("|MAP_32BIT", stream);
+#endif // __x86_64__
 
   if (flags & MAP_ANONYMOUS)
     fputs("|MAP_ANONYMOUS", stream);
@@ -235,10 +237,12 @@ static void pre_decode_args(long sc, const long args[], FILE *stream) {
         print_prot(args[2], stream);
         break;
 
+#ifdef __x86_64__
       case SYS_access:
         printstr((char *)args[0], 0, stream);
         fprintf(stream, ", %lX", args[1]);
         break;
+#endif // __x86_64__
 
       case SYS_mmap:
         for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
@@ -256,11 +260,21 @@ static void pre_decode_args(long sc, const long args[], FILE *stream) {
         }
         break;
 
+#ifdef __x86_64__
       case SYS_open:
         printstr((char *)args[0], 0, stream);
         fputs(", ", stream);
         if (print_open_flags(args[1], stream)) {
           fprintf(stream, ", %lo", args[2]);
+        }
+        break;
+#endif // __x86_64__
+
+      case SYS_openat:
+        printstr((char *)args[1], 0, stream);
+        fputs(", ", stream);
+        if (print_open_flags(args[2], stream)) {
+          fprintf(stream, ", %lo", args[3]);
         }
         break;
 
