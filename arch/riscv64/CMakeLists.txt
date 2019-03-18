@@ -10,6 +10,7 @@ set(SRCS
   handle_syscall.s
   handle_syscall_loader.s
   handle_vdso.s
+  real_syscall.s
   rewriter.c
   riscv_decoder.c
   riscv_utils.c
