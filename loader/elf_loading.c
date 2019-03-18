@@ -73,14 +73,14 @@ int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr) {
     _nx_fatal_printf("File has no valid ELF header!\n");
   }
 
-  switch (ehdr->e_machine) {
-    case EM_X86_64:
-      break;
-    default:
+
+#ifdef __x86_64__
+    if (ehdr->e_machine != EM_X86_64)
+#elif defined(__riscv)
+    if (ehdr->e_machine != EM_RISCV)
+#endif
       _nx_fatal_printf("ELF file has wrong architecture (%u)\n",
                        ehdr->e_machine);
-      break;
-  }
 
   return 0;
 }
