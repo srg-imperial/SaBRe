@@ -1,5 +1,7 @@
 #include "macros.h"
 
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 long clone_syscall (unsigned long flags,
             void *child_stack,
             int *ptid, int *ctid,
