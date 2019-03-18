@@ -402,9 +402,11 @@ long handle_syscall_gettimeofday(long arg1, long arg2) {
   return handle_syscall_real(SYS_gettimeofday, arg1, arg2, 0, 0, 0, 0, true);
 }
 
+#ifdef __x86_64__
 long handle_syscall_time(long arg1) {
   return handle_syscall_real(SYS_time, arg1, 0, 0, 0, 0, 0, true);
 }
+#endif // __x86_64__
 
 void handle_args(int *argc, char **argv[]) {
   bool sep_found = false;
@@ -491,8 +493,10 @@ void_void_fn vdso_callback_imp(long sc_no, void_void_fn actual_fn) {
       return (void_void_fn)handle_syscall_getcpu;
     case SYS_gettimeofday:
       return (void_void_fn)handle_syscall_gettimeofday;
+#ifdef __x86_64__
     case SYS_time:
       return (void_void_fn)handle_syscall_time;
+#endif // __x86_64__
     default:
       return (void_void_fn)NULL;
   }

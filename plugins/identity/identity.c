@@ -50,10 +50,12 @@ int handle_vdso_gettimeofday(struct timeval *arg1, struct timezone *arg2) {
   return ((gettimeofday_fn*)actual_gettimeofday)(arg1, arg2);
 }
 
+#ifdef __x86_64__
 typedef int time_fn(time_t *);
 int handle_vdso_time(time_t *arg1) {
   return ((time_fn*)actual_time)(arg1);
 }
+#endif // __x86_64__
 
 void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   (void)actual_fn;
@@ -67,9 +69,11 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
     case SYS_gettimeofday:
       actual_gettimeofday = actual_fn;
       return (void_void_fn)handle_vdso_gettimeofday;
+#ifdef __x86_64__
     case SYS_time:
       actual_time = actual_fn;
       return (void_void_fn)handle_vdso_time;
+#endif // __x86_64__
     default:
       return (void_void_fn)NULL;
   }
