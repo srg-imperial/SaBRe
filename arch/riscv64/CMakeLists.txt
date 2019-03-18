@@ -7,6 +7,7 @@ set(CMAKE_C_FLAGS_DEBUG "-ggdb3")
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-std=gnu99 -Wall -Wextra -Werror -fPIE -fstack-protector")
 
 set(SRCS
+  clone_syscall.c
   handle_syscall.s
   handle_syscall_loader.s
   handle_vdso.s
