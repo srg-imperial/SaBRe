@@ -6,7 +6,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Werror -Wno-error=
 add_library(identity SHARED identity.c)
 target_link_libraries(identity ${CMAKE_SYSTEM_PROCESSOR})
 
-option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+  option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
+endif ()
 
 if (RDTSC)
   add_definitions(-D__NX_INTERCEPT_RDTSC)

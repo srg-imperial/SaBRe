@@ -79,6 +79,7 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   }
 }
 
+#ifdef __NX_INTERCEPT_RDTSC
 long handle_rdtsc() {
   long high, low;
 
@@ -90,6 +91,7 @@ long handle_rdtsc() {
 
   return ret;
 }
+#endif // __NX_INTERCEPT_RDTSC
 
 void sbr_init(int *argc, char **argv[],
              sbr_icept_reg_fn fn_icept_reg,
