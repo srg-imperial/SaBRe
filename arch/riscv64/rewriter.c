@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+void (*plugin_vdso_handler)(void) = NULL;
+
 static const char *stub = "\xff\x01\x01\x13" // addi sp, sp, -16
         "\x00\x51\x30\x23"// sd t0, 0(sp)
         "\x00\x11\x34\x23"// sd ra, 8(sp)
@@ -585,13 +587,13 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
   }
 
   void *trampoline_addr = dest + stub_n * 4 + 4;
-  void *vdso_handler;
+
   if (vdso_callback) {
-    vdso_handler = vdso_callback(discriminator, trampoline_addr);
+    plugin_vdso_handler = vdso_callback(discriminator, trampoline_addr);
   }
 
   struct inst_param addi_encode;
-  if (vdso_handler != NULL) {
+  if (plugin_vdso_handler != NULL) {
     stub[17] = 0x10; // t1 has 1
     addi_encode.imm = 0;
     addi_encode.rs1 = 0;

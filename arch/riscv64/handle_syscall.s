@@ -65,7 +65,7 @@ handle_syscall:
 
 #call *sc_handler
 
-call syscall_handler
+call plugin_sc_handler
     # no need to adjust return value
 
 	ld x8, 0(sp)

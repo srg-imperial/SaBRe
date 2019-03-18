@@ -55,13 +55,13 @@ handle_vdso:
 	add a1, a0, x0
 	add a0, t0, x0
 
-    call syscall_handler
+    call plugin_sc_handler
 	j end
     # no need to adjust return value
     
 
 vdso_handler_provided:
-    call vdso_call_handler
+    call plugin_vdso_handler
 	
 end:
 	ld x8, 0(sp)
