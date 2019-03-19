@@ -546,7 +546,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
   // as a normal system call
   // we need to input the system call
 
-  char *stub = "\xfe\x81\x01\x13" // addi sp, sp, -16
+  static char stub [] = "\xfe\x81\x01\x13" // addi sp, sp, -16
           "\x00\x51\x30\x23"// sd t0, 0(sp)
           "\x00\x11\x34\x23"// sd ra, 8(sp)
           "\x00\x61\x38\x23"// sd t1, 16(sp)
