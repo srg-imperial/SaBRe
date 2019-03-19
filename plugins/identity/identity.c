@@ -21,7 +21,7 @@ long handle_syscall(long sc_no,
                     long arg5,
                     long arg6,
                     void* wrapper_sp) {
-  if (sc_no == 56 && arg2 != 0) { // clone
+  if (sc_no == SYS_clone && arg2 != 0) { // clone
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone_syscall(arg1, (void*)arg2, (void*)arg3, (void*)arg4, arg5, ret_addr);
   }
