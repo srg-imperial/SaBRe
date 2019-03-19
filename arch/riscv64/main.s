@@ -23,38 +23,27 @@ main:
    # Push two NULL pointers onto stack and pass them to load
   addi sp, sp, -8
   sd x0, 0(sp)
-  addi a2, sp, 0 # pass the third argument of main to load
+  addi a2, sp, 0 # pass the location for new_entry to load
   addi sp, sp, -8
   sd x0, 0(sp)
-  addi a3, sp, 0 # pass the fourth arugment of main to load
+  addi a3, sp, 0 # pass the location for new_stack_top to load
 
 
   # call the main loading function
-  # call *load@GOTPCREL(pc)
   call load
 
-  # todo sanity check
+  # TODO sanity check
 
-  # Evyerthing seems fine, nuke the stack
+  ld a0, 0(sp) # new_stack_top in a0
+  ld a1, 8(sp) # new_entry in a1
 
-  addi t0, a0, 0 # new stack
-  ld t1, -8(t0) # new return address
-  
-  #addi sp, s0, -16
-  xor s0, s0, s0
+  mv sp, a0 # new stack
 
   # Nothing at_exit()
-  xor a2, a2, a2
+  mv a0, zero
  
-  #addi a0, t3, 0
-  #ld a0, 0(a0)
-  #call p
   # Call the entrypoint of the loader/static 
-  addi a0, x0, 0
-  addi sp, t0, 0
-  jr t1
-
-  #call p
+  jr a1
 
   # if didn't end, force end
   addi x17, x0, 93
