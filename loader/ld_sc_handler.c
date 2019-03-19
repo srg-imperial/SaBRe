@@ -274,7 +274,7 @@ long ld_sc_handler(long sc_no,
       int fd = arg5;
       off_t offset = arg6;
 
-      _nx_debug_printf("mmap: enter loader syscall (%u)\n", fd);
+      _nx_debug_printf("mmap: enter loader syscall (%d)\n", fd);
 
       // Populate start_sbr and end_sbr
       if (start_sbr[0] == 0 || end_sbr[0] == 0) {
@@ -310,7 +310,7 @@ long ld_sc_handler(long sc_no,
         interesting_lib = NO_FD;
       }
 
-      _nx_debug_printf("mmap: exit loader syscall (%lu)\n", (long) mmap_addr);
+      _nx_debug_printf("mmap: exit loader syscall (%p)\n", mmap_addr);
 
       ret =  (long) mmap_addr;
       break;
@@ -328,7 +328,9 @@ long ld_sc_handler(long sc_no,
 #endif // __x86_64__
 
     default:
+      _nx_debug_printf("calling syscall %ld\n", sc_no);
       ret = plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
+      _nx_debug_printf("returned from syscall %ld\n", sc_no);
   }
 
 #ifdef __x86_64__

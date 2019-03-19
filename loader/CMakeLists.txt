@@ -13,6 +13,8 @@ set(SRCS
   rewriter.c
 )
 
+option(DEBUG "Print debug messages" OFF)
+
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
   option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
 endif ()

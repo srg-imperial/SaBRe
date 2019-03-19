@@ -14,7 +14,7 @@
 #if SBR_DEBUG
 #define _nx_debug_printf(fmt, args...) \
   do {                                 \
-    dprintf(2, "Debug in %s:%u\n", __FILE__, __LINE__);\
+    dprintf(2, "Debug in %s at %s:%u\n\t", __func__, __FILE__, __LINE__);\
     dprintf(2, fmt, ##args);\
   } while (0)
 #else

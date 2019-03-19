@@ -241,6 +241,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   // Modify the original process stack to represent arguments modified
   // by the plugin.
   
+  _nx_debug_printf("start rewriting stack\n");
   stack_val_t *src = (stack_val_t *)&argv[0];
   stack_val_t *dst = argv_null - argc;
   
@@ -262,6 +263,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   dst[argc] = 0; // restore argv_null that might have been overwritten by alignment
   *new_stack_top = dst - 1;
   *((stack_val_t *)*new_stack_top) = argc;
+  _nx_debug_printf("done rewriting stack\n");
 
   *new_entry = (void *)entry;
 }

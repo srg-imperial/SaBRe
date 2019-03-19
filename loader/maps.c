@@ -300,8 +300,6 @@ struct maps* maps_read(const char* libname) {
 #define PAGE_ALIGNMENT 4096
 
 void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near, uint64_t max_distance) {
-  _nx_debug_printf("maps_alloc_near\n");
-
   if (lseek(maps_fd, 0, SEEK_SET) < 0)
     return NULL;
 

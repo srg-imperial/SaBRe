@@ -184,7 +184,7 @@ bool loader, int maps_fd) {
       total++;
   }
 
-  _nx_debug_printf("total number of jump instructions found %d\n", total);
+  _nx_debug_printf("total number of jump instructions found %lu\n", total);
 
   // Allocate all the memory we'll need in one go
   struct branch_target *target = malloc(total * sizeof(*target));
@@ -590,11 +590,15 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
 
   if (vdso_callback) {
     plugin_vdso_handler = vdso_callback(discriminator, trampoline_addr);
+    _nx_debug_printf("trampoline_addr: %p\tplugin_vdso_handler: %p\n",
+        (void*)trampoline_addr, (void*)plugin_vdso_handler);
   }
 
   struct inst_param addi_encode;
   if (plugin_vdso_handler != NULL) {
+    _nx_debug_printf("addi encode with plugin_vdso_handler\n");
     stub[17] = 0x10; // t1 has 1
+    _nx_debug_printf("stub[17] = 0x10\n");
     addi_encode.imm = 0;
     addi_encode.rs1 = 0;
     addi_encode.rd = 0;
@@ -612,6 +616,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
   char * const scratch_start = dest;
 
   // load the skeleton stub to scratch space
+  _nx_debug_printf("load the skeleton stub to scratch space\n");
   char *stub_dest_start = dest;
   {
     char *copy_start = stub;
@@ -626,6 +631,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
 
   dest += 4;
   // move the trampoline to somewhere else
+  _nx_debug_printf("move the trampoline to somewhere else\n");
   int i;
   for (i = 0; length > 0; i++) {
     if (code[i].len == 4) {
@@ -641,6 +647,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
   *((uint32_t *) dest) = get_patch_jal(trampoline_return_offset, 0);
 
   // patch the target address
+  _nx_debug_printf("patch target address\n");
   // TODO: remove duplication
   uint64_t handle_vdso_addr = (uint64_t) handle_vdso;
   char *stub_patch_start = stub_dest_start + 26;
@@ -663,7 +670,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
   uint64_t return_jalr_inst = 0x00008067; // ret
 
   *((uint32_t *) return_jalr_addr) = return_jalr_inst;
-  _nx_debug_printf("return jal is 0x%08x\n", return_jal_inst);
+  _nx_debug_printf("return jal is 0x%08lx\n", return_jalr_inst);
 
   // patch the vdso call
   int32_t offset = scratch_start - code[0].addr;

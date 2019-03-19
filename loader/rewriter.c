@@ -407,6 +407,7 @@ static void patch_vdso(struct library *lib) {
   }
   _nx_debug_printf("mprotect done\n");
 
+  _nx_debug_printf("detouring __vdso_getcpu\n");
   struct symbol *sym = symbol_find(lib->symbol_hash, "__vdso_getcpu");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
@@ -417,6 +418,7 @@ static void patch_vdso(struct library *lib) {
         &extra_len);
   }
 #ifdef __x86_64__
+  _nx_debug_printf("detouring __vdso_time\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_time");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
@@ -427,6 +429,7 @@ static void patch_vdso(struct library *lib) {
         &extra_len);
   }
 #endif // __x86_64__
+  _nx_debug_printf("detouring __vdso_gettimeofday\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_gettimeofday");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
@@ -436,6 +439,7 @@ static void patch_vdso(struct library *lib) {
         &extra_space,
         &extra_len);
   }
+  _nx_debug_printf("detouring __vdso_clock_gettime\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_clock_gettime");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
