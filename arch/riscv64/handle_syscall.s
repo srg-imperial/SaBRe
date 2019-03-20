@@ -63,9 +63,10 @@ handle_syscall:
 	add a1, a0, x0
 	add a0, t0, x0
 
-#call *sc_handler
-
-call plugin_sc_handler
+	# call plugin handler
+	la t0, plugin_sc_handler
+	ld t0, 0(t0)
+	jalr t0
     # no need to adjust return value
 
 	ld x8, 0(sp)
