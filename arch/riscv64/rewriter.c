@@ -71,42 +71,42 @@ static void prepare_patched_stub(char *patched_stub,
 
 //static void debug_print_block2(uint16_t *start, uint16_t *end, bool debug) {
 //  if (debug) {
-//	printf("----------------------------------------\n");
+//	_nx_debug_printf("----------------------------------------\n");
 //	int i = 0;
 //	for (; i < 8 && start <= end; i++) {
-//	  printf("0x%04x ", __bswap_16(*start));
+//	  _nx_debug_printf("0x%04x ", __bswap_16(*start));
 //	  if (__bswap_16(*start) == 0xaa87) {
-//		printf("ADDRESS IS 0x%016lx", start);
+//		_nx_debug_printf("ADDRESS IS 0x%016lx", start);
 //	  }
 //	  start++;
 //	  if (i + 1 >= 8) {
 //		i = -1;
-//		printf("\n");
+//		_nx_debug_printf("\n");
 //	  }
 //	}
-//	printf("\n");
-//	printf("----------------------------------------\n");
+//	_nx_debug_printf("\n");
+//	_nx_debug_printf("----------------------------------------\n");
 //  }
 //}
 //
 //
 //static void debug_print_block(uint16_t *start, uint16_t *end) {
 //  if (1) {
-//	printf("----------------------------------------\n");
+//	_nx_debug_printf("----------------------------------------\n");
 //	int i = 0;
 //	for (; i < 8 && start <= end; i++) {
-//	  printf("0x%04x ", __bswap_16(*start));
+//	  _nx_debug_printf("0x%04x ", __bswap_16(*start));
 //	  if (__bswap_16(*start) == 0xaa87) {
-//		printf("ADDRESS IS 0x%016lx", start);
+//		_nx_debug_printf("ADDRESS IS 0x%016lx", start);
 //	  }
 //	  start++;
 //	  if (i + 1 >= 8) {
 //		i = -1;
-//		printf("\n");
+//		_nx_debug_printf("\n");
 //	  }
 //	}
-//	printf("\n");
-//	printf("----------------------------------------\n");
+//	_nx_debug_printf("\n");
+//	_nx_debug_printf("----------------------------------------\n");
 //  }
 //}
 
@@ -124,7 +124,7 @@ static uint32_t forward_search_deprecated_reg(char *curr, char *end, int range,
   for (int i = 0; ptr < end && i < range; i++) {
     addr = ptr;
     inst = next_inst_riscv(&ptr);
-    //printf("current inst : 0x%08x\n", inst);
+    //_nx_debug_printf("current inst : 0x%08x\n", inst);
     struct branch_target *target = rb_upper_bound_target(&branch_targets, addr);
     if (target && target->addr < ptr) {
       break;
@@ -174,7 +174,7 @@ static struct rb_root *lookup_branch_targets(char *start, char *end) {
 
 static void library_patch_syscalls_in_func(char *start, char *end,
 bool loader, int maps_fd) {
-  printf("pathc func start\n");
+  _nx_debug_printf("pathc func start\n");
   struct rb_root branch_targets = RB_ROOT;
 
   // Count how many targets we'll need
@@ -452,14 +452,14 @@ bool loader, int maps_fd) {
     }
     replaced: i = (i + 1) % (sizeof(code) / sizeof(struct code));
   }
-  printf("patch_func end\n");
+  _nx_debug_printf("patch_func end\n");
 }
 
 void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
     char **extra_space __unused, int *extra_len __unused,
     bool loader) {
   _nx_debug_printf("patch syscalls in range %p-%p\n", start, stop);
-  printf("patch syscalls in range =\n");
+  _nx_debug_printf("patch syscalls in range =\n");
   char *func = start;
   bool has_syscall = false;
 
@@ -475,12 +475,12 @@ void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
     } else {
       if (__bswap_16(*ptr_riscv) == 0 && prev_ecall_ehi) {
         has_syscall = true;
-        //printf("find system call\n");
+        //_nx_debug_printf("find system call\n");
       }
       prev_ecall_ehi = true;
     }
   }
-  printf("finish patch syscall in range\n");
+  _nx_debug_printf("finish patch syscall in range\n");
 
   _nx_debug_printf("has syscall? %u\n", has_syscall);
   if (has_syscall) {
