@@ -10,7 +10,7 @@
 #include <sys/mman.h>
 #undef __USE_GNU
 
-#include "sbr_api.h"
+#include "sbr_api_defs.h"
 #include "real_syscall.h"
 #include "sysent.h"
 
@@ -516,19 +516,34 @@ void_void_fn vdso_callback_imp(long sc_no, void_void_fn actual_fn) {
   }
 }
 
+#ifdef __NX_INTERCEPT_RDTSC
+long handle_rdtsc() {
+  long high, low;
+
+  asm volatile ("rdtsc;" :"=a"(low), "=d"(high) : : );
+
+  long ret = high;
+  ret <<= 32;
+  ret |= low;
+
+  return ret;
+}
+#endif
+
 void_void_fn vdso_callback_none_imp(long sc_no, void_void_fn actual_fn) {
   (void)sc_no;  // unused
   return actual_fn;
 }
 
-void sbr_init(int *argc,
-             char **argv[],
-             sbr_icept_reg_fn fn_icept_reg,
-             sbr_icept_vdso_callback_fn *vdso_callback,
-             sbr_sc_handler_fn *syscall_handler,
-             sbr_post_load_fn *post_load) {
-  (void)fn_icept_reg;  // unused
-  (void)post_load;     // unused
+void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
+              sbr_icept_vdso_callback_fn *vdso_callback,
+              sbr_sc_handler_fn *syscall_handler,
+#ifdef __NX_INTERCEPT_RDTSC
+              sbr_rdtsc_handler_fn *rdtsc_handler,
+#endif
+              sbr_post_load_fn *post_load) {
+  (void)fn_icept_reg; // unused
+  (void)post_load;    // unused
 
   // For error messages before handling the args
   out_stream = stderr;
@@ -536,6 +551,10 @@ void sbr_init(int *argc,
   handle_args(argc, argv);
 
   *syscall_handler = handle_syscall;
+
+#ifdef __NX_INTERCEPT_RDTSC
+  *rdtsc_handler = handle_rdtsc;
+#endif
 
   // Deal with vDSO calls
   switch (vdso_arg_flag) {
