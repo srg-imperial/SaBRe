@@ -4,7 +4,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __x86_64__
 #include <asm/prctl.h>
+#endif
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
@@ -185,6 +187,7 @@ static int intercept_sbr (struct mem_chunk mmaps []) {
   return c;
 }
 
+#ifdef __x86_64__
 static unsigned long loader_tls_addr;
 static unsigned long client_tls_addr;
 
@@ -194,7 +197,7 @@ long arch_set_fs_handler (unsigned long addr) {
     assert(client_tls_addr == 0);
 
     // Save SaBRe TLS
-    if (syscall(__NR_arch_prctl, ARCH_GET_FS, &loader_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_GET_FS, &loader_tls_addr) == -1)
       _nx_fatal_printf("Failed to get loader TLS address\n");
     client_tls_addr = addr;
 
@@ -206,8 +209,9 @@ long arch_set_fs_handler (unsigned long addr) {
   else
     _nx_fatal_printf("ARCH_SET_FS called more than once from client\n");
 
-  return plugin_sc_handler(__NR_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
+  return plugin_sc_handler(SYS_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
 }
+#endif // __x86_64__
 
 long ld_sc_handler(long sc_no,
                    long arg1,
@@ -218,15 +222,18 @@ long ld_sc_handler(long sc_no,
                    long arg6,
                    void *wrapper_sp)
 {
+#ifdef __x86_64__
   if (loader_tls_addr != 0) {
-    if (syscall(__NR_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to loader TLS\n");
   }
+#endif // __x86_64__
 
   long ret;
   switch (sc_no)
   {
-    case __NR_open:
+#ifdef SYS_open
+    case SYS_open:
     {
       const char *pathname = (const char *)arg1;
       int flags = arg2;
@@ -239,10 +246,11 @@ long ld_sc_handler(long sc_no,
       ret = process_fd(fd, pathname, flags, mode);
       break;
     }
+#endif // SYS_open
 
     // Since glibc 2.26, the glibc wrapper function for open()  employs  the
     // openat() system call, rather than the kernel's open() system call.
-    case __NR_openat:
+    case SYS_openat:
     {
       //int dirfd = arg1;
       const char *pathname = (const char *)arg2;
@@ -257,7 +265,7 @@ long ld_sc_handler(long sc_no,
       break;
     }
 
-    case __NR_mmap:
+    case SYS_mmap:
     {
       void *addr = (void *)arg1;
       size_t length = arg2;
@@ -266,7 +274,7 @@ long ld_sc_handler(long sc_no,
       int fd = arg5;
       off_t offset = arg6;
 
-      _nx_debug_printf("mmap: enter loader syscall (%u)\n", fd);
+      _nx_debug_printf("mmap: enter loader syscall (%d)\n", fd);
 
       // Populate start_sbr and end_sbr
       if (start_sbr[0] == 0 || end_sbr[0] == 0) {
@@ -302,12 +310,13 @@ long ld_sc_handler(long sc_no,
         interesting_lib = NO_FD;
       }
 
-      _nx_debug_printf("mmap: exit loader syscall (%lu)\n", (long) mmap_addr);
+      _nx_debug_printf("mmap: exit loader syscall (%p)\n", mmap_addr);
 
       ret =  (long) mmap_addr;
       break;
     }
-    case __NR_arch_prctl:
+#ifdef __x86_64__
+    case SYS_arch_prctl:
     {
       int code = arg1;
       unsigned long addr = arg2;
@@ -316,15 +325,20 @@ long ld_sc_handler(long sc_no,
       else
         return plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
     }
+#endif // __x86_64__
 
     default:
+      _nx_debug_printf("calling syscall %ld\n", sc_no);
       ret = plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
+      _nx_debug_printf("returned from syscall %ld\n", sc_no);
   }
 
+#ifdef __x86_64__
   if (client_tls_addr != 0) {
-    if (syscall(__NR_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to client TLS\n");
   }
+#endif // __x86_64__
 
   return ret;
 }

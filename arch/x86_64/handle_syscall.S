@@ -1,5 +1,5 @@
 #include <asm/prctl.h>
-#include <asm/unistd_64.h>
+#include <sys/syscall.h>
 
   .file "handle_syscall.S"
   .text
@@ -89,7 +89,7 @@ handle_syscall:
 
   # ARCH_SET_FS needs special handling because it switches TLS
   #   int arch_prctl(int code, unsigned long addr)
-  cmp $__NR_arch_prctl, %rdi
+  cmp $SYS_arch_prctl, %rdi
   jne 2f
   cmp $ARCH_SET_FS, %rsi
   jne 2f

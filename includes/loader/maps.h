@@ -2,6 +2,7 @@
 #define MAPS_H_
 
 #include <elf.h>
+#include <link.h>
 #include <stdbool.h>
 #include <unistd.h>
 
@@ -12,12 +13,6 @@
 #include "jhash.h"
 #include "list.h"
 #include "rbtree.h"
-
-#if defined(__x86_64__)
-typedef Elf64_Addr Elf_Addr;
-#else
-#error Undefined target platform
-#endif
 
 /** Process memory regions */
 enum region_type {
@@ -58,7 +53,7 @@ struct region {
   /** Access protection */
   int perms;
   /** Region offset */
-  Elf_Addr offset;
+  ElfW(Addr) offset;
   /** Device identifier */
   dev_t dev;
   /** Device inode */
@@ -72,7 +67,8 @@ struct region {
 };
 
 struct maps* maps_read(const char* libname) attribute_hidden;
-void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near) attribute_hidden;
+void* maps_alloc_near(int maps_fd, void *addr, size_t size,
+                      int prot, bool near, uint64_t max_distance) attribute_hidden;
 void maps_release(struct maps *maps) attribute_hidden;
 void binrw_rd_init_maps(void) attribute_hidden;
 

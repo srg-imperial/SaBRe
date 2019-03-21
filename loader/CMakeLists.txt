@@ -13,7 +13,11 @@ set(SRCS
   rewriter.c
 )
 
-option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
+option(DEBUG "Print debug messages" OFF)
+
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+  option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
+endif ()
 
 if (DEBUG)
   add_definitions(-DSBR_DEBUG)
@@ -25,12 +29,15 @@ endif(RDTSC)
 
 # Build library
 add_library(loader ${SRCS})
-target_link_libraries(loader dl x86_64)
+target_link_libraries(loader dl ${CMAKE_SYSTEM_PROCESSOR})
 
 # Build loader
-add_executable(sabre ${CMAKE_SOURCE_DIR}/arch/x86_64/main.s)
+add_executable(sabre ${CMAKE_SOURCE_DIR}/arch/${CMAKE_SYSTEM_PROCESSOR}/main.s)
 set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-target_link_libraries(sabre loader libsrc)
+target_link_libraries(sabre loader)
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+target_link_libraries(sabre libsrc)
+endif ()
 
 # Build tools
 add_executable(process-vdso tools/process-vdso.c)

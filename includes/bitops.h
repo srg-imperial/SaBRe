@@ -7,12 +7,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#if defined(__x86_64__) && !defined(__ILP32__)
-#define __WORDSIZE 64
-#else
-#define __WORDSIZE 32
-#endif
-
 #define BITS_PER_LONG __WORDSIZE
 #define BIT_WORD(nr) ((nr) / BITS_PER_LONG)
 #define BITS_PER_BYTE 8

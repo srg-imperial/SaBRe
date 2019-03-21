@@ -20,6 +20,7 @@
 #ifdef __NX_INTERCEPT_RDTSC
 #include "arch/handle_rdtsc.h"
 #endif
+#include "arch/syscall_stackframe.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 
@@ -33,10 +34,6 @@ sbr_icept_vdso_callback_fn vdso_callback = NULL;
 #ifdef __NX_INTERCEPT_RDTSC
 sbr_rdtsc_handler_fn plugin_rdtsc_handler;
 #endif
-
-void *get_syscall_return_address (struct syscall_stackframe* stack_frame) {
-  return stack_frame->ret;
-}
 
 void register_function_intercepts(const sbr_fn_icept_struct *r_struct)
 {
@@ -63,6 +60,7 @@ void *find_auxv(void *argv) {
   return (void *)(search_ptr + 1);
 }
 
+#ifdef __x86_64__
 static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   assert(sig == SIGILL);
   ucontext_t* ctx = ucontext;
@@ -73,7 +71,7 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
     greg_t* regs = ctx->uc_mcontext.gregs;
     uintptr_t ret_addr = regs[REG_RIP] + 2;
     // simulate a syscall stack frame, as would be built by handle_syscall
-    void *wrapper_sp = (void *)((intptr_t)&ret_addr - offsetof(struct syscall_stackframe, ret));
+    void *wrapper_sp = (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
     plugin_sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
                regs[REG_R10], regs[REG_R8], regs[REG_R9], wrapper_sp);
 #ifdef __NX_INTERCEPT_RDTSC
@@ -96,6 +94,7 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   // Skip UD insn to point to return address
   ctx->uc_mcontext.gregs[REG_RIP] += 2;
 }
+#endif // __x86_64__
 
 // Returns the address of entry point and also populates a pointer
 // for the top of the new stack
@@ -232,14 +231,17 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   if (post_load != NULL)
     post_load(interp);
 
+#ifdef __x86_64__
   // Set up SIGILL handler for dealing with RDTSC instructions and system calls
   // that have been rewritten to use UD
   struct sigaction sa_ill = {.sa_sigaction = sigill_handler, .sa_flags = SA_SIGINFO | SA_NODEFER};
   sigaction(SIGILL, &sa_ill, NULL);
+#endif // __x86_64__
 
   // Modify the original process stack to represent arguments modified
   // by the plugin.
   
+  _nx_debug_printf("start rewriting stack\n");
   stack_val_t *src = (stack_val_t *)&argv[0];
   stack_val_t *dst = argv_null - argc;
   
@@ -261,6 +263,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   dst[argc] = 0; // restore argv_null that might have been overwritten by alignment
   *new_stack_top = dst - 1;
   *((stack_val_t *)*new_stack_top) = argc;
+  _nx_debug_printf("done rewriting stack\n");
 
   *new_entry = (void *)entry;
 }

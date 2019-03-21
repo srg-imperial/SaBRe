@@ -79,7 +79,7 @@ static inline void library_add(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
 }
 
 static inline struct region *__rb_insert_region(struct library *library,
-                                                Elf_Addr offset,
+                                                ElfW(Addr) offset,
                                                 struct rb_node *node) {
   struct rb_node **p = &library->rb_region.rb_node;
   struct rb_node *parent = NULL;
@@ -103,7 +103,7 @@ static inline struct region *__rb_insert_region(struct library *library,
 }
 
 static inline struct region *rb_insert_region(struct library *library,
-                                              Elf_Addr offset,
+                                              ElfW(Addr) offset,
                                               struct rb_node *node) {
   struct region *ret;
   if ((ret = __rb_insert_region(library, offset, node)))
@@ -257,7 +257,7 @@ struct maps* maps_read(const char* libname) {
         reg->perms = perms;
 
         // Set region offset
-        reg->offset = (Elf_Addr)offset;
+        reg->offset = (ElfW(Addr))offset;
 
         if (libname != NULL) {
           reg->type = REGION_LIBRARY;
@@ -297,12 +297,9 @@ struct maps* maps_read(const char* libname) {
   return maps;
 }
 
-#define MAX_DISTANCE (1536 << 20)
 #define PAGE_ALIGNMENT 4096
 
-void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near) {
-  _nx_debug_printf("maps_alloc_near\n");
-
+void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near, uint64_t max_distance) {
   if (lseek(maps_fd, 0, SEEK_SET) < 0)
     return NULL;
 
@@ -361,7 +358,7 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near)
       if (gap_end - gap_start >= size) {
         // Is the gap before our target address?
         if (((long)addr - (long)gap_end >= 0)) {
-          if (!near || ((long)addr - (gap_end - size) < MAX_DISTANCE)) {
+          if (!near || ((long)addr - (gap_end - size) < max_distance)) {
             if (name == 0 || (size_t)name > strlen(from)) {
               name = strlen(from);
             }
@@ -371,11 +368,11 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near)
             unsigned long pos;
             if (strncmp(pathname, "[stack]", 7) == 0) {
               // Underflow protection when we're adjacent to the stack
-              if (!near || ((uintptr_t)addr < MAX_DISTANCE ||
-                            (uintptr_t)addr - MAX_DISTANCE < gap_start)) {
+              if (!near || ((uintptr_t)addr < max_distance ||
+                            (uintptr_t)addr - max_distance < gap_start)) {
                 pos = gap_start;
               } else {
-                pos = ((uintptr_t)addr - MAX_DISTANCE) & ~4095;
+                pos = ((uintptr_t)addr - max_distance) & ~4095;
                 if (pos < gap_start)
                   pos = gap_start;
               }
@@ -393,7 +390,7 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near)
             if (ptr != MAP_FAILED)
               return ptr;
           }
-        } else if (!near || (gap_start + size - (uintptr_t)addr < MAX_DISTANCE)) {
+        } else if (!near || (gap_start + size - (uintptr_t)addr < max_distance)) {
           // Gap is after the address, above checks that we can wrap around
           // through 0 to a space we'd use
           void *ptr = mmap((void *)gap_start,

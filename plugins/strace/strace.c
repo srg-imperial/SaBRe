@@ -90,8 +90,10 @@ static void print_mmap_flags(long flags, FILE *stream) {
   else
     fputs("MAP_PRIVATE", stream);
 
+#ifdef __x86_64__
   if (flags & MAP_32BIT)
     fputs("|MAP_32BIT", stream);
+#endif // __x86_64__
 
   if (flags & MAP_ANONYMOUS)
     fputs("|MAP_ANONYMOUS", stream);
@@ -230,17 +232,19 @@ static void printstr(const char *str_ptr, long len, FILE *stream) {
 static void pre_decode_args(long sc, const long args[], FILE *stream) {
   if (!raw_out) {
     switch (sc) {
-      case __NR_mprotect:
+      case SYS_mprotect:
         fprintf(stream, "0x%lX, 0x%lX, ", args[0], args[1]);
         print_prot(args[2], stream);
         break;
 
-      case __NR_access:
+#ifdef __x86_64__
+      case SYS_access:
         printstr((char *)args[0], 0, stream);
         fprintf(stream, ", %lX", args[1]);
         break;
+#endif // __x86_64__
 
-      case __NR_mmap:
+      case SYS_mmap:
         for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
           if (!argno)
             fprintf(stream, "0x%lX", args[argno]);
@@ -256,15 +260,25 @@ static void pre_decode_args(long sc, const long args[], FILE *stream) {
         }
         break;
 
-      case __NR_open:
+#ifdef __x86_64__
+      case SYS_open:
         printstr((char *)args[0], 0, stream);
         fputs(", ", stream);
         if (print_open_flags(args[1], stream)) {
           fprintf(stream, ", %lo", args[2]);
         }
         break;
+#endif // __x86_64__
 
-      case __NR_write:
+      case SYS_openat:
+        printstr((char *)args[1], 0, stream);
+        fputs(", ", stream);
+        if (print_open_flags(args[2], stream)) {
+          fprintf(stream, ", %lo", args[3]);
+        }
+        break;
+
+      case SYS_write:
         for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
           if (!argno)
             fprintf(stream, "0x%lX", args[argno]);
@@ -277,7 +291,7 @@ static void pre_decode_args(long sc, const long args[], FILE *stream) {
         }
         break;
 
-      case __NR_read:
+      case SYS_read:
         fprintf(stream, "0x%lX", args[0]);
         break;
 
@@ -307,7 +321,7 @@ static void post_decode_args(long sc,
   (void)rtn;  // unused
   if (!raw_out) {
     switch (sc) {
-      case __NR_read:
+      case SYS_read:
         for (int argno = 1; argno < sysent[sc].nargs; ++argno) {
           if (argno == 1) {
             fputs(", ", stream);
@@ -340,13 +354,13 @@ long handle_syscall_real(long sc_no,
   fprintf(out_stream, "%s(", sysent[sc_no].sys_name);
 
   // Special-case the exit syscalls
-  if ((sc_no == __NR_exit) || (sc_no == __NR_exit_group)) {
+  if ((sc_no == SYS_exit) || (sc_no == SYS_exit_group)) {
     fprintf(out_stream, "%ld) = ?\n", arg1);
     fflush(out_stream);
 
     if (outfd_close)
       (void)real_syscall(
-          __NR_close, (long)fileno(out_stream), arg2, arg3, arg4, arg5, arg6);
+          SYS_close, (long)fileno(out_stream), arg2, arg3, arg4, arg5, arg6);
 
     // More sophisticated checks should be implemented at some point -
     // what if target app doesn't use output streams at all, and we
@@ -359,7 +373,7 @@ long handle_syscall_real(long sc_no,
     pre_decode_args(sc_no, local_args, out_stream);
 
     // If the sandboxed app is closing our output FD
-    if ((sc_no == __NR_close) && ((int)arg1 == fileno(out_stream))) {
+    if ((sc_no == SYS_close) && ((int)arg1 == fileno(out_stream))) {
       // A bit hacky - what if there was an error? We can't see in the future
       // though, so...
       syscall_rtn = 0;
@@ -391,20 +405,22 @@ long handle_syscall(long sc_no,
 }
 
 long handle_syscall_clock_gettime(long arg1, long arg2) {
-  return handle_syscall_real(__NR_clock_gettime, arg1, arg2, 0, 0, 0, 0, true);
+  return handle_syscall_real(SYS_clock_gettime, arg1, arg2, 0, 0, 0, 0, true);
 }
 
 long handle_syscall_getcpu(long arg1, long arg2, long arg3) {
-  return handle_syscall_real(__NR_getcpu, arg1, arg2, arg3, 0, 0, 0, true);
+  return handle_syscall_real(SYS_getcpu, arg1, arg2, arg3, 0, 0, 0, true);
 }
 
 long handle_syscall_gettimeofday(long arg1, long arg2) {
-  return handle_syscall_real(__NR_gettimeofday, arg1, arg2, 0, 0, 0, 0, true);
+  return handle_syscall_real(SYS_gettimeofday, arg1, arg2, 0, 0, 0, 0, true);
 }
 
+#ifdef __x86_64__
 long handle_syscall_time(long arg1) {
-  return handle_syscall_real(__NR_time, arg1, 0, 0, 0, 0, 0, true);
+  return handle_syscall_real(SYS_time, arg1, 0, 0, 0, 0, 0, true);
 }
+#endif // __x86_64__
 
 void handle_args(int *argc, char **argv[]) {
   bool sep_found = false;
@@ -485,14 +501,16 @@ void handle_args(int *argc, char **argv[]) {
 void_void_fn vdso_callback_imp(long sc_no, void_void_fn actual_fn) {
   (void)actual_fn;  // unused
   switch (sc_no) {
-    case __NR_clock_gettime:
+    case SYS_clock_gettime:
       return (void_void_fn)handle_syscall_clock_gettime;
-    case __NR_getcpu:
+    case SYS_getcpu:
       return (void_void_fn)handle_syscall_getcpu;
-    case __NR_gettimeofday:
+    case SYS_gettimeofday:
       return (void_void_fn)handle_syscall_gettimeofday;
-    case __NR_time:
+#ifdef __x86_64__
+    case SYS_time:
       return (void_void_fn)handle_syscall_time;
+#endif // __x86_64__
     default:
       return (void_void_fn)NULL;
   }

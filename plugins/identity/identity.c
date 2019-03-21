@@ -21,7 +21,7 @@ long handle_syscall(long sc_no,
                     long arg5,
                     long arg6,
                     void* wrapper_sp) {
-  if (sc_no == 56 && arg2 != 0) { // clone
+  if (sc_no == SYS_clone && arg2 != 0) { // clone
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone_syscall(arg1, (void*)arg2, (void*)arg3, (void*)arg4, arg5, ret_addr);
   }
@@ -50,31 +50,36 @@ int handle_vdso_gettimeofday(struct timeval *arg1, struct timezone *arg2) {
   return ((gettimeofday_fn*)actual_gettimeofday)(arg1, arg2);
 }
 
+#ifdef __x86_64__
 typedef int time_fn(time_t *);
 int handle_vdso_time(time_t *arg1) {
   return ((time_fn*)actual_time)(arg1);
 }
+#endif // __x86_64__
 
 void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   (void)actual_fn;
   switch (sc_no) {
-    case __NR_clock_gettime:
+    case SYS_clock_gettime:
       actual_clock_gettime = actual_fn;
       return (void_void_fn)handle_vdso_clock_gettime;
-    case __NR_getcpu:
+    case SYS_getcpu:
       actual_getcpu = actual_fn;
       return (void_void_fn)handle_vdso_getcpu;
-    case __NR_gettimeofday:
+    case SYS_gettimeofday:
       actual_gettimeofday = actual_fn;
       return (void_void_fn)handle_vdso_gettimeofday;
-    case __NR_time:
+#ifdef __x86_64__
+    case SYS_time:
       actual_time = actual_fn;
       return (void_void_fn)handle_vdso_time;
+#endif // __x86_64__
     default:
       return (void_void_fn)NULL;
   }
 }
 
+#ifdef __NX_INTERCEPT_RDTSC
 long handle_rdtsc() {
   long high, low;
 
@@ -86,6 +91,7 @@ long handle_rdtsc() {
 
   return ret;
 }
+#endif // __NX_INTERCEPT_RDTSC
 
 void sbr_init(int *argc, char **argv[],
              sbr_icept_reg_fn fn_icept_reg,

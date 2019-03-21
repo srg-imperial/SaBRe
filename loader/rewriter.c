@@ -12,24 +12,13 @@
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
-
-typedef Elf64_Phdr Elf_Phdr;
-typedef Elf64_Rela Elf_Rel;
-
-typedef Elf64_Half Elf_Half;
-typedef Elf64_Word Elf_Word;
-typedef Elf64_Sword Elf_Sword;
-typedef Elf64_Xword Elf_Xword;
-typedef Elf64_Sxword Elf_Sxword;
-typedef Elf64_Off Elf_Off;
-typedef Elf64_Section Elf_Section;
-typedef Elf64_Versym Elf_Versym;
+#include <sys/syscall.h>
 
 #define section_hashfn(n) jhash(n, strlen(n), 0) & (sectionhash_size - 1)
 
 static inline void section_init(struct section *s,
                                 const char *name,
-                                Elf_Shdr shdr) {
+                                ElfW(Shdr) shdr) {
   s->name = name;
   s->shdr = shdr;  // TODO: should we use malloc + memcpy
 
@@ -75,7 +64,7 @@ static inline void section_add(struct hlist_head *hash, struct section *scn) {
 
 static inline void symbol_init(struct symbol *s,
                                const char *name,
-                               Elf_Sym sym) {
+                               ElfW(Sym) sym) {
   s->name = name;
   s->sym = sym;
 }
@@ -116,7 +105,7 @@ static inline void symbol_add(struct hlist_head *hash, struct symbol *sym) {
  * compare less than @p offset
  */
 static inline struct region *rb_lower_bound_region(struct library *lib,
-                                                   Elf_Addr offset) {
+                                                   ElfW(Addr) offset) {
   struct rb_node *n = lib->rb_region.rb_node;
   struct rb_node *parent = NULL;
   struct region *region;
@@ -188,7 +177,7 @@ static char *memcpy_fromlib(void *dst,
 }
 
 static char *library_buf_get(struct library *lib,
-                             Elf_Addr offset,
+                             ElfW(Addr) offset,
                              char *buf,
                              size_t len) {
   memset(buf, 0, len);
@@ -219,7 +208,7 @@ static char *library_buf_get(struct library *lib,
 }
 
 static char* library_buf_get_original(struct library *l,
-                                      Elf_Addr offset,
+                                      ElfW(Addr) offset,
                                       char *buf,
                                       size_t len) {
   if (!l->valid) {
@@ -295,7 +284,7 @@ static char* library_buf_get_original(struct library *l,
   return buf ? library_buf_get(l, offset, buf, len) : NULL;
 }
 
-static const char* library_copy(struct library *lib, Elf_Addr offset) {
+static const char* library_copy(struct library *lib, ElfW(Addr) offset) {
   if (!lib->valid)
     return "";
 
@@ -335,7 +324,7 @@ static const char* library_copy(struct library *lib, Elf_Addr offset) {
   return string;
 }
 
-static const char* library_copy_original(struct library *l, Elf_Addr offset) {
+static const char* library_copy_original(struct library *l, ElfW(Addr) offset) {
   if (!l->valid)
     goto empty;
 
@@ -408,7 +397,7 @@ static void patch_vdso(struct library *lib) {
     _nx_fatal_printf("no vdso .text section");
   _nx_debug_printf("vdso .text section %p\n", scn);
 
-  const Elf_Shdr *shdr = &scn->shdr;
+  const ElfW(Shdr) *shdr = &scn->shdr;
   char *addr = (char *)(shdr->sh_addr + lib->asr_offset);
   size_t size = round_up(shdr->sh_size, 0x1000);
 
@@ -418,39 +407,45 @@ static void patch_vdso(struct library *lib) {
   }
   _nx_debug_printf("mprotect done\n");
 
+  _nx_debug_printf("detouring __vdso_getcpu\n");
   struct symbol *sym = symbol_find(lib->symbol_hash, "__vdso_getcpu");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_getcpu,
+        SYS_getcpu,
         &extra_space,
         &extra_len);
   }
+#ifdef __x86_64__
+  _nx_debug_printf("detouring __vdso_time\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_time");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_time,
+        SYS_time,
         &extra_space,
         &extra_len);
   }
+#endif // __x86_64__
+  _nx_debug_printf("detouring __vdso_gettimeofday\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_gettimeofday");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_gettimeofday,
+        SYS_gettimeofday,
         &extra_space,
         &extra_len);
   }
+  _nx_debug_printf("detouring __vdso_clock_gettime\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_clock_gettime");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
     detour_func(lib,
         lib->asr_offset + sym->sym.st_value,
         lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        __NR_clock_gettime,
+        SYS_clock_gettime,
         &extra_space,
         &extra_len);
   }
@@ -549,7 +544,7 @@ static void patch_syscalls(struct library *lib, bool loader) {
     return;
 
   _nx_debug_printf(".text section %p\n", scn);
-  const Elf_Shdr *shdr = &scn->shdr;
+  const ElfW(Shdr) *shdr = &scn->shdr;
   char *start = (char *)(shdr->sh_addr + lib->asr_offset);
   char *stop = start + shdr->sh_size;
   patch_syscalls_in_range(lib, start, stop, &extra_space, &extra_len, loader);
@@ -581,7 +576,7 @@ static void patch_funcs(struct library *lib) {
       if (!scn)
         return;
 
-      const Elf_Shdr *shdr = &scn->shdr;
+      const ElfW(Shdr) *shdr = &scn->shdr;
       char *addr = (char *)(shdr->sh_addr + lib->asr_offset);
       size_t size = round_up(shdr->sh_size, 0x1000);
 
@@ -611,7 +606,7 @@ static bool parse_symbols(struct library *lib) {
   if (!lib->valid)
     return false;
 
-  Elf_Shdr str_shdr;
+  ElfW(Shdr) str_shdr;
   ignore_result(library_get_original(
       lib,
       lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
@@ -619,8 +614,8 @@ static bool parse_symbols(struct library *lib) {
 
   // Find symbol table
   struct section *scn = section_find(lib->section_hash, ".dynsym");
-  const Elf_Shdr *symtab = scn ? &scn->shdr : NULL;
-  Elf_Shdr strtab = {0};
+  const ElfW(Shdr) *symtab = scn ? &scn->shdr : NULL;
+  ElfW(Shdr) strtab = {0};
   if (symtab) {
     if (symtab->sh_link >= lib->ehdr.e_shnum ||
         !library_get_original(
@@ -632,8 +627,8 @@ static bool parse_symbols(struct library *lib) {
     }
 
     // Parse symbol table and add its entries
-    for (Elf_Addr addr = 0; addr < symtab->sh_size; addr += sizeof(Elf_Sym)) {
-      Elf_Sym sym;
+    for (ElfW(Addr) addr = 0; addr < symtab->sh_size; addr += sizeof(ElfW(Sym))) {
+      ElfW(Sym) sym;
       if (!library_get_original(lib, symtab->sh_offset + addr, &sym) ||
           (sym.st_shndx >= lib->ehdr.e_shnum && sym.st_shndx < SHN_LORESERVE)) {
         _nx_debug_printf("WARN: encountered invalid symbol\n");
@@ -664,11 +659,11 @@ static bool parse_elf(struct library *lib, const char * prog_name) {
   lib->valid = true;
 
   // Verify ELF header
-  Elf_Shdr str_shdr;
+  ElfW(Shdr) str_shdr;
   if (!library_get_original(lib, 0, &lib->ehdr) ||
-      lib->ehdr.e_ehsize < sizeof(Elf_Ehdr) ||
-      lib->ehdr.e_phentsize < sizeof(Elf_Phdr) ||
-      lib->ehdr.e_shentsize < sizeof(Elf_Shdr) ||
+      lib->ehdr.e_ehsize < sizeof(ElfW(Ehdr)) ||
+      lib->ehdr.e_phentsize < sizeof(ElfW(Phdr)) ||
+      lib->ehdr.e_shentsize < sizeof(ElfW(Shdr)) ||
       !library_get_original(
           lib,
           lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
@@ -679,7 +674,7 @@ static bool parse_elf(struct library *lib, const char * prog_name) {
 
   // Parse section table and find all sections in this ELF file
   for (int i = 0; i < lib->ehdr.e_shnum; i++) {
-    Elf_Shdr shdr;
+    ElfW(Shdr) shdr;
     if (!library_get_original(
             lib, lib->ehdr.e_shoff + i * lib->ehdr.e_shentsize, &shdr))
       continue;
@@ -694,7 +689,7 @@ static bool parse_elf(struct library *lib, const char * prog_name) {
 
   // Compute the offset of entries in the .text segment
   struct section *scn = section_find(lib->section_hash, ".text");
-  const Elf_Shdr *text = scn ? &scn->shdr : NULL;
+  const ElfW(Shdr) *text = scn ? &scn->shdr : NULL;
   if (!text) {
     _nx_debug_printf("parse_elf: failed to find .text\n");
     goto error;

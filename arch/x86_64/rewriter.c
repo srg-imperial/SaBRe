@@ -37,6 +37,8 @@ static inline bool is_safe_insn(unsigned short insn) {
          (insn >= 0xF19 && insn <= 0xF1F) /* long NOP */;
 }
 
+#define TRAMPOLINE_MAX_DISTANCE (1536 << 20)
+
 static void patch_syscalls_in_func(struct library *lib,
                                            char *start,
                                            char *end,
@@ -272,7 +274,7 @@ static void patch_syscalls_in_func(struct library *lib,
       // Allocate scratch space and copy the preamble of code that was moved
       // from the function that we are patching.
       char *dest = alloc_scratch_space(
-          lib->maps->fd, code[first].addr, needed, extra_space, extra_len, true);
+          lib->maps->fd, code[first].addr, needed, extra_space, extra_len, true, TRAMPOLINE_MAX_DISTANCE);
       memcpy(dest, code[first].addr, preamble);
 
       // For jumps from the VDSO to the VSyscalls we sometimes allow exactly
@@ -686,7 +688,7 @@ void detour_func(struct library *lib,
 #if defined(USE_ABS_JMP_DETOUR)
       false);
 #else
-      true);
+      true, TRAMPOLINE_MAX_DISTANCE);
 #endif
 #if defined(USE_ABS_JMP_DETOUR)
   trampoline_addr = dest + 70;
@@ -854,7 +856,7 @@ void api_detour_func(struct library *lib,
 #if defined(USE_ABS_JMP_DETOUR)
       false);
 #else
-      true);
+      true, TRAMPOLINE_MAX_DISTANCE);
 #endif
 
   memcpy(dest, DETOUR_ASM, DETOUR_ASM_SIZE);
