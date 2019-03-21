@@ -407,6 +407,19 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   (void)(sc_no);  // unused
   return actual_fn;
 }
+#ifdef __NX_INTERCEPT_RDTSC
+long handle_rdtsc() {
+  long high, low;
+
+  asm volatile ("rdtsc;" :"=a"(low), "=d"(high) : : );
+
+  long ret = high;
+  ret <<= 32;
+  ret |= low;
+
+  return ret;
+}
+#endif // __NX_INTERCEPT_RDTSC
 
 static void segv_handler(int sig) {
   ssize_t bytes = write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19);
@@ -432,14 +445,15 @@ error:
   raise(sig);
 }
 
-void sbr_init(int *argc,
-             char **argv[],
-             sbr_icept_reg_fn fn_icept_reg,
-             sbr_icept_vdso_callback_fn *vdso_callback,
-             sbr_sc_handler_fn *syscall_handler,
-             sbr_post_load_fn *post_load) {
-  (void)fn_icept_reg;  // unused
-  (void)post_load;     // unused
+void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
+              sbr_icept_vdso_callback_fn *vdso_callback,
+              sbr_sc_handler_fn *syscall_handler,
+#ifdef __NX_INTERCEPT_RDTSC
+              sbr_rdtsc_handler_fn *rdtsc_handler,
+#endif
+              sbr_post_load_fn *post_load) {
+  (void)fn_icept_reg; // unused
+  (void)post_load;    // unused
 
   struct sigaction sig_act;
   sig_act.sa_handler = &segv_handler;
@@ -459,7 +473,9 @@ void sbr_init(int *argc,
 
   *syscall_handler = handle_syscall;
   *vdso_callback = handle_vdso;
-
+#ifdef __NX_INTERCEPT_RDTSC
+  *rdtsc_handler = handle_rdtsc;
+#endif
   handle_arguments(argc, argv);
 
   random_seed = random_seed ? random_seed : time(NULL);

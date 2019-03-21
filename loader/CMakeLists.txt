@@ -13,20 +13,6 @@ set(SRCS
   rewriter.c
 )
 
-option(DEBUG "Print debug messages" OFF)
-
-if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
-  option(RDTSC          "Intercept instruction RDTSC as a system call" ON)
-endif ()
-
-if (DEBUG)
-  add_definitions(-DSBR_DEBUG)
-endif(DEBUG)
-
-if (RDTSC)
-  add_definitions(-D__NX_INTERCEPT_RDTSC)
-endif(RDTSC)
-
 # Build library
 add_library(loader ${SRCS})
 target_link_libraries(loader dl ${CMAKE_SYSTEM_PROCESSOR})
