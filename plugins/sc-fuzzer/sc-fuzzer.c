@@ -407,6 +407,19 @@ void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
   (void)(sc_no);  // unused
   return actual_fn;
 }
+#ifdef __NX_INTERCEPT_RDTSC
+long handle_rdtsc() {
+  long high, low;
+
+  asm volatile ("rdtsc;" :"=a"(low), "=d"(high) : : );
+
+  long ret = high;
+  ret <<= 32;
+  ret |= low;
+
+  return ret;
+}
+#endif // __NX_INTERCEPT_RDTSC
 
 static void segv_handler(int sig) {
   ssize_t bytes = write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19);
