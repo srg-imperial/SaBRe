@@ -8,14 +8,12 @@ if (DEBUG)
   add_definitions(-DSBR_DEBUG)
 endif(DEBUG)
 
-option(RDTSC "Intercept instruction RDTSC as a system call" ON)
-if (RDTSC)
-  if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+  option(RDTSC "Intercept instruction RDTSC as a system call" ON)
+  if (RDTSC)
     add_definitions(-D__NX_INTERCEPT_RDTSC)
-  else ()
-    message(WARNING "Intercepting RDTSC does not make sense on non x86_64 architectures")
   endif()
-endif(RDTSC)
+endif()
 
 # Sources
 add_subdirectory("libsrc")
