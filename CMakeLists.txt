@@ -3,10 +3,10 @@ project (SaBRe C ASM)
 
 find_program(GCC_PATH gcc)
 
-option(DEBUG "Print debug messages" OFF)
-if (DEBUG)
+option(DEBUG_INTERNAL "Print debug messages" OFF)
+if (DEBUG_INTERNAL)
   add_definitions(-DSBR_DEBUG)
-endif(DEBUG)
+endif ()
 
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
   option(RDTSC "Intercept instruction RDTSC as a system call" ON)
