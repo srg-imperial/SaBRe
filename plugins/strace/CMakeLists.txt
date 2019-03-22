@@ -1,6 +1,4 @@
-include_directories(${CMAKE_SOURCE_DIR}/includes/plugins)
+sabre_add_plugin(strace
+  strace.c)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -Wall -Wextra -Werror -Wno-error=unused-parameter")
-
-add_library(strace SHARED strace.c)
-target_link_libraries(strace ${CMAKE_SYSTEM_PROCESSOR})
+target_compile_options(strace PRIVATE -Wall -Wextra -Werror -Wno-error=unused-parameter)
