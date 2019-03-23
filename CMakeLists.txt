@@ -3,6 +3,7 @@ project (SaBRe C ASM)
 
 find_program(GCC_PATH gcc)
 
+set (SABRE_C_COMPILE_OPTIONS "-std=gnu99" "-Wall" "-Wextra" "-Werror")
 set(SABRE_PLUGIN_C_COMPILE_OPTIONS "")
 list(APPEND SABRE_PLUGIN_C_COMPILE_OPTIONS "-std=gnu99")
 
@@ -21,7 +22,9 @@ endif()
 include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_plugin.cmake")
 
 # Sources
-add_subdirectory("libsrc")
+if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+  add_subdirectory("libsrc")
+endif ()
 add_subdirectory("loader")
 file(GLOB subdirs CONFIGURE_DEPENDS "plugins/*")
 foreach(subdir ${subdirs})
