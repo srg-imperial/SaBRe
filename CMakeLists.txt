@@ -3,9 +3,8 @@ project (SaBRe C ASM)
 
 find_program(GCC_PATH gcc)
 
-set (SABRE_C_COMPILE_OPTIONS "-std=gnu99" "-Wall" "-Wextra" "-Werror")
-set(SABRE_PLUGIN_C_COMPILE_OPTIONS "")
-list(APPEND SABRE_PLUGIN_C_COMPILE_OPTIONS "-std=gnu99")
+set(SABRE_C_COMPILE_OPTIONS "-std=gnu99" "-Wall" "-Wextra" "-Werror")
+set(SABRE_PLUGIN_C_COMPILE_OPTIONS "-std=gnu99")
 
 option(DEBUG_INTERNAL "Print debug messages" OFF)
 if (DEBUG_INTERNAL)
@@ -19,7 +18,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
   endif()
 endif()
 
-include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_plugin.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_component.cmake")
 
 # Sources
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")

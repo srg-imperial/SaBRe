@@ -1,3 +1,10 @@
+function(sabre_add_main_executable)
+  add_executable(sabre ${ARGN})
+  target_compile_options(sabre PRIVATE ${SABRE_C_COMPILE_OPTIONS} "-fPIE" "-fstack-protector" "-rdynamic")
+  set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+  target_link_libraries(sabre loader)
+endfunction()
+
 function(sabre_add_plugin plugin_name)
   add_library(${plugin_name} SHARED ${ARGN})
   target_include_directories(${plugin_name} PRIVATE ${CMAKE_SOURCE_DIR}/includes/plugins)
