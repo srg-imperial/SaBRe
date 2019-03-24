@@ -17,15 +17,4 @@ add_library(loader
 
 target_link_libraries(loader ${CMAKE_DL_LIBS} ${CMAKE_SYSTEM_PROCESSOR})
 
-# Build tools
-add_executable(process-vdso tools/process-vdso.c)
-add_executable(dump-vdso    tools/dump-vdso.c)
-
-target_compile_options(dump-vdso PRIVATE "-Wno-unused-parameter")
-target_compile_options(process-vdso PRIVATE "-Wno-unused-parameter")
-
-target_include_directories(process-vdso PRIVATE ${CMAKE_SOURCE_DIR}/includes/arch)
-target_include_directories(dump-vdso PRIVATE ./includes)
-
-target_link_libraries(process-vdso loader)
-target_link_libraries(dump-vdso    loader)
+add_subdirectory(tools)
