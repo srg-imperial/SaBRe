@@ -1,12 +1,10 @@
-include_directories(${CMAKE_SOURCE_DIR}/includes)
-include_directories(${CMAKE_SOURCE_DIR}/includes/loader)
-
-set(SABRE_LOADER_C_COMPILE_OPTIONS ${SABRE_C_COMPILE_OPTIONS} "-fPIE" "-fstack-protector")
+list(APPEND SABRE_COMPONENT_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/includes/loader)
+list(APPEND SABRE_COMPONENT_C_FLAGS "-fPIC" "-fstack-protector")
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/arch/${CMAKE_SYSTEM_PROCESSOR} arch)
 
 # Build library
-add_library(loader
+sabre_add_component(loader
   elf_loading.c
   ld_sc_handler.c
   loader.c

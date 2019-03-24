@@ -1,5 +1,4 @@
-include_directories(${CMAKE_SOURCE_DIR}/includes)
-include_directories(${CMAKE_SOURCE_DIR}/includes/arch)
+list(APPEND SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/arch")
 
 set(SRCS
   clone_syscall.s
@@ -16,9 +15,10 @@ if (RDTSC)
   list(APPEND SRCS handle_rdtsc.s)
 endif(RDTSC)
 
-add_library(x86_64 STATIC ${SRCS})
-target_compile_options(x86_64 PRIVATE ${SABRE_LOADER_C_COMPILE_OPTIONS})
+sabre_add_component(x86_64 ${SRCS})
 target_link_libraries(x86_64 loader)
+
+add_subdirectory("${CMAKE_SOURCE_DIR}/libsrc" "${CMAKE_BINARY_DIR}/libsrc")
 
 sabre_add_main_executable(main.s)
 target_link_libraries(sabre libsrc)
