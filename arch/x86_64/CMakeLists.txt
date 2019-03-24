@@ -1,8 +1,6 @@
 include_directories(${CMAKE_SOURCE_DIR}/includes)
 include_directories(${CMAKE_SOURCE_DIR}/includes/arch)
 
-set(CMAKE_C_FLAGS_DEBUG "-ggdb3")
-
 set(SRCS
   clone_syscall.s
   handle_syscall.S

@@ -1,7 +1,6 @@
 include_directories(${CMAKE_SOURCE_DIR}/includes)
 include_directories(${CMAKE_SOURCE_DIR}/includes/loader)
 
-set(CMAKE_C_FLAGS_DEBUG "-ggdb3")
 set(SABRE_LOADER_C_COMPILE_OPTIONS ${SABRE_C_COMPILE_OPTIONS} "-fPIE" "-fstack-protector")
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/arch/${CMAKE_SYSTEM_PROCESSOR} arch)
