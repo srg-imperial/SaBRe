@@ -1,4 +1,4 @@
+list(APPEND SABRE_PLUGIN_C_FLAGS "-Wall" "-Werror" "-Wno-erro=unused-parameter")
+
 sabre_add_plugin(identity
   identity.c)
-
-target_compile_options(identity PRIVATE -Wall -Wextra -Werror -Wno-error=unused-parameter)
