@@ -2,7 +2,7 @@
 // RUN: rm %t3 %t3.link || true
 // RUN: touch %t3
 // RUN: ln -s %t3 %t3.link
-// RUN: %{vx} %t1 %t3 %t3.link 2>&1
+// RUN: %{sbr} %t1 %t3 %t3.link 2>&1
 
 #include <stdio.h>
 #include <stdlib.h>

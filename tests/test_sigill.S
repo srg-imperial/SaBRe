@@ -1,6 +1,6 @@
 /*
  * RUN: %{cc} -nostdlib -nostartfiles %s -o %t1
- * RUN: %{vx} %t1
+ * RUN: %{sbr} %t1
  */
 
 /* The purpose of this test is to ensure that when Varan encounters a non-relocatable instruction

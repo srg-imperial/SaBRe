@@ -1,5 +1,5 @@
 // RUN: %{cc} %s -o %t1
-// RUN: %{vx} %t1 2>&1
+// RUN: %{sbr} %t1 2>&1
 
 #define _GNU_SOURCE
 #include <stddef.h>

@@ -1,6 +1,6 @@
 /*
  * RUN: %{cc} %s -o %t1
- * RUN: %{vx} %t1 &> %t1.actual
+ * RUN: %{sbr} %t1 &> %t1.actual
  * RUN: echo "Hello from child"  >  %t1.expected
  * RUN: echo "Hello from parent" >> %t1.expected
  * RUN: diff %t1.actual %t1.expected

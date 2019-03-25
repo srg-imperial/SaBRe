@@ -2,7 +2,7 @@
  * RUN: rm -rf %t1 %t5 %t6
  * RUN: echo > %t5
  * RUN: %{cc} %s -o %t2
- * RUN: %{vx} %t2 %t1 %t5 %t6 &> %t2.actual
+ * RUN: %{sbr} %t2 %t1 %t5 %t6 &> %t2.actual
  * RUN: echo -n > %t2.expected
  * RUN: diff %t2.actual %t2.expected
  */

@@ -2,7 +2,7 @@
  * RUN: %{cc} %s -D_EXEC_NAME=%t1 -o %t1
  * RUN: echo "Hello, world!" >  %t1.expected
  * RUN: echo "1"             >> %t1.expected
- * RUN: %{vx} %t1 &> %t1.actual 1
+ * RUN: %{sbr} %t1 &> %t1.actual 1
  * RUN: sleep 2
  * RUN: diff %t1.actual %t1.expected
  */

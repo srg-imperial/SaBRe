@@ -1,6 +1,6 @@
 /*
  * RUN: %{cc} %s -o %t1
- * RUN: ! %{vx} %t1 %t1 &> %t1.actual
+ * RUN: ! %{sbr} %t1 %t1 &> %t1.actual
  * RUN: grep "Assertion" %t1.actual
  */
 

@@ -2,7 +2,7 @@
  * RUN: echo > %t1
  * RUN: ln -s -f %t1 %t1.link
  * RUN: %{cc} %s -o %t2
- * RUN: %{vx} %t2 %t1 %t1.link &> %t2.actual
+ * RUN: %{sbr} %t2 %t1 %t1.link &> %t2.actual
  * RUN: echo -n > %t2.expected
  * RUN: diff %t2.actual %t2.expected
  */

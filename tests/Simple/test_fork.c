@@ -2,7 +2,7 @@
  * RUN: %{cc} %s -o %t1
  * RUN: echo "abc" >  %t1.expected
  * RUN: echo "def" >> %t1.expected
- * RUN: timeout 5 %{vx} %t1 &> %t1.actual
+ * RUN: timeout 5 %{sbr} %t1 &> %t1.actual
  * RUN: diff %t1.actual %t1.expected
  */
 

@@ -1,7 +1,7 @@
 // RUN: %{cc} %s -o %t1
 // RUN: rm %t3 || true
 // RUN: touch %t3
-// RUN: %{vx} %t1 %t3 2>&1
+// RUN: %{sbr} %t1 %t3 2>&1
 
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -1,7 +1,7 @@
 /*
  * RUN: %{cc} %s -o %t1
  * RUN: echo -n "Test contents" >  %t1.expected
- * RUN: %{vx} %t1 &> %t1.actual
+ * RUN: %{sbr} %t1 &> %t1.actual
  * RUN: diff %t1.actual %t1.expected
  */
 #include <stdio.h>

@@ -1,7 +1,7 @@
 /*
  * RUN: %{cc} %s -o %t1
  * RUN: echo "Success" >  %t1.expected
- * RUN: %{timeout} 2 %{vx} %t1 &> %t1.actual
+ * RUN: %{timeout} 2 %{sbr} %t1 &> %t1.actual
  * RUN: diff %t1.actual %t1.expected
  */
 #include <stdio.h>

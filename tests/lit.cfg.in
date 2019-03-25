@@ -39,7 +39,7 @@ config.substitutions.append(('%{cc}',       '@GCC_PATH@'))
 config.substitutions.append(('%{clang}',    '@CLANG_PATH@'))
 config.substitutions.append(('%{gcc}',      '@GCC_PATH@'))
 
-config.substitutions.append(('%{vx}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/identity/libidentity.so'))
+config.substitutions.append(('%{sbr}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/identity/libidentity.so'))
 config.substitutions.append(('%{process-vdso}', '@CMAKE_BINARY_DIR@/loader/process-vdso'))
 
 # Programs for utils tests
