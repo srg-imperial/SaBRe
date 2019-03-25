@@ -21,8 +21,8 @@ config.test_format = lit.formats.ShTest(execute_external=True)
 config.suffixes = ['.c', '.sh']
 
 # test_source_root: The root path where tests are located.
-config.test_source_root = '@CMAKE_CURRENT_BINARY_DIR@/tests/ld'
-config.test_exec_root   = '@CMAKE_CURRENT_BINARY_DIR@/tests'
+config.test_source_root = '@CMAKE_BINARY_DIR@/tests/ld'
+config.test_exec_root   = '@CMAKE_BINARY_DIR@/tests'
 
 config.target_triple = '(unused)'
 
