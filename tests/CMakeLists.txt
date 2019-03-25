@@ -22,7 +22,7 @@ CMAKE_PUSH_CHECK_STATE(RESET)
 CMAKE_POP_CHECK_STATE()
 if(NOT tsan_avail)
   message(FATAL_ERROR "ThreadSanitizer is not supported by the system compiler")
-  endif()
+endif()
 
 FIND_PROGRAM_FATAL(clang)
 FIND_PROGRAM_FATAL(gcc)
@@ -70,11 +70,8 @@ configure_file("lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/lit.cfg" @ONLY)
 configure_file("Utils/test_help.sh" "${CMAKE_CURRENT_BINARY_DIR}/Utils/test_help.sh" @ONLY)
 
 foreach(link "" "-static")
-  foreach(pie "" "-fpie")
-    foreach(relro "-Wl,-z,norelro" "-Wl,-z,relro" "-Wl,-z,relro,-z,now")
-      configure_file("ld/test.c.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/ld/test_${link}_${pie}_${relro}.c" @ONLY)
-    endforeach(relro)
+  foreach(pie "-no-pie" "-pie")
+    configure_file("ld/test.c.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/test_${link}_${pie}.c" @ONLY)
   endforeach(pie)
 endforeach(link)
 
