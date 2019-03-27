@@ -26,3 +26,5 @@ file(GLOB subdirs CONFIGURE_DEPENDS "arch/*")
 foreach(subdir ${subdirs})
   add_subdirectory(${subdir})
 endforeach()
+
+add_subdirectory("tests")
