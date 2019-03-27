@@ -1,5 +1,4 @@
 // RUN: %{cc} %s -o %t1
-// RUN: rm %t3 || true
 // RUN: touch %t3
 // RUN: %{sbr} %t1 %t3 2>&1
 
