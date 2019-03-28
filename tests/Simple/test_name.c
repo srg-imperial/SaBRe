@@ -1,4 +1,5 @@
 /*
+ * RUN: rm -rf %t1
  * RUN: echo > %t5
  * RUN: %{cc} %s -o %t2
  * RUN: %{sbr} %t2 %t1 %t5 %t6 &> %t2.actual

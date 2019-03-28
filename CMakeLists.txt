@@ -1,30 +1,38 @@
 cmake_minimum_required (VERSION 2.8)
+
+set(CMAKE_USER_MAKE_RULES_OVERRIDE_C "${CMAKE_CURRENT_SOURCE_DIR}/cmake/c_flags_override.cmake")
+
 project (SaBRe C ASM)
 
 find_program(GCC_PATH gcc)
 
-option(DEBUG "Print debug messages" OFF)
-if (DEBUG)
-  add_definitions(-DSBR_DEBUG)
-endif(DEBUG)
+set(SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes")
+set(SABRE_COMPONENT_C_DEFINES "")
+set(SABRE_COMPONENT_C_FLAGS "-std=gnu99" "-Wall" "-Wextra" "-Werror")
+set(SABRE_PLUGIN_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/plugins")
+set(SABRE_PLUGIN_C_DEFINES "")
+set(SABRE_PLUGIN_C_FLAGS "-std=gnu99")
+
+option(DEBUG_INTERNAL "Print debug messages" OFF)
+if (DEBUG_INTERNAL)
+  list(APPEND SABRE_COMPONENT_C_DEFINES "-DSBR_DEBUG")
+  list(APPEND SABRE_PLUGIN_C_DEFINES "-DSBR_DEBUG")
+endif ()
 
 if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
   option(RDTSC "Intercept instruction RDTSC as a system call" ON)
   if (RDTSC)
-    add_definitions(-D__NX_INTERCEPT_RDTSC)
+    list(APPEND SABRE_COMPONENT_C_DEFINES "-D__NX_INTERCEPT_RDTSC")
+    list(APPEND SABRE_PLUGIN_C_DEFINES "-D__NX_INTERCEPT_RDTSC")
   endif()
 endif()
 
+include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_component.cmake")
+
 # Sources
-add_subdirectory("libsrc")
 add_subdirectory("loader")
 file(GLOB subdirs CONFIGURE_DEPENDS "plugins/*")
 foreach(subdir ${subdirs})
   add_subdirectory(${subdir})
 endforeach()
-file(GLOB subdirs CONFIGURE_DEPENDS "arch/*")
-foreach(subdir ${subdirs})
-  add_subdirectory(${subdir})
-endforeach()
-
 add_subdirectory("tests")
