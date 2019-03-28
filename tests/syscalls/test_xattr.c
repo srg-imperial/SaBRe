@@ -1,6 +1,5 @@
 // RUN: %{cc} %s -o %t1
-// RUN: touch %t3
-// RUN: ln -s %t3 %t3.link
+// RUN: ln -s %t3 %t3.link || true
 // RUN: %{sbr} %t1 %t3 %t3.link 2>&1
 
 #include <stdio.h>
