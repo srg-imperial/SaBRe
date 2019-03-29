@@ -83,6 +83,4 @@ config.substitutions.append(('%{setfacl}'      , '@TEST_SETFACL_PATH@'))
 config.substitutions.append(('%{su}'           , '@TEST_SU_PATH@'))
 config.substitutions.append(('%{tar}'          , '@TEST_TAR_PATH@'))
 
-# Some tests need specific configuration options
-if '@RDTSC@' == 'ON':
-  config.available_features.add('rdtsc')
+config.available_features = [@SABRE_AVAILABLE_TEST_DEPS_STR@]
