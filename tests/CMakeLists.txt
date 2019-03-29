@@ -89,7 +89,6 @@ FIND_TEST_FEATURE(tar)
 string(REPLACE ";" "," SABRE_AVAILABLE_TEST_FEATURES_STR
   "${SABRE_AVAILABLE_TEST_FEATURES}")
 configure_file("lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/lit.cfg" @ONLY)
-configure_file("Utils/test_help.sh" "${CMAKE_CURRENT_BINARY_DIR}/Utils/test_help.sh" @ONLY)
 
 foreach(link "" "-static")
   foreach(pie "-no-pie" "-pie")
