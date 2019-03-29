@@ -1,4 +1,4 @@
-/* REQUIRES: 0
+/* REQUIRES: clang,tsan
  * RUN: ulimit -s 32768
  * RUN: %{gcc} -fsanitize=thread %s -o %t1
  * RUN: %{clang} -fsanitize=thread %s -o %t2
