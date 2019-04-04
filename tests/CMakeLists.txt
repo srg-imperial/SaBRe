@@ -99,3 +99,4 @@ endforeach(link)
 configure_file("ld/lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/lit.cfg" @ONLY)
 
 add_custom_target(tests lit -v --timeout 30 "${CMAKE_CURRENT_BINARY_DIR}")
+add_custom_target(smoketests lit -v --timeout 30 "${CMAKE_CURRENT_BINARY_DIR}/smoke")

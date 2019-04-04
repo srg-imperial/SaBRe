@@ -40,6 +40,9 @@ config.substitutions.append(('%{clang}',    '@TEST_CLANG_PATH@'))
 config.substitutions.append(('%{gcc}',      '@TEST_GCC_PATH@'))
 
 config.substitutions.append(('%{sbr}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/identity/libidentity.so'))
+config.substitutions.append(('%{sbrtrace}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/strace/libstrace.so -- '))
+config.substitutions.append(('%{fault-injector}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sc-fuzzer/libsc-fuzzer.so -u 0 -d 0 -f 0 -n 0 -p 0 -m 0 -- '))
+
 config.substitutions.append(('%{process-vdso}', '@CMAKE_BINARY_DIR@/tools/process-vdso'))
 
 # Programs for utils tests
