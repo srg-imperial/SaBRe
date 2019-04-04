@@ -105,4 +105,7 @@ endforeach(tool)
 configure_file("smoke/lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/smoke/lit.cfg" @ONLY)
 
 add_custom_target(smoketests lit -v --timeout 30 "${CMAKE_CURRENT_BINARY_DIR}/smoke")
+add_dependencies(smoketests sabre identity strace sc-fuzzer)
+
 add_custom_target(tests lit -v --timeout 30 "${CMAKE_CURRENT_BINARY_DIR}")
+add_dependencies(tests sabre identity strace sc-fuzzer process-vdso)
