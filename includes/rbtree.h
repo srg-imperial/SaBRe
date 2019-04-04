@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
 #ifndef RBTREE_H_
 #define RBTREE_H_
 

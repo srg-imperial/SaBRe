@@ -1,3 +1,11 @@
+/* Copyright © 2010 The Chromium Authors. All rights reserved.
+ * Copyright © 2019 Software Reliability Group, Imperial College London
+ *
+ * This file is part of SaBRe.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later AND BSD-3-Clause
+ */
+
 #include "x86_decoder.h"
 
 #if defined(__x86_64__) || defined(__i386__)

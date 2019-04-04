@@ -1,3 +1,10 @@
+/*  Copyright © 2019 Software Reliability Group, Imperial College London
+ *
+ *  This file is part of SaBRe.
+ *
+ *  SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 /*
  * RUN: %{cc} %s -D_EXEC_NAME=%t1 -o %t1
  * RUN: echo "Hello, world!" > %t1.expected

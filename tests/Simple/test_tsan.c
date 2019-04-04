@@ -1,3 +1,10 @@
+/*  Copyright © 2019 Software Reliability Group, Imperial College London
+ *
+ *  This file is part of SaBRe.
+ *
+ *  SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 /* REQUIRES: clang,tsan
  * RUN: ulimit -s 32768
  * RUN: %{gcc} -fsanitize=thread %s -o %t1

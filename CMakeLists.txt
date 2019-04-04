@@ -1,3 +1,9 @@
+# Copyright © 2019 Software Reliability Group, Imperial College London
+#
+# This file is part of SaBRe.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 cmake_minimum_required (VERSION 2.8)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_C "${CMAKE_CURRENT_SOURCE_DIR}/cmake/c_flags_override.cmake")
