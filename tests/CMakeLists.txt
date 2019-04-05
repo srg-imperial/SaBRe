@@ -98,9 +98,18 @@ endforeach(link)
 
 configure_file("ld/lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/lit.cfg" @ONLY)
 
-foreach(tool "id" "sbrtrace" "fault-injector")
-  configure_file("smoke/hello.c.in" "${CMAKE_CURRENT_BINARY_DIR}/smoke/hello_${tool}.c" @ONLY)
-endforeach(tool)
+file(GLOB_RECURSE smoketests CONFIGURE_DEPENDS "smoke/*.in")
+# We don't want to configure lit.cfg.in as a test, but just as a
+# config so exclude it now and deal with more simply later
+list(REMOVE_ITEM smoketests "${CMAKE_CURRENT_SOURCE_DIR}/smoke/lit.cfg.in")
+foreach(test ${smoketests})
+  get_filename_component(test_name ${test} NAME_WE)
+  foreach(tool "id" "sbrtrace" "fault-injector")
+    configure_file(${test}
+      "${CMAKE_CURRENT_BINARY_DIR}/smoke/test_${tool}_${test_name}.c"
+      @ONLY)
+  endforeach(tool)
+endforeach(test)
 
 configure_file("smoke/lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/smoke/lit.cfg" @ONLY)
 
