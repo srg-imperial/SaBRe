@@ -11,8 +11,6 @@ import sys
 
 import lit.formats
 
-
-
 # Configuration file for the 'lit' test runner.
 
 # name: The name of this test suite.
