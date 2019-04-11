@@ -16,7 +16,7 @@ See LICENSE.GPL-3 for more details.
 
 The following files were adapted from Google's Native Client
 and originally distributed under the 3-clause BSD license (see LICENSE.BSD-3):
-	includes/
+	includes/loader/
 		maps.h
 		rewriter.h
 	loader/
@@ -28,7 +28,7 @@ and originally distributed under the 3-clause BSD license (see LICENSE.BSD-3):
 		x86_decoder.h
 
 The following files are taken from the Linux kernel
-and distributed under GNU General Public License version 2.0 (see LICENSE.BSD-2):
+and distributed under GNU General Public License version 2.0 (see LICENSE.GPL-2):
 	includes/
 		bitops.h
 		hash.h
