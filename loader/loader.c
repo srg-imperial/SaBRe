@@ -102,10 +102,26 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
 }
 #endif // __x86_64__
 
+static void print_usage (void)
+{
+	static const char* usage =
+		"Usage:\n"
+		"\tSaBRe <PLUGIN> [<PLUGIN_OPTIONS>] <CLIENT> [<CLIENT_OPTIONS>]\n"
+		"<PLUGIN> is the full path to the desired plugin library\n"
+		"<CLIENT> is the full path to the client binary to be run under SaBRe\n"
+		"<PLUGIN_OPTIONS> and <CLIENT_OPTIONS> depend on the plugin and the client\n";
+	puts(usage);
+}
+
 // Returns the address of entry point and also populates a pointer
 // for the top of the new stack
 void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 {
+  if (argc == 1) {
+	print_usage();
+	exit(-1);
+  }
+
   stack_val_t *argv_null = (stack_val_t *)&argv[argc];
 
   // Sort out the auxiliary vector stuff
