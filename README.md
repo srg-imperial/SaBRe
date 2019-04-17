@@ -2,11 +2,11 @@ SaBRe is a modular selective binary rewriter.
 It is able to rewrite system calls, vDSO and named functions.
 We currently support two architectures: `x86_64` and `RISC-V`.
 We provide three plugins:
-* *identity*: intercept system calls but does not do any processing -- mainly aimed at testing
+* *identity*: intercepts system calls but does not do any processing -- mainly aimed at testing
 * *strace*: a fast system-call tracer that mimics the original `strace` output
 * *sc-fuzzer*: a parametric fault injector to fuzz system calls
 
-#Building SaBRe 
+# Building SaBRe
 
 ## Quick start and requirements
 
