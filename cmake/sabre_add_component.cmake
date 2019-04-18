@@ -14,7 +14,7 @@ function(sabre_add_main_executable)
 endfunction()
 
 function(sabre_add_plugin plugin_name)
-  add_library(${plugin_name} SHARED ${ARGN})
+  add_library(${plugin_name} MODULE ${ARGN})
   target_include_directories(${plugin_name} PUBLIC ${SABRE_PLUGIN_INCLUDE_DIRS})
   target_compile_definitions(${plugin_name} PUBLIC ${SABRE_PLUGIN_C_DEFINES})
   target_compile_options(${plugin_name} PUBLIC ${SABRE_PLUGIN_C_FLAGS})
