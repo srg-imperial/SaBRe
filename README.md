@@ -2,9 +2,9 @@ SaBRe is a modular selective binary rewriter.
 It is able to rewrite system calls, vDSO and named functions.
 We currently support two architectures: `x86_64` and `RISC-V`.
 We provide three plugins:
-* *identity*: intercepts system calls but does not do any processing -- mainly aimed at testing
-* *strace*: a fast system-call tracer that mimics the original `strace` output
-* *sc-fuzzer*: a parametric fault injector to fuzz system calls
+* *sbr-id*: intercepts system calls but does not do any processing -- mainly aimed at testing
+* *sbr-trace*: a fast system-call tracer that mimics the original `strace` output
+* *sbr-scfuzzer*: a parametric fault injector to fuzz system calls
 
 # Building SaBRe
 
@@ -26,10 +26,10 @@ make
 The executable will be located at `./sabre` assuming you are in the build
 directory you just created.
 The compiled plugins will lie in separate subfolders under `plugins/`.
-For instance, to run the `ls` command under the `strace` plugin:
+For instance, to run the `ls` command under the `sbr-trace` plugin:
 
 ```bash
-./sabre plugins/strace/libstrace.so -- /bin/ls
+./sabre plugins/sbr-trace/libsbr-trace.so -- /bin/ls
 ```
 
 ___
@@ -75,11 +75,11 @@ SaBRe <PLUGIN> [<PLUGIN_OPTIONS>] <CLIENT> [<CLIENT_OPTIONS>]
 
 Both `PLUGIN` and `CLIENT` denote full paths to, respectively, the plugin library and the client program to be run under SaBRe.
 Once built, plugin libraries are located in separate subfolders under `plugins/`.
-For instance, the path to the `strace` library is: `plugins/strace/libstrace.so`.
-As a full working example, if you want to execute the `ls` command under the `strace` plugin, just run:
+For instance, the path to the `sbr-trace` library is: `plugins/sbr-trace/libsbr-trace.so`.
+As a full working example, if you want to execute the `ls` command under the `sbr-trace` plugin, just run:
 
 ```bash
-./sabre plugins/strace/libstrace.so -- /bin/ls
+./sabre plugins/sbr-trace/libsbr-trace.so -- /bin/ls
 ```
 ___
 
