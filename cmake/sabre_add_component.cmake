@@ -7,7 +7,7 @@ endfunction()
 
 function(sabre_add_main_executable)
   add_executable(sabre ${ARGN})
-  target_compile_options(sabre PRIVATE "-std=gnu99" "-Wall" "-Wextra" "-Werror" "-fPIE" "-fstack-protector" "-rdynamic")
+  target_compile_options(sabre PRIVATE "-std=gnu99" "-Wall" "-Wextra" "-Werror" "-fPIE" "-fstack-protector" "-pie" "-rdynamic")
   set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
   target_compile_definitions(sabre PUBLIC ${SABRE_COMPONENT_C_DEFINES})
   target_link_libraries(sabre loader)
