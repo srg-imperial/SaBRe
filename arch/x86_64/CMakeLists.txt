@@ -21,8 +21,8 @@ if (RDTSC)
   list(APPEND SRCS handle_rdtsc.s)
 endif(RDTSC)
 
-sabre_add_component(x86_64 ${SRCS})
-target_link_libraries(x86_64 loader)
+sabre_add_component(backend ${SRCS})
+target_link_libraries(backend loader)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/libsrc" "${CMAKE_BINARY_DIR}/libsrc")
 
