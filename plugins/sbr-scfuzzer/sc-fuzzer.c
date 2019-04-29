@@ -276,7 +276,7 @@ static void handle_arguments(int *argc, char **argv[]) {
       case 'v':
         verbose_flag = 1;
         break;
-      case 'h': __attribute__((fallthrough));
+      case 'h': // fallthrough
       case '?':
         // Display usage and exit with failure.
         display_help();
@@ -287,7 +287,7 @@ static void handle_arguments(int *argc, char **argv[]) {
         // getopt_long will already have handled this
         if (long_opts[opt_index].flag != NULL)
           break;
-        __attribute__((fallthrough));
+        // fallthrough
 
       default:
         fputs("Unknown or bad arguments!\n\n", stderr);
