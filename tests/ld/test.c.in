@@ -6,7 +6,7 @@
  */
 
 /*
- * RUN: %{cc} %s -o %t1 @link@ @pie@ @relro@
+ * RUN: %{cc} %s -o %t1 -fPIE @link@ @pie@
  * RUN: %{sbr} %t1 &> %t1.actual
  * %t1 &> %t1.actual
  * RUN: echo "Hello, world!" > %t1.expected
