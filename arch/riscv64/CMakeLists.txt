@@ -20,4 +20,4 @@ sabre_add_component(riscv64
 
 target_link_libraries(riscv64 loader)
 
-sabre_add_main_executable(main.s)
+sabre_add_executable(sabre main.s)
