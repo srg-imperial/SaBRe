@@ -1,5 +1,5 @@
-add_executable(process-vdso process-vdso.c)
-add_executable(dump-vdso    dump-vdso.c)
+sabre_add_executable(process-vdso process-vdso.c)
+sabre_add_executable(dump-vdso    dump-vdso.c)
 
 target_include_directories(process-vdso PRIVATE ${CMAKE_SOURCE_DIR}/includes/arch)
 target_include_directories(dump-vdso PRIVATE ./includes)
