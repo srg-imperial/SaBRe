@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 list(APPEND SABRE_COMPONENT_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/includes/loader)
-list(APPEND SABRE_COMPONENT_C_FLAGS "-fPIC" "-fstack-protector")
 
 # Build library
 sabre_add_component(loader
