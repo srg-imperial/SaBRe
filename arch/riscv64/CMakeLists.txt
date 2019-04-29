@@ -11,12 +11,15 @@ sabre_add_component(backend
   handle_syscall.s
   handle_syscall_loader.s
   handle_vdso.s
-  real_syscall.s
   rewriter.c
   riscv_decoder.c
   riscv_utils.c
   syscall_stackframe.c
 )
+
+sabre_add_component(realsyscall
+  clone_syscall.c
+  real_syscall.s)
 
 target_link_libraries(backend loader)
 

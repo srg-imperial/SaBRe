@@ -7,11 +7,9 @@
 list(APPEND SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/arch")
 
 set(SRCS
-  clone_syscall.s
   handle_syscall.S
   handle_syscall_loader.s
   handle_vdso.s
-  real_syscall.s
   rewriter.c
   syscall_stackframe.c
   x86_decoder.c
@@ -22,6 +20,11 @@ if (RDTSC)
 endif(RDTSC)
 
 sabre_add_component(backend ${SRCS})
+
+sabre_add_component(realsyscall
+  clone_syscall.s
+  real_syscall.s)
+
 target_link_libraries(backend loader)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/libsrc" "${CMAKE_BINARY_DIR}/libsrc")
