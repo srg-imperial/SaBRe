@@ -2,7 +2,7 @@ function(sabre_add_component target_name)
   add_library(${target_name} STATIC ${ARGN})
   target_include_directories(${target_name} PUBLIC ${SABRE_COMPONENT_INCLUDE_DIRS})
   target_compile_definitions(${target_name} PUBLIC ${SABRE_COMPONENT_C_DEFINES})
-  target_compile_options(${target_name} PUBLIC ${SABRE_COMPONENT_C_FLAGS})
+  target_compile_options(${target_name} PRIVATE ${SABRE_COMPONENT_C_FLAGS})
 endfunction()
 
 function(sabre_add_main_executable)
