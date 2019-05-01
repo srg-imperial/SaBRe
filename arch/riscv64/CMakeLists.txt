@@ -4,8 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-include_directories(${CMAKE_SOURCE_DIR}/includes)
-include_directories(${CMAKE_SOURCE_DIR}/includes/arch)
+list(APPEND SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/arch")
 
 sabre_add_component(riscv64
   clone_syscall.c
@@ -21,4 +20,4 @@ sabre_add_component(riscv64
 
 target_link_libraries(riscv64 loader)
 
-sabre_add_main_executable(main.s)
+sabre_add_executable(sabre main.s)

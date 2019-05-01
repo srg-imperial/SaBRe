@@ -26,5 +26,6 @@ target_link_libraries(x86_64 loader)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/libsrc" "${CMAKE_BINARY_DIR}/libsrc")
 
-sabre_add_main_executable(main.s)
+sabre_add_executable(sabre main.s)
+set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 target_link_libraries(sabre libsrc)

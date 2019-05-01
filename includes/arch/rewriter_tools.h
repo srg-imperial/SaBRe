@@ -109,7 +109,7 @@ static inline char *alloc_scratch_space(int fd,
                                  bool near,
                                  uint64_t max_distance) {
   if (needed > *extra_len || (near &&
-      labs(*extra_space - (char *)(addr)) > max_distance)) {
+      labs(*extra_space - (char *)(addr)) > (long)max_distance)) {
     // Start a new scratch page and mark any previous page as write-protected
     if (*extra_space)
       mprotect(*extra_space, 4096, PROT_READ | PROT_EXEC);
