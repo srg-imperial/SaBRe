@@ -47,6 +47,8 @@ else()
   ADD_TEST_FEATURE(tsan)
 endif()
 
+check_c_compiler_flag("-no-pie" no_pie)
+
 FIND_TEST_FEATURE(bash REQUIRED)
 FIND_TEST_FEATURE(timeout REQUIRED)
 FIND_TEST_FEATURE(gcc REQUIRED)
@@ -96,13 +98,16 @@ string(REPLACE ";" "," SABRE_AVAILABLE_TEST_FEATURES_STR
   "${SABRE_AVAILABLE_TEST_FEATURES}")
 configure_file("lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/lit.cfg" @ONLY)
 
-foreach(link "" "-static")
-  foreach(pie "-no-pie" "-pie")
-    configure_file("ld/test.c.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/test_${link}_${pie}.c" @ONLY)
-  endforeach(pie)
-endforeach(link)
 
-configure_file("ld/lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/lit.cfg" @ONLY)
+if(no_pie)
+  foreach(link "" "-static")
+    foreach(pie "-no-pie" "-pie")
+      configure_file("ld/test.c.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/test_${link}_${pie}.c" @ONLY)
+    endforeach(pie)
+  endforeach(link)
+
+  configure_file("ld/lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/lit.cfg" @ONLY)
+endif(no_pie)
 
 file(GLOB_RECURSE smoketests CONFIGURE_DEPENDS "smoke/*.in")
 # We don't want to configure lit.cfg.in as a test, but just as a
