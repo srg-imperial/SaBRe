@@ -14,7 +14,7 @@ find_program(GCC_PATH gcc)
 
 set(SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes")
 set(SABRE_COMPONENT_C_DEFINES "")
-set(SABRE_COMPONENT_C_FLAGS "-std=gnu99" "-Wall" "-Wextra" "-Werror")
+set(SABRE_COMPONENT_C_FLAGS "-std=gnu99" "-Wall" "-Wextra" "-Werror" "-fPIE" "-fstack-protector")
 set(SABRE_EXE_LINK_FLAGS "-pie" "-rdynamic")
 set(SABRE_PLUGIN_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/plugins")
 set(SABRE_PLUGIN_C_DEFINES "")
@@ -37,6 +37,7 @@ endif()
 include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_component.cmake")
 
 # Sources
+add_subdirectory("arch/${CMAKE_SYSTEM_PROCESSOR}" arch)
 add_subdirectory("loader")
 file(GLOB subdirs CONFIGURE_DEPENDS "plugins/*")
 foreach(subdir ${subdirs})

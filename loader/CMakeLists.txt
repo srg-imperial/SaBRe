@@ -5,9 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 list(APPEND SABRE_COMPONENT_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/includes/loader)
-list(APPEND SABRE_COMPONENT_C_FLAGS "-fPIC" "-fstack-protector")
-
-add_subdirectory(${CMAKE_SOURCE_DIR}/arch/${CMAKE_SYSTEM_PROCESSOR} arch)
 
 # Build library
 sabre_add_component(loader
@@ -18,6 +15,6 @@ sabre_add_component(loader
   rewriter.c
 )
 
-target_link_libraries(loader ${CMAKE_DL_LIBS} ${CMAKE_SYSTEM_PROCESSOR})
+target_link_libraries(loader ${CMAKE_DL_LIBS} backend)
 
 add_subdirectory(tools)
