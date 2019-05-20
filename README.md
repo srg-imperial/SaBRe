@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/srg-imperial/SaBRe.svg?branch=master)](https://travis-ci.com/srg-imperial/SaBRe)
+
 SaBRe is a modular selective binary rewriter.
 It is able to rewrite system calls, vDSO and named functions.
 We currently support two architectures: `x86_64` and `RISC-V`.
