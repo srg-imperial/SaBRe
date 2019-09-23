@@ -47,12 +47,11 @@ static inline bool is_safe_insn(unsigned short insn) {
 
 #define TRAMPOLINE_MAX_DISTANCE (1536 << 20)
 
-static void patch_syscalls_in_func(struct library *lib,
+static void patch_syscalls_in_func_loader(struct library *lib,
                                            char *start,
                                            char *end,
                                            char **extra_space,
-                                           int *extra_len,
-                                           bool loader) {
+                                           int *extra_len) {
   struct rb_root branch_targets = RB_ROOT;
 
   _nx_debug_printf("patch_syscalls_in_func: function %p-%p\n", start, end);
@@ -116,11 +115,7 @@ static void patch_syscalls_in_func(struct library *lib,
 #if defined(__NX_INTERCEPT_RDTSC) || defined(SBR_DEBUG)
     bool is_rdtsc = false;
 #endif
-    if (code[i].insn == 0x0F05 /* SYSCALL */
-#ifdef __NX_INTERCEPT_RDTSC
-        || ((is_rdtsc = (code[i].insn == 0x0F31)) /* RDTSC */ && !loader)
-#endif
-       ) {
+    if (code[i].insn == 0x0F05 /* SYSCALL */ ) {
 
       // Found a system call. Search backwards to figure out how to redirect
       // the code. We will need to overwrite a couple of instructions and,
@@ -322,17 +317,8 @@ static void patch_syscalls_in_func(struct library *lib,
           (code[second].addr + code[second].len) - (dest + post + 5);
       *(int *)(dest + preamble + 11) =
           (code[second].addr + code[second].len) - (dest + preamble + 15);
-      void* entrypoint;
 
-      if (loader)
-        entrypoint = handle_syscall_loader;
-#ifdef __NX_INTERCEPT_RDTSC
-      else if (is_rdtsc) {
-        entrypoint = rdtsc_entrypoint;
-      }
-#endif
-      else
-        entrypoint = handle_syscall;
+      void* entrypoint = handle_syscall_loader;
       *(void **)(dest + preamble + 18) = entrypoint;
       // Pad unused space in the original function with NOPs
       memset(code[first].addr,
@@ -347,6 +333,56 @@ static void patch_syscalls_in_func(struct library *lib,
     }
   replaced:
     i = (i + 1) % (sizeof(code) / sizeof(struct code));
+  }
+}
+
+
+static void patch_syscalls_in_func(struct library *lib,
+                                           char *start,
+                                           char *end,
+                                           char **extra_space,
+                                           int *extra_len) {
+
+  _nx_debug_printf("patch_syscalls_in_func: function %p-%p\n", start, end);
+
+
+  struct code {
+    char *addr;
+    int len;
+    unsigned short insn;
+  } code = {0};
+
+  for (char *ptr = start; ptr < end;) {
+    // Keep a ring-buffer of the last few instruction in order to find the
+    // correct place to patch the code.
+    char *mod_rm;
+    code.addr = ptr;
+    code.insn =
+        next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
+    code.len = ptr - code.addr;
+
+    // Whenever we find a system call, we patch it with a jump to out-of-line
+    // code that redirects to our system call entrypoint.
+#if defined(__NX_INTERCEPT_RDTSC) || defined(SBR_DEBUG)
+    bool is_rdtsc = false;
+#endif
+    if (code.insn == 0x0F05 /* SYSCALL */
+#ifdef __NX_INTERCEPT_RDTSC
+        || ((is_rdtsc = (code.insn == 0x0F31)) /* RDTSC */)
+#endif
+       ) {
+
+        // If we cannot figure out any other way to intercept this syscall/RDTSC,
+        // we replace it with an illegal instruction. This causes a SIGILL which we then
+        // handle in the signal handler. That's a lot slower than rewriting the
+        // instruction with a jump, but it should only happen very rarely.
+#ifdef __NX_INTERCEPT_RDTSC
+        if (is_rdtsc)
+          memcpy(code.addr, "\x0F\x0B" /* UD2 */, 2);
+        else
+#endif
+          memcpy(code.addr, "\x0F\xFF" /* UD0 */, 2);
+    }
   }
 }
 
@@ -941,7 +977,10 @@ void patch_syscalls_in_range(struct library *lib,
           // Quick scan of the function found a potential syscall, do thorough
           // scan
           _nx_debug_printf("patch syscalls in func after quick scan\n");
-          patch_syscalls_in_func(lib, func, stop, extra_space, extra_len, loader);
+          if (loader)
+        	patch_syscalls_in_func_loader(lib, func, stop, extra_space, extra_len);
+          else
+        	patch_syscalls_in_func(lib, func, stop, extra_space, extra_len);
         }
         func = ptr;
       }
@@ -954,7 +993,10 @@ void patch_syscalls_in_range(struct library *lib,
   if (has_syscall) {
     // Patch any remaining system calls that were in the last function before
     // the loop terminated.
-    patch_syscalls_in_func(lib, func, stop, extra_space, extra_len, loader);
+	  if (loader)
+		patch_syscalls_in_func_loader(lib, func, stop, extra_space, extra_len);
+	  else
+	    patch_syscalls_in_func(lib, func, stop, extra_space, extra_len);
   }
   _nx_debug_printf("patched syscalls in range\n");
 }

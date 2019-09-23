@@ -6,6 +6,8 @@
 
 list(APPEND SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/arch")
 
+set(SABRE_COMPONENT_C_FLAGS "${SABRE_COMPONENT_C_FLAGS}" "-Wno-unused-parameter")
+
 set(SRCS
   handle_syscall.S
   handle_syscall_loader.s
