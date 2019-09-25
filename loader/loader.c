@@ -78,7 +78,7 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
     uintptr_t ret_addr = regs[REG_RIP] + 2;
     // simulate a syscall stack frame, as would be built by handle_syscall
     void *wrapper_sp = (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
-    plugin_sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
+    regs[REG_RAX] = plugin_sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
                regs[REG_R10], regs[REG_R8], regs[REG_R9], wrapper_sp);
 #ifdef __NX_INTERCEPT_RDTSC
   } else if (faulting_insn == 0x0B0F) { // RDTSC
