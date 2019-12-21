@@ -34,7 +34,6 @@ clone_syscall:
 
   # Child
   movq -8(%rsp), %r11
-  subq $128, %rsp
   jmp *%r11
 
 1:

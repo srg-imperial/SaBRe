@@ -14,6 +14,7 @@
 #include "sbr_api_defs.h"
 
 #define _GNU_SOURCE
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -31,9 +32,11 @@ long handle_syscall(long sc_no,
   if (sc_no == SYS_clone && arg2 != 0) { // clone
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone_syscall(arg1, (void*)arg2, (void*)arg3, (void*)arg4, arg5, ret_addr);
-  }
-  else
+  } else if (sc_no == SYS_rt_sigaction && arg1 == SIGILL) {
+    return 0;
+  } else {
     return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
+  }
 }
 
 void_void_fn actual_clock_gettime = NULL;
