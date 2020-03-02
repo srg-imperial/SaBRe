@@ -803,7 +803,7 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
     library_make_writable(maps->lib_vdso, true);
     patch_vdso(maps->lib_vdso);
     library_make_writable(maps->lib_vdso, false);
-    _nx_debug_printf("memrewrite: vsdo done\n");
+    _nx_debug_printf("memrewrite: vdso done\n");
   }
 
   // Intercept system calls in libraries that are known to have them.

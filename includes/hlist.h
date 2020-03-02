@@ -17,7 +17,7 @@ struct hlist_node {
   struct hlist_node *next, **pprev;
 };
 
-#define HLIST_HEAD_INIT \
+#define HLIST_HEAD_INIT                                                        \
   { .first = NULL }
 #define HLIST_HEAD(name) struct hlist_head name = {.first = NULL}
 #define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
@@ -162,7 +162,7 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param type type of the struct this is embedded in
  * @param member name of the list struct within the struct
  */
-#define hlist_first_entry(head, type, member) \
+#define hlist_first_entry(head, type, member)                                  \
   list_entry((ptr)->first, type, member)
 
 /**
@@ -172,7 +172,7 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param type type of the struct this is embedded in
  * @param member name of the list struct within the struct
  */
-#define hlist_next_entry(node, type, member) \
+#define hlist_next_entry(node, type, member)                                   \
   list_entry((node)->member.next, type, member)
 
 /**
@@ -181,7 +181,7 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param pos struct list head to use as a loop counter
  * @param head head for your list
  */
-#define hlist_for_each(pos, head) \
+#define hlist_for_each(pos, head)                                              \
   for (pos = (head)->first; pos; pos = pos->next)
 
 /**
@@ -191,11 +191,11 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param n another struct list head to use as temporary storage
  * @param head head for your list
  */
-#define hlist_for_each_safe(pos, n, head) \
-  for (pos = (head)->first; pos && ({     \
-    n = pos->next;                        \
-    1;                                    \
-                                   });    \
+#define hlist_for_each_safe(pos, n, head)                                      \
+  for (pos = (head)->first; pos && ({                                          \
+                              n = pos->next;                                   \
+                              1;                                               \
+                            });                                                \
        pos = n)
 
 /**
@@ -206,11 +206,11 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param head head for your list
  * @param member name of the list structure within the struct
  */
-#define hlist_for_each_entry(tpos, pos, head, member) \
-  for (pos = (head)->first; pos && ({                 \
-    tpos = hlist_entry(pos, typeof(*tpos), member);   \
-    1;                                                \
-                                   });                \
+#define hlist_for_each_entry(tpos, pos, head, member)                          \
+  for (pos = (head)->first; pos && ({                                          \
+                              tpos = hlist_entry(pos, typeof(*tpos), member);  \
+                              1;                                               \
+                            });                                                \
        pos = pos->next)
 
 /**
@@ -220,11 +220,11 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param pos node pointer to use as a loop cursor
  * @param member name of the list structure within the struct
  */
-#define hlist_for_each_entry_continue(tpos, pos, member) \
-  for (pos = (pos)->next; pos && ({                      \
-    tpos = hlist_entry(pos, typeof(*tpos), member);      \
-    1;                                                   \
-                                 });                     \
+#define hlist_for_each_entry_continue(tpos, pos, member)                       \
+  for (pos = (pos)->next; pos && ({                                            \
+                            tpos = hlist_entry(pos, typeof(*tpos), member);    \
+                            1;                                                 \
+                          });                                                  \
        pos = pos->next)
 
 /**
@@ -234,11 +234,11 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param pos node pointer to use as a loop cursor
  * @param member name of the list structure within the struct
  */
-#define hlist_for_each_entry_from(tpos, pos, member) \
-  for (; pos && ({                                   \
-    tpos = hlist_entry(pos, typeof(*tpos), member);  \
-    1;                                               \
-                });                                  \
+#define hlist_for_each_entry_from(tpos, pos, member)                           \
+  for (; pos && ({                                                             \
+           tpos = hlist_entry(pos, typeof(*tpos), member);                     \
+           1;                                                                  \
+         });                                                                   \
        pos = pos->next)
 
 /**
@@ -250,15 +250,15 @@ static inline void hlist_move_list(struct hlist_head *old,
  * @param head head for your list
  * @param member name of the list structure within the struct
  */
-#define hlist_for_each_entry_safe(tpos, pos, n, head, member) \
-  for (pos = (head)->first; pos && ({                         \
-    n = pos->next;                                            \
-    1;                                                        \
-                                   }) &&                      \
-                                ({                            \
-    tpos = hlist_entry(pos, typeof(*tpos), member);           \
-    1;                                                        \
-                                });                           \
+#define hlist_for_each_entry_safe(tpos, pos, n, head, member)                  \
+  for (pos = (head)->first; pos && ({                                          \
+                              n = pos->next;                                   \
+                              1;                                               \
+                            }) &&                                              \
+                            ({                                                 \
+                              tpos = hlist_entry(pos, typeof(*tpos), member);  \
+                              1;                                               \
+                            });                                                \
        pos = n)
 
 #endif /* HLIST_H_ */
