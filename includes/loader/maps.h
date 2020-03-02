@@ -35,8 +35,8 @@ enum region_type {
 
 #define LIBS_HASHTABLE_SIZE 16
 #define library_hashfn(n) jhash(n, strlen(n), 0) & (LIBS_HASHTABLE_SIZE - 1)
-#define libraryhash_entry(node) \
-  hlist_entry((node), struct library, library_hash)
+#define libraryhash_entry(node)                                                \
+  hlist_entry_safe((node), struct library, library_hash)
 
 #define sectionhash_size 16
 #define symbolhash_size 16

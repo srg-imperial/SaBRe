@@ -149,6 +149,12 @@ static inline void hlist_move_list(struct hlist_head *old,
  */
 #define hlist_entry(ptr, type, member) container_of(ptr, type, member)
 
+#define hlist_entry_safe(ptr, type, member)                                    \
+  ({                                                                           \
+    typeof(ptr) ____ptr = (ptr);                                               \
+    ____ptr ? hlist_entry(____ptr, type, member) : NULL;                       \
+  })
+
 /**
  * Get the first element from a list.
  *
