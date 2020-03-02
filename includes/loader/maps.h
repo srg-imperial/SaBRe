@@ -35,8 +35,8 @@ enum region_type {
 
 #define LIBS_HASHTABLE_SIZE 16
 #define library_hashfn(n) jhash(n, strlen(n), 0) & (LIBS_HASHTABLE_SIZE - 1)
-#define libraryhash_entry(node) \
-  hlist_entry((node), struct library, library_hash)
+#define libraryhash_entry(node)                                                \
+  hlist_entry_safe((node), struct library, library_hash)
 
 #define sectionhash_size 16
 #define symbolhash_size 16
@@ -44,7 +44,7 @@ enum region_type {
 struct maps {
   int fd;
 
-  struct library* lib_vdso;
+  struct library *lib_vdso;
 
   // This is a hash table: <library_hashfn(lib_pathname), struct library>
   struct hlist_head libraries[LIBS_HASHTABLE_SIZE];
@@ -74,9 +74,9 @@ struct region {
   struct rb_node rb_region;
 };
 
-struct maps* maps_read(const char* libname) attribute_hidden;
-void* maps_alloc_near(int maps_fd, void *addr, size_t size,
-                      int prot, bool near, uint64_t max_distance) attribute_hidden;
+struct maps *maps_read(const char *libname) attribute_hidden;
+void *maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
+                      uint64_t max_distance) attribute_hidden;
 void maps_release(struct maps *maps) attribute_hidden;
 void binrw_rd_init_maps(void) attribute_hidden;
 
@@ -88,10 +88,9 @@ void binrw_rd_init_maps(void) attribute_hidden;
  * @param table your table
  * @param member the name of the enry within the struct
  */
-#define for_each_library(lib, maps)                              \
-  for (int i = 0; i < LIBS_HASHTABLE_SIZE; ++i)                     \
-    for (lib = libraryhash_entry((maps)->libraries[i].first); \
-         &lib->library_hash;                                     \
+#define for_each_library(lib, maps)                                            \
+  for (int i = 0; i < LIBS_HASHTABLE_SIZE; ++i)                                \
+    for (lib = libraryhash_entry((maps)->libraries[i].first); lib;             \
          lib = libraryhash_entry(lib->library_hash.next))
 
 #endif /* MAPS_H_ */
