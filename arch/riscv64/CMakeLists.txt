@@ -24,3 +24,4 @@ sabre_add_component(realsyscall
 target_link_libraries(backend loader)
 
 sabre_add_executable(sabre main.s)
+set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
