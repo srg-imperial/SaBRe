@@ -3,6 +3,7 @@
 
 # Anything pertaining to building the project
 build/
+.vscode/
 
 # Object files
 *.o
