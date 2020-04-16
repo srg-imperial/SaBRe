@@ -262,7 +262,7 @@ int demask_ignore(uint32_t m, int a) {
 
 /* Return mask of register which values are used in the instruction */
 inline uint32_t dependency_reg(uint32_t inst) {
-    if ((inst & 0x3) == 0x3) {
+    if ((inst & 0x3) == 0x3) { // 32-bit instruction
 	switch (inst & RISCV_INST32_OP) {
 	case JALR:
 	case LOAD:
@@ -275,7 +275,7 @@ inline uint32_t dependency_reg(uint32_t inst) {
 	case COMPUTE2_64:
 	    return mask(rs1_32(inst)) | mask(rs2_32(inst));
 	}
-    } else {
+    } else { // 16-bit instruction
 	uint8_t op = (inst & 0xe000) >> 13, op2;
 	uint8_t rs1, rs2;
 	
