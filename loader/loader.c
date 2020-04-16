@@ -100,7 +100,37 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   // Skip UD insn to point to return address
   ctx->uc_mcontext.gregs[REG_RIP] += 2;
 }
-#endif // __x86_64__
+#elif defined __riscv
+static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
+  assert(sig == SIGILL);
+  ucontext_t* ctx = ucontext;
+  uint32_t faulting_insn = *(uint32_t*) info->si_addr;
+
+  if (faulting_insn == 0) { // syscall
+    // call syscall handler with proper arguments
+    greg_t* regs = ctx->uc_mcontext.__gregs;
+    uintptr_t ret_addr = regs[REG_PC] + 4;
+    // simulate a syscall stack frame, as would be built by handle_syscall
+    void *wrapper_sp = (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
+    regs[REG_A0] = plugin_sc_handler(regs[REG_A0+7], regs[REG_A0], regs[REG_A0+1], regs[REG_A0+2],
+               regs[REG_A0+3], regs[REG_A0+4], regs[REG_A0+5], wrapper_sp);
+  } else {
+    // not from SaBRe, so use default handler
+    const struct sigaction dfl_sa = {.sa_handler = SIG_DFL};
+    sigaction(SIGILL, &dfl_sa, NULL);
+    raise(SIGILL);
+
+    // wait for SIGILL to be delivered
+    sigset_t consume_mask;
+    sigfillset(&consume_mask);
+    sigdelset(&consume_mask, SIGILL);
+    sigsuspend(&consume_mask);
+  }
+
+  // Skip illegal insn to point to return address
+  ctx->uc_mcontext.__gregs[REG_PC] += 4;
+}
+#endif // __x86_64__ / __riscv
 
 static void print_usage (void)
 {
@@ -253,12 +283,10 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   if (post_load != NULL)
     post_load(interp);
 
-#ifdef __x86_64__
   // Set up SIGILL handler for dealing with RDTSC instructions and system calls
   // that have been rewritten to use UD
   struct sigaction sa_ill = {.sa_sigaction = sigill_handler, .sa_flags = SA_SIGINFO | SA_NODEFER};
   sigaction(SIGILL, &sa_ill, NULL);
-#endif // __x86_64__
 
   // Modify the original process stack to represent arguments modified
   // by the plugin.
