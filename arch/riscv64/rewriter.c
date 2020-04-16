@@ -139,14 +139,12 @@ static uint32_t forward_search_deprecated_reg(char *curr, char *end, int range,
 
     depre_mask |= deprecated_reg(inst);
     depen_mask |= dependency_reg(inst);
+    depre_mask = depre_mask & (~depen_mask);
 
-    if ((depre_mask ^ depen_mask) == depen_mask) {
-      if (nearest) {
-        return depre_mask;
-      }
+    if (depre_mask != 0 && nearest) {
+      return depre_mask;
     }
 
-    depre_mask = depre_mask & (~depen_mask);
     if (is_control_flow_inst(inst)) {
       return depre_mask;
     }
