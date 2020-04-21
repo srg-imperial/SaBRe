@@ -60,9 +60,12 @@ handle_vdso:
 	add a3, a2, x0
 	add a2, a1, x0
 	add a1, a0, x0
-	add a0, t0, x0
+	add a0, t2, x0	/* syscall number */
 
-    call plugin_sc_handler
+	# call plugin handler
+	la t0, plugin_sc_handler
+	ld t0, 0(t0)
+	jalr t0
 	j end
     # no need to adjust return value
     

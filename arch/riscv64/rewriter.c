@@ -139,14 +139,12 @@ static uint32_t forward_search_deprecated_reg(char *curr, char *end, int range,
 
     depre_mask |= deprecated_reg(inst);
     depen_mask |= dependency_reg(inst);
+    depre_mask = depre_mask & (~depen_mask);
 
-    if ((depre_mask ^ depen_mask) == depen_mask) {
-      if (nearest) {
-        return depre_mask;
-      }
+    if (depre_mask != 0 && nearest) {
+      return depre_mask;
     }
 
-    depre_mask = depre_mask & (~depen_mask);
     if (is_control_flow_inst(inst)) {
       return depre_mask;
     }
@@ -513,7 +511,7 @@ void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
   _nx_debug_printf("patched syscalls in range\n");
 }
 
-void detour_func(struct library *lib, char *start, char *end, int discriminator,
+void detour_func(struct library *lib, char *start, char *end, int sc_no,
     char **extra_space __unused, int *extra_len __unused) {
   struct rb_root *branch_targets;
   branch_targets = lookup_branch_targets(start, end);
@@ -558,7 +556,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
           "\x00\x11\x34\x23"// sd ra, 8(sp)
           "\x00\x61\x38\x23"// sd t1, 16(sp)
           "\x00\x00\x03\x13"// mv zero, t1
-          "\x00\x00\x00\x00"// preserved for putting ecall number
+          "\x00\x00\x00\x00"// preserved for putting ecall number in t2
           "\x00\x00\x02\x93"// li t0, 0
           "\x00\x82\x92\x93"// slli t0, t0, 0x8
           "\x00\x02\x82\x93"// addi t0, t0, ...
@@ -596,7 +594,7 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
   void *trampoline_addr = dest + stub_n * 4 + 4;
 
   if (vdso_callback) {
-    plugin_vdso_handler = vdso_callback(discriminator, trampoline_addr);
+    plugin_vdso_handler = vdso_callback(sc_no, trampoline_addr);
     _nx_debug_printf("trampoline_addr: %p\tplugin_vdso_handler: %p\n",
         (void*)trampoline_addr, (void*)plugin_vdso_handler);
   }
@@ -611,11 +609,10 @@ void detour_func(struct library *lib, char *start, char *end, int discriminator,
     addi_encode.rd = 0;
 
   } else {
-    // the vdso call usually first put the system call number
-    // and then do an ecall
-    addi_encode.imm = discriminator;
+    // move syscall number to t2
+    addi_encode.imm = sc_no;
     addi_encode.rs1 = 0;
-    addi_encode.rd = 7;
+    addi_encode.rd = 7;	// x7 == t2
   }
 
   // inst added
