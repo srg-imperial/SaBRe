@@ -160,7 +160,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   ElfW(auxv_t) *av_phdr = NULL;
   ElfW(auxv_t) *av_phnum = NULL;
   size_t pagesize = 0;
-  
+
   ElfW(auxv_t) *av;
   for (av = auxv;
        av_entry == NULL || av_phdr == NULL || av_phnum == NULL || pagesize == 0;
@@ -168,7 +168,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
     switch (av->a_type) {
       case AT_NULL:
         _nx_fatal_printf("Failed to find AT_ENTRY, AT_PHDR, AT_PHNUM, or AT_PAGESZ!");
-        /*NOTREACHED*/                                                   
+        /*NOTREACHED*/
       case AT_ENTRY:
         av_entry = av;
         break;
@@ -240,13 +240,11 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   /* Load the program and point the auxv elements at its phdrs and entry.  */
   const char *interp = NULL;
-  ElfW(Addr) load_bias;
   av_entry->a_un.a_val = elfld_load_elf(elf_fd,
                                         &ehdr,
                                         pagesize,
                                         &av_phdr->a_un.a_val,
                                         &av_phnum->a_un.a_val,
-                                        &load_bias,
                                         &interp);
 
   close(elf_fd);
@@ -263,7 +261,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
     if (elfld_getehdr(elf_fd, &ehdr) != 0)
       _nx_fatal_printf("Failed to get ELF header from file\n");
 
-    entry = elfld_load_elf(elf_fd, &ehdr, pagesize, NULL, NULL, NULL, NULL);
+    entry = elfld_load_elf(elf_fd, &ehdr, pagesize, NULL, NULL, NULL);
     close(elf_fd);
 
     const char *libs[] = {"ld", NULL};
@@ -290,16 +288,16 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   // Modify the original process stack to represent arguments modified
   // by the plugin.
-  
+
   _nx_debug_printf("start rewriting stack\n");
   stack_val_t *src = (stack_val_t *)&argv[0];
   stack_val_t *dst = argv_null - argc;
-  
+
   // Check alignment on 16-byte boundary
   if (((uintptr_t)(dst-1) & 0xF) != 0) {
     // Move everything down 8 bytes
     dst--;
-    
+
     // We need to move the whole initial stack frame to restore proper alignment
     ElfW(auxv_t) *auxv_null = av;
     while (auxv_null->a_type != AT_NULL)
@@ -317,4 +315,3 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   *new_entry = (void *)entry;
 }
-
