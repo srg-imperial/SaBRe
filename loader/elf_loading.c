@@ -92,12 +92,8 @@ int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr) {
   return 0;
 }
 
-ElfW(Addr) elfld_load_elf(int fd,
-                          ElfW(Ehdr) const *ehdr,
-                          size_t pagesize,
-                          ElfW(Addr) * out_phdr,
-                          ElfW(Addr) * out_phnum,
-                          ElfW(Addr) * load_bias,
+ElfW(Addr) elfld_load_elf(int fd, ElfW(Ehdr) const *ehdr, size_t pagesize,
+                          ElfW(Addr) * out_phdr, ElfW(Addr) * out_phnum,
                           const char **out_interp) {
   ssize_t result;
 
@@ -106,8 +102,7 @@ ElfW(Addr) elfld_load_elf(int fd,
     _nx_fatal_printf("ELF file has unreasonable e_phnum %u", ehdr->e_phnum);
   }
 
-  result =
-      pread(fd, phdr, sizeof(phdr[0]) * ehdr->e_phnum, ehdr->e_phoff);
+  result = pread(fd, phdr, sizeof(phdr[0]) * ehdr->e_phnum, ehdr->e_phoff);
   if (result < 0) {
     _nx_fatal_printf("Failed to read program headers from ELF file\n");
   }
@@ -139,30 +134,15 @@ ElfW(Addr) elfld_load_elf(int fd,
    * for holes between segments.
    */
   uintptr_t mapping;
-  mapping =
-      (uintptr_t)mmap((void *)round_down(first_load->p_vaddr, pagesize),
-                      span,
-                      prot_from_phdr(first_load),
-                      MAP_PRIVATE,
-                      fd,
-                      round_down(first_load->p_offset, pagesize));
+  mapping = (uintptr_t)mmap((void *)round_down(first_load->p_vaddr, pagesize),
+                            span, prot_from_phdr(first_load), MAP_PRIVATE, fd,
+                            round_down(first_load->p_offset, pagesize));
 
   if ((void *)mapping == MAP_FAILED) {
     _nx_fatal_printf("Failed to map segment.\n");
   }
 
-  // const uintptr_t mapping = my_mmap(filename, "segment", first_load - phdr,
-  //                                  round_down(first_load->p_vaddr, pagesize),
-  //                                  span, prot_from_phdr(first_load),
-  //                                  MAP_PRIVATE, fd,
-  //                                  round_down(first_load->p_offset,
-  // pagesize));
-
-  ElfW(Addr) local_load_bias;
-  if (load_bias == NULL) {
-    load_bias = &local_load_bias;
-  }
-  *load_bias = mapping - round_down(first_load->p_vaddr, pagesize);
+  ElfW(Addr) load_bias = mapping - round_down(first_load->p_vaddr, pagesize);
 
   if (first_load->p_offset > ehdr->e_phoff ||
       first_load->p_filesz <
@@ -170,9 +150,9 @@ ElfW(Addr) elfld_load_elf(int fd,
     _nx_fatal_printf("First load segment of ELF file does not contain phdrs!");
   }
 
-  handle_bss(first_load, *load_bias, pagesize);
+  handle_bss(first_load, load_bias, pagesize);
 
-  ElfW(Addr) last_end = first_load->p_vaddr + *load_bias + first_load->p_memsz;
+  ElfW(Addr) last_end = first_load->p_vaddr + load_bias + first_load->p_memsz;
 
   /*
    * Map the remaining segments, and protect any holes between them.
@@ -182,22 +162,18 @@ ElfW(Addr) elfld_load_elf(int fd,
     if (ph->p_type == PT_LOAD) {
       ElfW(Addr) last_page_end = round_up(last_end, pagesize);
 
-      last_end = ph->p_vaddr + *load_bias + ph->p_memsz;
-      ElfW(Addr) start = round_down(ph->p_vaddr + *load_bias, pagesize);
+      last_end = ph->p_vaddr + load_bias + ph->p_memsz;
+      ElfW(Addr) start = round_down(ph->p_vaddr + load_bias, pagesize);
       ElfW(Addr) end = round_up(last_end, pagesize);
 
       if (start > last_page_end) {
         mprotect((void *)last_page_end, start - last_page_end, PROT_NONE);
       }
 
-      mmap((void *)start,
-           end - start,
-           prot_from_phdr(ph),
-           MAP_PRIVATE | MAP_FIXED,
-           fd,
-           round_down(ph->p_offset, pagesize));
+      mmap((void *)start, end - start, prot_from_phdr(ph),
+           MAP_PRIVATE | MAP_FIXED, fd, round_down(ph->p_offset, pagesize));
 
-      handle_bss(ph, *load_bias, pagesize);
+      handle_bss(ph, load_bias, pagesize);
     }
   }
 
@@ -214,14 +190,13 @@ ElfW(Addr) elfld_load_elf(int fd,
          */
         if (phdr[i].p_offset >= first_load->p_offset &&
             phdr[i].p_filesz <= first_load->p_filesz) {
-          *out_interp = (const char *)(phdr[i].p_vaddr + *load_bias);
+          *out_interp = (const char *)(phdr[i].p_vaddr + load_bias);
         } else {
           static char interp_buffer[PATH_MAX + 1];
           if (phdr[i].p_filesz >= sizeof(interp_buffer)) {
             _nx_fatal_printf(
                 "ELF file has unreasonable PT_INTERP size %lu in segment %u\n",
-                phdr[i].p_filesz,
-                i);
+                phdr[i].p_filesz, i);
           }
           result = pread(fd, interp_buffer, phdr[i].p_filesz, phdr[i].p_offset);
           if (result < 0) {
@@ -239,11 +214,11 @@ ElfW(Addr) elfld_load_elf(int fd,
 
   if (out_phdr != NULL) {
     *out_phdr = (ehdr->e_phoff - first_load->p_offset + first_load->p_vaddr +
-                 *load_bias);
+                 load_bias);
   }
   if (out_phnum != NULL) {
     *out_phnum = ehdr->e_phnum;
   }
 
-  return ehdr->e_entry + *load_bias;
+  return ehdr->e_entry + load_bias;
 }
