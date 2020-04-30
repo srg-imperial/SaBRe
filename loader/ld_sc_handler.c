@@ -199,7 +199,7 @@ static unsigned long loader_tls_addr;
 static unsigned long client_tls_addr;
 
 // %fs holds the TLS start address, so ARCH_SET_FS must be handled specially
-long arch_set_fs_handler (unsigned long addr) {
+long arch_set_fs_handler(unsigned long addr) {
   if (loader_tls_addr == 0) {
     assert(client_tls_addr == 0);
 
@@ -212,11 +212,20 @@ long arch_set_fs_handler (unsigned long addr) {
     const size_t stack_guard_tls_offset = 0x28; // see glibc-2.27/sysdeps/x86_64/nptl/tls.h
     uintptr_t loader_stack_guard_value = *(uintptr_t *)(loader_tls_addr + stack_guard_tls_offset);
     *(uintptr_t *)(client_tls_addr + stack_guard_tls_offset) = loader_stack_guard_value;
-  }
-  else
+  } else {
     _nx_fatal_printf("ARCH_SET_FS called more than once from client\n");
+  }
 
-  return plugin_sc_handler(SYS_arch_prctl, ARCH_SET_FS, addr, 0, 0, 0, 0, NULL);
+  // We can't forward ARCH_SET_FS to the plugin. If the plugin uses locks
+  // through pthreads or malloc the plugin will segfault, this is because these
+  // libraries secretly use the TLS and the FS register. So when we switch the
+  // FS register above the plugin will be using the application's pthreads which
+  // might be uninitialized and thus segfault.
+  // Remember! The plugin (for now) always needs to enter with the SaBRe FS.
+  // Optional: To allow the plugin to be aware of this syscall as special hook
+  // needs to be introduced that notifies the plugin about the switch only after
+  // the switch is done.
+  return syscall(SYS_arch_prctl, ARCH_SET_FS, addr);
 }
 #endif // __x86_64__
 
