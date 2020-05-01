@@ -30,7 +30,7 @@
 #include "macros.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
-#define MAX_INITIAL_MAPPINGS 31
+#define MAX_INITIAL_MAPPINGS 41
 
 static long initial_mappings[MAX_INITIAL_MAPPINGS];
 static int initial_mapping_cnt = 0;

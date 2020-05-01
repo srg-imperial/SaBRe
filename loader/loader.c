@@ -6,15 +6,16 @@
  */
 
 #define _GNU_SOURCE
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
 #include <assert.h>
-#include <linux/limits.h>
-#include <stdbool.h>
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <linux/limits.h>
+#include <malloc.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "compiler.h"
 #include "macros.h"
@@ -151,6 +152,16 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 	print_usage();
 	exit(-1);
   }
+
+  // There 2 mallocs in memory because SaBRe loads 2 libcs (one for SaBRe) and
+  // one for the client (which is intercepted). These two mallocs will overlap
+  // their arenas as malloc uses brk(NULL) to initialize its arena, and this
+  // brk(NULL) will always return the same pointer. To avoid this we force
+  // SaBRe's malloc to completely skip the arena initialization and keep objects
+  // into separate mmap() pages. This of course comes with a small performance
+  // decrease, and the potential to OOM if we allocate too many items.
+  int ret = mallopt(M_MMAP_THRESHOLD, 0);
+  assert(ret == 1);
 
   stack_val_t *argv_null = (stack_val_t *)&argv[argc];
 
