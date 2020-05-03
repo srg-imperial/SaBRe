@@ -153,15 +153,12 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 	exit(-1);
   }
 
-  // There 2 mallocs in memory because SaBRe loads 2 libcs (one for SaBRe) and
-  // one for the client (which is intercepted). These two mallocs will overlap
-  // their arenas as malloc uses brk(NULL) to initialize its arena, and this
-  // brk(NULL) will always return the same pointer. To avoid this we force
-  // SaBRe's malloc to completely skip the arena initialization and keep objects
-  // into separate mmap() pages. This of course comes with a small performance
-  // decrease, and the potential to OOM if we allocate too many items.
-  int ret = mallopt(M_MMAP_THRESHOLD, 0);
-  assert(ret == 1);
+  // SaBRe and its plugins statically link with mimalloc now, and stay separate
+  // from client's libc malloc. Before, there were 2 libc mallocs (one for SaBRe
+  // + plugin) and one for the client (which is intercepted). These two mallocs
+  // had overlapping arenas as malloc uses brk(NULL) to initialize its arena,
+  // and this brk(NULL) will always return the same pointer. Now, mimalloc is
+  // using mmap and this is no longer a problem.
 
   stack_val_t *argv_null = (stack_val_t *)&argv[argc];
 

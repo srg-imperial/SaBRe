@@ -35,6 +35,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
 endif()
 
 include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_component.cmake")
+include("${CMAKE_SOURCE_DIR}/cmake/mimalloc.cmake")
 
 # Sources
 add_subdirectory("arch/${CMAKE_SYSTEM_PROCESSOR}" arch)
