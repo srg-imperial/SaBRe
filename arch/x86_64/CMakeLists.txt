@@ -25,8 +25,6 @@ sabre_add_component(realsyscall
   clone_syscall.s
   real_syscall.s)
 
-target_link_libraries(backend loader)
-
 add_subdirectory("${CMAKE_SOURCE_DIR}/libsrc" "${CMAKE_BINARY_DIR}/libsrc")
 
 sabre_add_executable(sabre main.s)
