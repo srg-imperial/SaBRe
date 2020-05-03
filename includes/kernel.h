@@ -20,10 +20,6 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
 #endif
 
-#define __round_mask(x, y) ((__typeof__(x))((y) - 1))
-#define round_up(x, y) ((((x) - 1) | __round_mask(x, y)) + 1)
-#define round_down(x, y) ((x) & ~__round_mask(x, y))
-
 #define FIELD_SIZEOF(t, f) (sizeof(((t *)0)->f))
 #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
 #define DIV_ROUND_UP_ULL(ll, d)               \
