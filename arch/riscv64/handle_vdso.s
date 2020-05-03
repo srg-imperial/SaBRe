@@ -63,16 +63,16 @@ handle_vdso:
 	add a0, t2, x0	/* syscall number */
 
 	# call plugin handler
-	la t0, plugin_sc_handler
+	la t0, proxy_plugin_sc_handler
 	ld t0, 0(t0)
 	jalr t0
 	j end
     # no need to adjust return value
-    
+
 
 vdso_handler_provided:
     call plugin_vdso_handler
-	
+
 end:
 	ld x8, 0(sp)
 	addi sp, sp, 8

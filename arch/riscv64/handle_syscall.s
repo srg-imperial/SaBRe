@@ -11,7 +11,7 @@
 .internal handle_syscall
 .type handle_syscall, @function
 
-handle_syscall: 
+handle_syscall:
 
 #addi sp, sp, -16
 #	sd x8, 0(sp)
@@ -71,7 +71,7 @@ handle_syscall:
 	add a0, t0, x0
 
 	# call plugin handler
-	la t0, plugin_sc_handler
+	la t0, proxy_plugin_sc_handler
 	ld t0, 0(t0)
 	jalr t0
     # no need to adjust return value

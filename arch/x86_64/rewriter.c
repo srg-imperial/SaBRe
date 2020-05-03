@@ -9,6 +9,7 @@
 #include "config.h"
 
 #include "loader/global_vars.h"
+#include "loader/proxy_funcs.h"
 #include "loader/rewriter.h"
 
 #include "handle_rdtsc.h"
@@ -707,7 +708,7 @@ void detour_func(struct library *lib,
   void *plugin_handler;
 
   if (vdso_callback)
-    plugin_handler = vdso_callback(syscall_no, trampoline_addr);
+    plugin_handler = proxy_vdso_callback(syscall_no, trampoline_addr);
   else
     plugin_handler = NULL;
 

@@ -195,8 +195,28 @@ static int intercept_sbr (struct mem_chunk mmaps []) {
 }
 
 #ifdef __x86_64__
-static unsigned long loader_tls_addr;
-static unsigned long client_tls_addr;
+// TODO(andronat): We need to reset the following during a clone. Validate
+// that after a clone, libc always calls arch_set_fs_handler().
+static _Thread_local unsigned long loader_tls_addr;
+static _Thread_local unsigned long client_tls_addr;
+
+void load_client_tls() {
+  if (client_tls_addr == 0) {
+    return;
+  }
+  if (syscall(SYS_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1) {
+    _nx_fatal_printf("Failed to switch to client TLS\n");
+  }
+}
+
+void load_sabre_tls() {
+  if (loader_tls_addr == 0) {
+    return;
+  }
+  if (syscall(SYS_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1) {
+    _nx_fatal_printf("Failed to switch to SaBRe TLS\n");
+  }
+}
 
 // %fs holds the TLS start address, so ARCH_SET_FS must be handled specially
 long arch_set_fs_handler(unsigned long addr) {

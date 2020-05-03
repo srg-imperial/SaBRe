@@ -8,6 +8,7 @@
 #include "config.h"
 
 #include "loader/global_vars.h"
+#include "loader/proxy_funcs.h"
 #include "loader/rewriter.h"
 
 #include "handle_rdtsc.h"
@@ -594,7 +595,7 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
   void *trampoline_addr = dest + stub_n * 4 + 4;
 
   if (vdso_callback) {
-    plugin_vdso_handler = vdso_callback(sc_no, trampoline_addr);
+    plugin_vdso_handler = proxy_vdso_callback(sc_no, trampoline_addr);
     _nx_debug_printf("trampoline_addr: %p\tplugin_vdso_handler: %p\n",
         (void*)trampoline_addr, (void*)plugin_vdso_handler);
   }
