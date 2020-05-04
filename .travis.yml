@@ -8,7 +8,10 @@ before_install:
 addons:
   apt:
     update: true
-
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-7
 before_script:
   - mkdir build
   - cd build
