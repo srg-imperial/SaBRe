@@ -5,11 +5,13 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include <assert.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 
 #include "arch/rewriter_tools.h"
 #include "global_vars.h"
+#include "loader/custom_tls.h"
 #include "loader/ld_sc_handler.h"
 
 // The plugin uses SaBRe's malloc, so we need to switch TLS before we enter the
@@ -20,21 +22,38 @@
 // plugin libraries that use malloc, pthreads, etc will work in harmony with the
 // client.
 
-// TODO(andronat): What should we do with the flags after a clone()?
-static bool calling_from_plugin = false;
+bool are_we_a_child_after_fork(long sc_no, long arg2, long rc) {
+  if (sc_no == SYS_clone && rc == 0) {
+    return true;
+  } else if (sc_no == SYS_fork && rc == 0) {
+    assert(arg2 == 0);
+    return true;
+  }
+  return false;
+}
 
 long proxy_plugin_sc_handler(long sc_no, long arg1, long arg2, long arg3,
                              long arg4, long arg5, long arg6,
                              void *wrapper_sp) {
-  if (calling_from_plugin == true) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->calling_from_plugin == true) {
     return syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
   }
 
   load_sabre_tls();
-  calling_from_plugin = true;
+  ctls->calling_from_plugin = true;
   long fd =
       plugin_sc_handler(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, wrapper_sp);
-  calling_from_plugin = false;
+
+  // We just forked and we are the child, we need to setup a new custom_tls.
+  if (are_we_a_child_after_fork(sc_no, arg2, fd)) {
+    setup_default_ctls();
+    return fd;
+  }
+
+  ctls->calling_from_plugin = false;
   load_client_tls();
   return fd;
 }
@@ -44,14 +63,17 @@ static clock_gettime_fn *plugin_vdso_clock_gettime;
 static clock_gettime_fn *real_vdso_clock_gettime;
 
 long proxy_vdso_clock_gettime(clockid_t arg1, struct timespec *arg2) {
-  if (calling_from_plugin == true) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->calling_from_plugin == true) {
     return real_vdso_clock_gettime(arg1, arg2);
   }
 
   load_sabre_tls();
-  calling_from_plugin = true;
+  ctls->calling_from_plugin = true;
   long ret = plugin_vdso_clock_gettime(arg1, arg2);
-  calling_from_plugin = false;
+  ctls->calling_from_plugin = false;
   load_client_tls();
   return ret;
 }
@@ -62,14 +84,17 @@ static getcpu_fn *plugin_vdso_getcpu;
 static getcpu_fn *real_vdso_getcpu;
 
 long proxy_vdso_getcpu(unsigned *arg1, unsigned *arg2, void *arg3) {
-  if (calling_from_plugin == true) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->calling_from_plugin == true) {
     return real_vdso_getcpu(arg1, arg2, arg3);
   }
 
   load_sabre_tls();
-  calling_from_plugin = true;
+  ctls->calling_from_plugin = true;
   long ret = plugin_vdso_getcpu(arg1, arg2, arg3);
-  calling_from_plugin = false;
+  ctls->calling_from_plugin = false;
   load_client_tls();
   return ret;
 }
@@ -79,14 +104,17 @@ static gettimeofday_fn *plugin_vdso_gettimeofday;
 static gettimeofday_fn *real_vdso_gettimeofday;
 
 long proxy_vdso_gettimeofday(struct timeval *arg1, struct timezone *arg2) {
-  if (calling_from_plugin == true) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->calling_from_plugin == true) {
     return real_vdso_gettimeofday(arg1, arg2);
   }
 
   load_sabre_tls();
-  calling_from_plugin = true;
+  ctls->calling_from_plugin = true;
   long ret = plugin_vdso_gettimeofday(arg1, arg2);
-  calling_from_plugin = false;
+  ctls->calling_from_plugin = false;
   load_client_tls();
   return ret;
 }
@@ -97,14 +125,17 @@ static time_fn *plugin_vdso_time;
 static time_fn *real_vdso_time;
 
 long proxy_vdso_time(time_t *arg1) {
-  if (calling_from_plugin == true) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->calling_from_plugin == true) {
     return real_vdso_time(arg1);
   }
 
   load_sabre_tls();
-  calling_from_plugin = true;
+  ctls->calling_from_plugin = true;
   long ret = plugin_vdso_time(arg1);
-  calling_from_plugin = false;
+  ctls->calling_from_plugin = false;
   load_client_tls();
   return ret;
 }

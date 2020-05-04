@@ -28,6 +28,7 @@
 #include "arch/handle_rdtsc.h"
 #endif
 #include "arch/syscall_stackframe.h"
+#include "loader/custom_tls.h"
 
 #define MAX_BUF_SIZE PATH_MAX + 1024
 
@@ -162,6 +163,10 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   // decrease, and the potential to OOM if we allocate too many items.
   int ret = mallopt(M_MMAP_THRESHOLD, 0);
   assert(ret == 1);
+
+  // Setup our custom TLS
+  register_first_tid();
+  setup_default_ctls();
 
   stack_val_t *argv_null = (stack_val_t *)&argv[argc];
 

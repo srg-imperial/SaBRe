@@ -19,6 +19,8 @@
 
 #include "compiler.h"
 #include "global_vars.h"
+#include "loader/custom_tls.h"
+#include "loader/proxy_funcs.h"
 #include "macros.h"
 
 // TODO: This code needs refactoring. Split open and mmap syscalls. Find a more
@@ -195,44 +197,52 @@ static int intercept_sbr (struct mem_chunk mmaps []) {
 }
 
 #ifdef __x86_64__
-static unsigned long sabre_tls_addr;
-static unsigned long client_tls_addr;
-
 void load_sabre_tls() {
-  if (sabre_tls_addr == 0) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->sabre_tls_addr == 0) {
     // TODO: Be more defensive and assert(sabre_tls_addr != 0)
     return;
   }
-  if (syscall(SYS_arch_prctl, ARCH_SET_FS, sabre_tls_addr) == -1) {
+  if (syscall(SYS_arch_prctl, ARCH_SET_FS, ctls->sabre_tls_addr) == -1) {
     _nx_fatal_printf("Failed to switch to SaBRe TLS\n");
   }
 }
 
 void load_client_tls() {
-  if (client_tls_addr == 0) {
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->client_tls_addr == 0) {
     // TODO: Be more defensive and assert(client_tls_addr != 0)
     return;
   }
-  if (syscall(SYS_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1) {
+  if (syscall(SYS_arch_prctl, ARCH_SET_FS, ctls->client_tls_addr) == -1) {
     _nx_fatal_printf("Failed to switch to client TLS\n");
   }
 }
 
+// TODO(andronat): Find when libc calls arch_set_fs_handler().
+
 // %fs holds the TLS start address, so ARCH_SET_FS must be handled specially
 long arch_set_fs_handler(unsigned long addr) {
-  if (sabre_tls_addr == 0) {
-    assert(client_tls_addr == 0);
+  thread_local_vars_s *ctls = get_ctls();
+  assert(ctls != NULL);
+
+  if (ctls->sabre_tls_addr == 0) {
+    assert(ctls->client_tls_addr == 0);
 
     // Save SaBRe TLS
-    if (syscall(SYS_arch_prctl, ARCH_GET_FS, &sabre_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_GET_FS, &ctls->sabre_tls_addr) == -1)
       _nx_fatal_printf("Failed to get loader TLS address\n");
-    client_tls_addr = addr;
+    ctls->client_tls_addr = addr;
 
     // Copy SaBRe stack guard value to the client TLS
     const size_t stack_guard_tls_offset = 0x28; // see glibc-2.27/sysdeps/x86_64/nptl/tls.h
     uintptr_t sabre_stack_guard_value =
-        *(uintptr_t *)(sabre_tls_addr + stack_guard_tls_offset);
-    *(uintptr_t *)(client_tls_addr + stack_guard_tls_offset) =
+        *(uintptr_t *)(ctls->sabre_tls_addr + stack_guard_tls_offset);
+    *(uintptr_t *)(ctls->client_tls_addr + stack_guard_tls_offset) =
         sabre_stack_guard_value;
   } else {
     _nx_fatal_printf("ARCH_SET_FS called more than once from client\n");
