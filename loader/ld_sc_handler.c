@@ -195,23 +195,25 @@ static int intercept_sbr (struct mem_chunk mmaps []) {
 }
 
 #ifdef __x86_64__
-static unsigned long loader_tls_addr;
+static unsigned long sabre_tls_addr;
 static unsigned long client_tls_addr;
 
 // %fs holds the TLS start address, so ARCH_SET_FS must be handled specially
 long arch_set_fs_handler(unsigned long addr) {
-  if (loader_tls_addr == 0) {
+  if (sabre_tls_addr == 0) {
     assert(client_tls_addr == 0);
 
     // Save SaBRe TLS
-    if (syscall(SYS_arch_prctl, ARCH_GET_FS, &loader_tls_addr) == -1)
+    if (syscall(SYS_arch_prctl, ARCH_GET_FS, &sabre_tls_addr) == -1)
       _nx_fatal_printf("Failed to get loader TLS address\n");
     client_tls_addr = addr;
 
     // Copy SaBRe stack guard value to the client TLS
     const size_t stack_guard_tls_offset = 0x28; // see glibc-2.27/sysdeps/x86_64/nptl/tls.h
-    uintptr_t loader_stack_guard_value = *(uintptr_t *)(loader_tls_addr + stack_guard_tls_offset);
-    *(uintptr_t *)(client_tls_addr + stack_guard_tls_offset) = loader_stack_guard_value;
+    uintptr_t sabre_stack_guard_value =
+        *(uintptr_t *)(sabre_tls_addr + stack_guard_tls_offset);
+    *(uintptr_t *)(client_tls_addr + stack_guard_tls_offset) =
+        sabre_stack_guard_value;
   } else {
     _nx_fatal_printf("ARCH_SET_FS called more than once from client\n");
   }
@@ -239,8 +241,8 @@ long ld_sc_handler(long sc_no,
                    void *wrapper_sp)
 {
 #ifdef __x86_64__
-  if (loader_tls_addr != 0) {
-    if (syscall(SYS_arch_prctl, ARCH_SET_FS, loader_tls_addr) == -1)
+  if (sabre_tls_addr != 0) {
+    if (syscall(SYS_arch_prctl, ARCH_SET_FS, sabre_tls_addr) == -1)
       _nx_fatal_printf("Failed to switch to loader TLS\n");
   }
 #endif // __x86_64__
