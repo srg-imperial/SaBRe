@@ -198,6 +198,26 @@ static int intercept_sbr (struct mem_chunk mmaps []) {
 static unsigned long sabre_tls_addr;
 static unsigned long client_tls_addr;
 
+void load_sabre_tls() {
+  if (sabre_tls_addr == 0) {
+    // TODO: Be more defensive and assert(sabre_tls_addr != 0)
+    return;
+  }
+  if (syscall(SYS_arch_prctl, ARCH_SET_FS, sabre_tls_addr) == -1) {
+    _nx_fatal_printf("Failed to switch to SaBRe TLS\n");
+  }
+}
+
+void load_client_tls() {
+  if (client_tls_addr == 0) {
+    // TODO: Be more defensive and assert(client_tls_addr != 0)
+    return;
+  }
+  if (syscall(SYS_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1) {
+    _nx_fatal_printf("Failed to switch to client TLS\n");
+  }
+}
+
 // %fs holds the TLS start address, so ARCH_SET_FS must be handled specially
 long arch_set_fs_handler(unsigned long addr) {
   if (sabre_tls_addr == 0) {
@@ -241,10 +261,7 @@ long ld_sc_handler(long sc_no,
                    void *wrapper_sp)
 {
 #ifdef __x86_64__
-  if (sabre_tls_addr != 0) {
-    if (syscall(SYS_arch_prctl, ARCH_SET_FS, sabre_tls_addr) == -1)
-      _nx_fatal_printf("Failed to switch to loader TLS\n");
-  }
+  load_sabre_tls();
 #endif // __x86_64__
 
   long ret;
@@ -352,10 +369,7 @@ long ld_sc_handler(long sc_no,
   }
 
 #ifdef __x86_64__
-  if (client_tls_addr != 0) {
-    if (syscall(SYS_arch_prctl, ARCH_SET_FS, client_tls_addr) == -1)
-      _nx_fatal_printf("Failed to switch to client TLS\n");
-  }
+  load_client_tls();
 #endif // __x86_64__
 
   return ret;
