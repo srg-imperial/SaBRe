@@ -12,6 +12,7 @@ set(SRCS
   handle_vdso.s
   rewriter.c
   syscall_stackframe.c
+  tls_helper.c
   x86_decoder.c
 )
 

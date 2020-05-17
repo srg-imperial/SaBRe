@@ -17,6 +17,6 @@ sabre_add_component(loader
   rewriter.c
 )
 
-target_link_libraries(loader ${CMAKE_DL_LIBS} backend)
+target_link_libraries(loader ${CMAKE_DL_LIBS} backend realsyscall)
 
 add_subdirectory(tools)

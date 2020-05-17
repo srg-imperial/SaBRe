@@ -15,11 +15,10 @@ long real_syscall(long sc_no,
                   long arg5,
                   long arg6);
 
-long clone_syscall (unsigned long flags,
-            void *child_stack,
-            int *ptid, int *ctid,
-            unsigned long newtls,
-            void** args
-            );
+long clone_syscall(unsigned long flags, void *child_stack, int *ptid, int *ctid,
+                   unsigned long newtls, void **args, void *new_sabre_tlv);
+
+long sabre_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid,
+                 unsigned long newtls, void *ret_addr);
 
 #endif /* !REAL_SYSCALL_H */

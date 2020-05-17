@@ -5,22 +5,51 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include <asm/prctl.h>
 #include <assert.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 
 #include "arch/rewriter_tools.h"
+#include "arch/tls_helper.h"
 #include "global_vars.h"
 #include "loader/custom_tls.h"
 #include "loader/ld_sc_handler.h"
+#include "plugins/real_syscall.h"
 
 // The plugin uses SaBRe's malloc, so we need to switch TLS before we enter the
 // plugin and switch back to the client's TLS before we return back to the
 // client.
-// TODO(andronat): This is currently very slow as we add 2 syscalls for every
+// TODO(andronat): This is currently very slow as we add 3 syscalls for every
 // client syscall. Ideally, we should link the plugin with the client's libc so
 // plugin libraries that use malloc, pthreads, etc will work in harmony with the
 // client.
+
+long sabre_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid,
+                 unsigned long newtls, void *ret_addr) {
+  // We are in SaBRe's TLS
+
+  uintptr_t cur_sabre_tls = 0;
+  if (syscall(SYS_arch_prctl, ARCH_GET_FS, &cur_sabre_tls) == -1) {
+    _nx_fatal_printf("Failed to get loader TLS address\n");
+  }
+  uintptr_t new_sabre_tls = new_tls(cur_sabre_tls);
+
+  // We need to call malloc before we jump into the new thread because there
+  // are allocators that use vDSOs and we will end up in an infinite
+  // recursion.
+  thread_local_vars_s *new_tlv = new_ctls_storage();
+  new_tlv->client_tls_addr = newtls;
+  new_tlv->sabre_tls_addr = new_sabre_tls;
+
+  return clone_syscall(flags, child_stack, ptid, ctid, newtls, ret_addr,
+                       (void *)new_tlv);
+}
+
+void post_sabre_clone(thread_local_vars_s *new_sabre_tlv) {
+  // We just cloned and we are in client's TLS
+  register_ctls_with_tlv(new_sabre_tlv);
+}
 
 bool are_we_a_child_after_fork(long sc_no, long arg2, long rc) {
   if (sc_no == SYS_clone && rc == 0) {
@@ -49,7 +78,7 @@ long proxy_plugin_sc_handler(long sc_no, long arg1, long arg2, long arg3,
 
   // We just forked and we are the child, we need to setup a new custom_tls.
   if (are_we_a_child_after_fork(sc_no, arg2, fd)) {
-    setup_default_ctls();
+    register_ctls_with_tlv(new_ctls_storage());
     return fd;
   }
 

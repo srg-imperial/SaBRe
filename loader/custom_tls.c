@@ -31,12 +31,16 @@ thread_local_vars_s *get_ctls() {
   return all_ctls[tid];
 }
 
-// This should be called once per new thread.
-void setup_default_ctls() {
+thread_local_vars_s *new_ctls_storage() {
   thread_local_vars_s *tlv =
       (thread_local_vars_s *)calloc(1, sizeof(thread_local_vars_s));
   assert(tlv != NULL);
+  return tlv;
+}
+
+// This should be called once per new thread.
+void register_ctls_with_tlv(thread_local_vars_s *new_tlv) {
   pid_t tid = syscall(SYS_gettid) - first_tid;
   assert(tid >= 0 && tid < MAX_THREADS);
-  all_ctls[tid] = tlv;
+  all_ctls[tid] = new_tlv;
 }

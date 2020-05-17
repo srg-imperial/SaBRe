@@ -22,6 +22,8 @@ clone_syscall:
 
   # Set up child arguments, including return address
   movq %r9, -8(%rsi)
+  movq 0x10(%rsp), %rax
+  movq %rax, -0x10(%rsi)
 
   # Adjust the arguments
   movq $56, %rax
@@ -34,6 +36,32 @@ clone_syscall:
 
   # Child
   movq -8(%rsp), %r11
+  pushq %rdi # Save rdi before we edit it
+  movq -8(%rsp), %rdi
+
+  # Save the registers
+  pushq %rax
+  pushq %rcx
+  pushq %rdx
+  pushq %rsi
+  pushq %r8
+  pushq %r9
+  pushq %r10
+  pushq %r11
+
+  call *post_sabre_clone@GOTPCREL(%rip)
+
+  # Restore registers
+  popq %r11
+  popq %r10
+  popq %r9
+  popq %r8
+  popq %rsi
+  popq %rdx
+  popq %rcx
+  popq %rax
+  popq %rdi
+
   subq $128, %rsp
   jmp *%r11
 

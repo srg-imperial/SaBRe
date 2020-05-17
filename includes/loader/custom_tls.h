@@ -18,8 +18,9 @@ typedef struct thread_local_vars {
 } thread_local_vars_s;
 
 void register_first_tid();
-void setup_default_ctls();
+void register_ctls_with_tlv(thread_local_vars_s *);
 
 thread_local_vars_s *get_ctls();
+thread_local_vars_s *new_ctls_storage();
 
 #endif /* !CUSTOM_TLS */

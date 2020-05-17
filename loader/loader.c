@@ -166,7 +166,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   // Setup our custom TLS
   register_first_tid();
-  setup_default_ctls();
+  register_ctls_with_tlv(new_ctls_storage());
 
   stack_val_t *argv_null = (stack_val_t *)&argv[argc];
 

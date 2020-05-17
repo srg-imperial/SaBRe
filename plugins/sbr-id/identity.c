@@ -30,7 +30,8 @@ long handle_syscall(long sc_no,
                     void* wrapper_sp) {
   if (sc_no == SYS_clone && arg2 != 0) { // clone
     void *ret_addr = get_syscall_return_address(wrapper_sp);
-    return clone_syscall(arg1, (void*)arg2, (void*)arg3, (void*)arg4, arg5, ret_addr);
+    return sabre_clone(arg1, (void *)arg2, (void *)arg3, (void *)arg4, arg5,
+                       ret_addr);
   }
   else
     return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
