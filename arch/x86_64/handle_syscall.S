@@ -106,7 +106,7 @@ handle_syscall:
 
   2:
   # Call the actual handler
-  call *plugin_sc_handler(%rip)
+  call *proxy_plugin_sc_handler@GOTPCREL(%rip)
 
   3:
   # Pop arguments

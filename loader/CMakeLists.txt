@@ -12,6 +12,7 @@ sabre_add_component(loader
   ld_sc_handler.c
   loader.c
   maps.c
+  proxy_funcs.c
   rewriter.c
 )
 

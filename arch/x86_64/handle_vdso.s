@@ -57,7 +57,7 @@ handle_vdso:
   movq %rax, %rdi    # sc_no
 
   # Call the actual handler
-  call *plugin_sc_handler(%rip)
+  call *proxy_plugin_sc_handler@GOTPCREL(%rip)
   jmp end
 
 handler_provided:

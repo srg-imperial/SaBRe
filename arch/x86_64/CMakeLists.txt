@@ -20,6 +20,7 @@ if (RDTSC)
 endif(RDTSC)
 
 sabre_add_component(backend ${SRCS})
+target_link_libraries(backend loader)
 
 sabre_add_component(realsyscall
   clone_syscall.s
