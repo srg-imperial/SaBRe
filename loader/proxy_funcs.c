@@ -49,6 +49,17 @@ long sabre_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid,
 void post_sabre_clone(thread_local_vars_s *new_sabre_tlv) {
   // We just cloned and we are in client's TLS
   register_ctls_with_tlv(new_sabre_tlv);
+
+  // struct pthread from glibc/nptl/descr.h has lots of extra information that
+  // requires to be copied to SaBRe's after-TLS space. As an example, the TID
+  // put by the kernel on the newly created process needs to be copied to SaBRe
+  // as it is required and used by pthread operations.
+  // sizeof(pd->header) = 704
+  // sizeof(*pd) = 2304
+  // The following code, ignores the TLS and copies everything else after the
+  // TLS.
+  memcpy((void *)new_sabre_tlv->sabre_tls_addr + 704,
+         (void *)new_sabre_tlv->client_tls_addr + 704, 2304 - 704);
 }
 
 bool are_we_a_child_after_fork(long sc_no, long arg2, long rc) {
