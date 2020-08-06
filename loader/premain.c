@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <syscall.h>
 
 #include "dl_init_hook.h"
 #include "elf_loading.h"
@@ -59,6 +60,10 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
   sym_addr = addr_of_elf_symbol(abs_plugin_path, "exit_plugin");
   assert(sym_addr != 0);
   exit_plugin = (void *)lib_base + sym_addr;
+
+  sym_addr = addr_of_elf_symbol(abs_plugin_path, "is_vdso_ready");
+  assert(sym_addr != 0);
+  is_vdso_ready = (void *)lib_base + sym_addr;
 
   load_client_tls();
 
@@ -167,9 +172,28 @@ static void_void_fn fn_icept_callback(void_void_fn r_dl_init) {
   return (void_void_fn)dl_init_hook;
 }
 
+typedef int (*clock_gettime_fn)(clockid_t, struct timespec *);
+static clock_gettime_fn real_clock_gettime;
+
+int sabre_clock_gettime(clockid_t clockid, struct timespec *tp) {
+  if (is_vdso_ready())
+    return real_clock_gettime(clockid, tp);
+  return syscall(SYS_clock_gettime, clockid, tp);
+}
+
+static void_void_fn vdso_guard_icept_callback(void_void_fn r_clock_gettime) {
+  real_clock_gettime = (clock_gettime_fn)r_clock_gettime;
+  return (void_void_fn)sabre_clock_gettime;
+}
+
 void setup_sbr_premain(sbr_icept_reg_fn fn_icept_reg) {
   sbr_fn_icept_struct premain = {.lib_name = "ld",
                                  .fn_name = "_dl_init",
                                  .icept_callback = fn_icept_callback};
   fn_icept_reg(&premain);
+  sbr_fn_icept_struct vdso_guard = {.lib_name = "libc",
+                                    .fn_name = "__clock_gettime",
+                                    .icept_callback =
+                                        vdso_guard_icept_callback};
+  fn_icept_reg(&vdso_guard);
 }
