@@ -14,7 +14,6 @@
 #include <sys/mman.h>
 #include <syscall.h>
 
-#include "dl_init_hook.h"
 #include "elf_loading.h"
 #include "global_vars.h"
 #include "ld_sc_handler.h"
@@ -27,9 +26,6 @@
 // in this array. The advantage of function calls made by the .preinit_array is
 // that we can safely use arbitrary function calls to client libraries as GOT
 // and all that jazz is ready.
-
-// Global var used in dl_init_hook().
-void *real_dl_init;
 
 // TODO(andronat): Write a tests that check client always gets client argv.
 static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
@@ -94,6 +90,9 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
 static ElfW(Dyn) new_dyn_entries[2] = {{.d_tag = DT_PREINIT_ARRAY},
                                        {.d_tag = DT_PREINIT_ARRAYSZ}};
 
+typedef void (*_dl_init_fn)(struct ld_link_map *, int, char **, char **);
+static _dl_init_fn real_dl_init;
+
 // TODO: The following mechanism is very fragile. This should be ideally
 // replaced by elfutils altering the elf headers and injecting the
 // .preinit_array section.
@@ -101,9 +100,6 @@ void sbr_dl_init(struct ld_link_map *main_map, int ac, char **av, char **e) {
   // Make sure this function shouldn't use the %fs register. e.g. don't use
   // printf.
   assert(main_map != NULL);
-  unreferenced_var(ac);
-  unreferenced_var(av);
-  unreferenced_var(e);
 
   ElfW(Dyn) *preinit_array_p = main_map->l_info[DT_PREINIT_ARRAY];
   ElfW(Dyn) *preinit_array_size_p = main_map->l_info[DT_PREINIT_ARRAYSZ];
@@ -165,11 +161,13 @@ void sbr_dl_init(struct ld_link_map *main_map, int ac, char **av, char **e) {
   // DF_1_INITFIRST is a specialized flag available only to libpthread as
   // suggested here:
   // https://stackoverflow.com/questions/53001746/in-what-order-are-shared-libraries-initialized-and-finalized#comment92968938_53005162
+
+  return real_dl_init(main_map, ac, av, e);
 }
 
-static void_void_fn fn_icept_callback(void_void_fn r_dl_init) {
-  real_dl_init = r_dl_init;
-  return (void_void_fn)dl_init_hook;
+static void_void_fn premain_icept_callback(void_void_fn r_dl_init) {
+  real_dl_init = (_dl_init_fn)r_dl_init;
+  return (void_void_fn)sbr_dl_init;
 }
 
 typedef int (*clock_gettime_fn)(clockid_t, struct timespec *);
@@ -189,7 +187,7 @@ static void_void_fn vdso_guard_icept_callback(void_void_fn r_clock_gettime) {
 void setup_sbr_premain(sbr_icept_reg_fn fn_icept_reg) {
   sbr_fn_icept_struct premain = {.lib_name = "ld",
                                  .fn_name = "_dl_init",
-                                 .icept_callback = fn_icept_callback};
+                                 .icept_callback = premain_icept_callback};
   fn_icept_reg(&premain);
   sbr_fn_icept_struct vdso_guard = {.lib_name = "libc",
                                     .fn_name = "__clock_gettime",

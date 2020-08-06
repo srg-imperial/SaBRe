@@ -10,7 +10,6 @@ set(PROTECTOR ${CMAKE_CURRENT_SOURCE_DIR}/recursion_protector.c PARENT_SCOPE)
 
 # Build library
 sabre_add_component(loader
-  dl_init_hook.s
   elf_loading.c
   ld_sc_handler.c
   loader.c
