@@ -74,4 +74,10 @@ typedef void (*sbr_init_fn)(int *,
 struct syscall_stackframe;
 void *get_syscall_return_address (struct syscall_stackframe* stack_frame);
 
+// SaBRe uses the recursion_protector shim to check if a syscall is made from
+// the SaBRe plugin or the client.
+typedef bool (*calling_from_plugin_fn)(void);
+typedef void (*enter_plugin_fn)(void);
+typedef void (*exit_plugin_fn)(void);
+
 #endif /* !SBR_API_DEFS_H */

@@ -8,6 +8,8 @@
 #ifndef GLOBAL_VARS_H
 #define GLOBAL_VARS_H
 
+#include <limits.h>
+
 #include "plugins/sbr_api_defs.h"
 
 #define MAX_ICEPT_RECORDS 50
@@ -19,10 +21,23 @@ typedef struct {
     sbr_icept_callback_fn callback;
 } sbr_fn_icept_local_struct;
 
+extern int plugin_argc;
+extern char **plugin_argv;
+extern char abs_plugin_path[PATH_MAX];
+
 extern int registered_icept_cnt;
 extern sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 extern sbr_icept_vdso_callback_fn vdso_callback;
 extern sbr_sc_handler_fn plugin_sc_handler;
+#ifdef __NX_INTERCEPT_RDTSC
+extern sbr_rdtsc_handler_fn plugin_rdtsc_handler;
+#endif
+extern calling_from_plugin_fn calling_from_plugin;
+extern enter_plugin_fn enter_plugin;
+extern exit_plugin_fn exit_plugin;
+
 extern const char *known_syscall_libs[];
+
+void register_function_intercepts(const sbr_fn_icept_struct *);
 
 #endif /* !GLOBAL_VARS_H */

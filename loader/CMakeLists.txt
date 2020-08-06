@@ -6,15 +6,22 @@
 
 list(APPEND SABRE_COMPONENT_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/includes/loader)
 
+set(PROTECTOR ${CMAKE_CURRENT_SOURCE_DIR}/recursion_protector.c PARENT_SCOPE)
+
 # Build library
 sabre_add_component(loader
+  dl_init_hook.s
   elf_loading.c
   ld_sc_handler.c
   loader.c
   maps.c
+  premain.c
+  ${PROTECTOR}
   rewriter.c
 )
 
-target_link_libraries(loader ${CMAKE_DL_LIBS} backend)
+add_library(patchelf STATIC patchelf.cpp)
+
+target_link_libraries(loader ${CMAKE_DL_LIBS} realsyscall backend patchelf elf)
 
 add_subdirectory(tools)

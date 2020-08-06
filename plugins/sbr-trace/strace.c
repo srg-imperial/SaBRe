@@ -430,8 +430,6 @@ long handle_syscall_time(long arg1) {
 #endif // __x86_64__
 
 void handle_args(int *argc, char **argv[]) {
-  bool sep_found = false;
-
   while (**argv) {
     // Handle the output
     if (!strncmp(ARG_PATTERN(OUT_ARG), **argv, strlen(ARG_PATTERN(OUT_ARG)))) {
@@ -451,11 +449,12 @@ void handle_args(int *argc, char **argv[]) {
             fputs("Could not open file ", stderr);
             fputs(out_file, stderr);
             fputs(" for sbr_strace output.\n", stderr);
-
+            print_help();
             exit(1);
           }
         } else {
           fputs("Output file is null.\n", stderr);
+          print_help();
           exit(1);
         }
       }
@@ -479,6 +478,7 @@ void handle_args(int *argc, char **argv[]) {
         fputs("Unsupported vDSO handling option: ", out_stream);
         fputs(string_selection, out_stream);
         fputc('\n', out_stream);
+        print_help();
         exit(1);
       }
     }
@@ -487,21 +487,8 @@ void handle_args(int *argc, char **argv[]) {
     if (!strcmp(ARG_PATTERN_NO_PARAM(RAW_ARG), **argv))
       raw_out = true;
 
-    if ((strlen(**argv) == 2) && !strncmp("--", **argv, 3)) {
-      sep_found = true;
-    }
-
     --(*argc);
     ++(*argv);
-
-    if (sep_found)
-      break;
-  }
-
-  if (!sep_found) {
-    fputs("Invalid arguments, missing \"--\" separator\n", out_stream);
-    print_help();
-    exit(1);
   }
 }
 
