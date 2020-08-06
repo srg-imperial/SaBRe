@@ -51,6 +51,7 @@ sbr_rdtsc_handler_fn plugin_rdtsc_handler;
 calling_from_plugin_fn calling_from_plugin = NULL;
 enter_plugin_fn enter_plugin = NULL;
 exit_plugin_fn exit_plugin = NULL;
+is_vdso_ready_fn is_vdso_ready = NULL;
 
 void register_function_intercepts(const sbr_fn_icept_struct *r_struct)
 {

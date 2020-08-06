@@ -35,6 +35,7 @@ extern sbr_rdtsc_handler_fn plugin_rdtsc_handler;
 extern calling_from_plugin_fn calling_from_plugin;
 extern enter_plugin_fn enter_plugin;
 extern exit_plugin_fn exit_plugin;
+extern is_vdso_ready_fn is_vdso_ready;
 
 extern const char *known_syscall_libs[];
 

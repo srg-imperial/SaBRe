@@ -79,5 +79,6 @@ void *get_syscall_return_address (struct syscall_stackframe* stack_frame);
 typedef bool (*calling_from_plugin_fn)(void);
 typedef void (*enter_plugin_fn)(void);
 typedef void (*exit_plugin_fn)(void);
+typedef bool (*is_vdso_ready_fn)(void);
 
 #endif /* !SBR_API_DEFS_H */
