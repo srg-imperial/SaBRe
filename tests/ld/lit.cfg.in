@@ -32,7 +32,7 @@ config.test_exec_root   = '@CMAKE_BINARY_DIR@/tests'
 
 config.target_triple = '(unused)'
 
-config.substitutions.append(('%{sbr}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-id/libsbr-id.so'))
+config.substitutions.append(('%{sbr}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-id/libsbr-id.so --'))
 config.substitutions.append(('%{cc}',       '@GCC_PATH@'))
 config.substitutions.append(('%{clang}',    '@CLANG_PATH@'))
 config.substitutions.append(('%{gcc}',      '@GCC_PATH@'))

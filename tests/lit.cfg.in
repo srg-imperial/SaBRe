@@ -45,7 +45,7 @@ config.substitutions.append(('%{cc}',       '@TEST_GCC_PATH@'))
 config.substitutions.append(('%{clang}',    '@TEST_CLANG_PATH@'))
 config.substitutions.append(('%{gcc}',      '@TEST_GCC_PATH@'))
 
-config.substitutions.append(('%{sbr}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-id/libsbr-id.so'))
+config.substitutions.append(('%{sbr}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-id/libsbr-id.so --'))
 config.substitutions.append(('%{process-vdso}', '@CMAKE_BINARY_DIR@/tools/process-vdso'))
 
 # Programs for utils tests

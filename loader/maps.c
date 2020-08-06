@@ -22,6 +22,9 @@
 
 #include <linux/limits.h>
 
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "compiler.h"
 #include "hlist.h"
 #include "list.h"
@@ -148,6 +151,51 @@ static bool maps_check(unsigned long check_addr, long no_touch_addrs[], int addr
   return true;
 }
 
+uintptr_t first_region(const char *libname) {
+  // The following isn't reliable:
+  // struct region *first = rb_entry_region(rb_first(&lib->rb_region));
+
+  // TODO(andronat): This won't work if we load the plugin twice (one for
+  // loadtime interception and one for runtime).
+  char buf[MAX_BUF_SIZE] = {'\0'};
+  uintptr_t out = 0;
+
+  FILE *fp = fopen("/proc/self/maps", "r");
+  assert(fp != NULL);
+
+  while (fgets(buf, MAX_BUF_SIZE, fp)) {
+    if (strstr(buf, libname) != NULL) {
+      out = strtoul(buf, NULL, 16);
+      break;
+    }
+  }
+
+  fclose(fp);
+  return out;
+}
+
+uintptr_t end_of_stack_region() {
+  char buf[MAX_BUF_SIZE] = {'\0'};
+  char prev_buf[MAX_BUF_SIZE] = {'\0'};
+  uintptr_t out = 0;
+
+  FILE *fp = fopen("/proc/self/maps", "r");
+  assert(fp != NULL);
+
+  while (fgets(buf, MAX_BUF_SIZE, fp)) {
+    if (strstr(buf, "[stack]") != NULL) {
+      char *ptr;
+      strtoul(prev_buf, &ptr, 16);
+      out = strtoul(ptr + 1, NULL, 16);
+      break;
+    }
+    strcpy(prev_buf, buf);
+  }
+
+  fclose(fp);
+  return out;
+}
+
 struct maps* maps_read(const char* libname) {
   int fd = open("/proc/self/maps", O_RDONLY, 0);
   if (fd < 0)
@@ -158,7 +206,8 @@ struct maps* maps_read(const char* libname) {
 
   struct library* lib = NULL;
   if (libname != NULL) {
-    lib = malloc(sizeof(*lib));
+    lib = malloc(sizeof(struct library));
+    assert(lib != NULL);
     library_init(lib, libname, maps);
     library_add(maps->libraries, lib);
   }
@@ -279,7 +328,7 @@ struct maps* maps_read(const char* libname) {
           assert(offset == 0);
           reg->type = REGION_VDSO;
 
-          struct library* lib = malloc(sizeof(*lib));
+          lib = malloc(sizeof(struct library));
           library_init(lib, pathname, maps);
           lib->vdso = true;
           maps->lib_vdso = lib;
@@ -292,7 +341,8 @@ struct maps* maps_read(const char* libname) {
           lib = library_find(maps->libraries, pathname);
           if (lib == NULL) {
             _nx_debug_printf("new library found: %s\n", pathname);
-            lib = malloc(sizeof(*lib));
+            lib = malloc(sizeof(struct library));
+            assert(lib != NULL);
             library_init(lib, pathname, maps);
             library_add(maps->libraries, lib);
           }

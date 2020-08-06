@@ -74,6 +74,8 @@ struct region {
   struct rb_node rb_region;
 };
 
+uintptr_t first_region(const char *);
+uintptr_t end_of_stack_region();
 struct maps *maps_read(const char *libname) attribute_hidden;
 void *maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
                       uint64_t max_distance) attribute_hidden;

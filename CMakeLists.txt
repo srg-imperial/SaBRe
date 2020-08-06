@@ -8,7 +8,7 @@ cmake_minimum_required (VERSION 2.8)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_C "${CMAKE_CURRENT_SOURCE_DIR}/cmake/c_flags_override.cmake")
 
-project (SaBRe C ASM)
+project (SaBRe C ASM CXX)
 
 find_program(GCC_PATH gcc)
 

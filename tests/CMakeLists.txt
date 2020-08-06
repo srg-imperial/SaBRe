@@ -100,7 +100,8 @@ configure_file("lit.cfg.in" "${CMAKE_CURRENT_BINARY_DIR}/lit.cfg" @ONLY)
 
 
 if(no_pie)
-  foreach(link "" "-static")
+  # foreach(link "" "-static") # SaBRe 2.0 doesn't support static ELFs
+  foreach(link "")
     foreach(pie "-no-pie" "-pie")
       configure_file("ld/test.c.in" "${CMAKE_CURRENT_BINARY_DIR}/ld/test_${link}_${pie}.c" @ONLY)
     endforeach(pie)
