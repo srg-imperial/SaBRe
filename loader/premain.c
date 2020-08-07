@@ -17,6 +17,7 @@
 #include "elf_loading.h"
 #include "global_vars.h"
 #include "ld_sc_handler.h"
+#include "loader/rewriter.h"
 #include "maps.h"
 #include "premain.h"
 
@@ -68,11 +69,14 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
   // plugins?
 
   // TODO(andronat): Support client argv editing.
-  sbr_post_load_fn post_load = NULL;
-
   enter_plugin();
+
+  // char **orig_plugin_argv = plugin_argv; // Read below.
+  sbr_post_load_fn post_load = NULL;
+  sbr_icept_vdso_callback_fn plugin_vdso_callback = NULL;
+
   plugin_init(&plugin_argc, &plugin_argv, &register_function_intercepts,
-              &vdso_callback, &plugin_sc_handler,
+              &plugin_vdso_callback, &plugin_sc_handler,
 #ifdef __NX_INTERCEPT_RDTSC
               &plugin_rdtsc_handler,
 #endif
@@ -81,8 +85,16 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
   if (post_load != NULL)
     post_load(NULL);
 
-  // To call this we need to switch TLSs. Doesn't worth it!
-  // free(plugin_argv);
+  // Rewrite vDSO handlers as they cannot be switched dynamically.
+  // TODO: Rewriting the vDSO functions for a second time didn't work. The
+  // rewriter is not idempotent.
+  if (plugin_vdso_callback != NULL)
+    setup_plugin_vdso(plugin_vdso_callback);
+
+  // TODO: To free `plugin_argv` we need to switch TLSs, it doesn't worth it.
+  // load_sabre_tls();
+  // free(orig_plugin_argv);
+  // load_client_tls();
 
   exit_plugin();
 }

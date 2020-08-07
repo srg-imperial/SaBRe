@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #ifdef __x86_64__
 #include <asm/prctl.h>
 #endif
@@ -374,11 +375,101 @@ long ld_sc_handler(long sc_no, long arg1, long arg2, long arg3, long arg4,
   return ret;
 }
 
-// TODO(andronat): Do routers for vdso and rdtsc
+// TODO(andronat): Do router for rdtsc
 
-long runtime_rdtsc_router() { return 0L; }
+static void_void_fn plugin_clock_gettime = NULL;
+static void_void_fn plugin_getcpu = NULL;
+static void_void_fn plugin_gettimeofday = NULL;
+#ifdef __x86_64__
+static void_void_fn plugin_time = NULL;
+#endif // __x86_64__
 
-long runtime_vdso_router() { return 0L; }
+static void_void_fn actual_clock_gettime = NULL;
+static void_void_fn actual_getcpu = NULL;
+static void_void_fn actual_gettimeofday = NULL;
+#ifdef __x86_64__
+static void_void_fn actual_time = NULL;
+#endif // __x86_64__
+
+typedef int clock_gettime_fn(clockid_t, struct timespec *);
+static int vdso_clock_gettime_router(clockid_t arg1, struct timespec *arg2) {
+  if (plugin_clock_gettime == NULL)
+    return ((clock_gettime_fn *)actual_clock_gettime)(arg1, arg2);
+
+  enter_plugin();
+  int rc = ((clock_gettime_fn *)plugin_clock_gettime)(arg1, arg2);
+  exit_plugin();
+  return rc;
+}
+
+// arg3 has type: struct getcpu_cache *
+typedef int getcpu_fn(unsigned *, unsigned *, void *);
+static int vdso_getcpu_router(unsigned *arg1, unsigned *arg2, void *arg3) {
+  if (plugin_getcpu == NULL)
+    return ((getcpu_fn *)actual_getcpu)(arg1, arg2, arg3);
+
+  enter_plugin();
+  int rc = ((getcpu_fn *)plugin_getcpu)(arg1, arg2, arg3);
+  exit_plugin();
+  return rc;
+}
+
+typedef int gettimeofday_fn(struct timeval *, struct timezone *);
+static int vdso_gettimeofday_router(struct timeval *arg1,
+                                    struct timezone *arg2) {
+  if (plugin_gettimeofday == NULL)
+    return ((gettimeofday_fn *)actual_gettimeofday)(arg1, arg2);
+
+  enter_plugin();
+  int rc = ((gettimeofday_fn *)plugin_gettimeofday)(arg1, arg2);
+  exit_plugin();
+  return rc;
+}
+
+#ifdef __x86_64__
+typedef int time_fn(time_t *);
+static int vdso_time_router(time_t *arg1) {
+  if (plugin_time == NULL)
+    return ((time_fn *)actual_time)(arg1);
+
+  enter_plugin();
+  int rc = ((time_fn *)plugin_time)(arg1);
+  exit_plugin();
+  return rc;
+}
+#endif // __x86_64__
+
+void_void_fn ld_vdso_callback(long sc_no, void_void_fn actual_fn) {
+  switch (sc_no) {
+  case SYS_clock_gettime:
+    actual_clock_gettime = actual_fn;
+    return (void_void_fn)vdso_clock_gettime_router;
+  case SYS_getcpu:
+    actual_getcpu = actual_fn;
+    return (void_void_fn)vdso_getcpu_router;
+  case SYS_gettimeofday:
+    actual_gettimeofday = actual_fn;
+    return (void_void_fn)vdso_gettimeofday_router;
+#ifdef __x86_64__
+  case SYS_time:
+    actual_time = actual_fn;
+    return (void_void_fn)vdso_time_router;
+#endif // __x86_64__
+  default:
+    return (void_void_fn)NULL;
+  }
+}
+
+void setup_plugin_vdso(sbr_icept_vdso_callback_fn plugin_vdso_callback) {
+  plugin_clock_gettime =
+      plugin_vdso_callback(SYS_clock_gettime, actual_clock_gettime);
+  plugin_getcpu = plugin_vdso_callback(SYS_getcpu, actual_getcpu);
+  plugin_gettimeofday =
+      plugin_vdso_callback(SYS_gettimeofday, actual_gettimeofday);
+#ifdef __x86_64__
+  plugin_time = plugin_vdso_callback(SYS_time, actual_time);
+#endif // __x86_64__
+}
 
 long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
                             long arg4, long arg5, long arg6, void *wrapper_sp) {
