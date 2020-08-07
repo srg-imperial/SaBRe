@@ -24,6 +24,7 @@
 #include "compiler.h"
 #include "elf_loading.h"
 #include "global_vars.h"
+#include "ld_sc_handler.h"
 #include "macros.h"
 #include "patchelf.h"
 #include "plugins/sbr_api_defs.h"
@@ -44,7 +45,7 @@ char abs_plugin_path[PATH_MAX];
 sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 int registered_icept_cnt = 0;
 sbr_sc_handler_fn plugin_sc_handler = NULL;
-sbr_icept_vdso_callback_fn vdso_callback = NULL;
+sbr_icept_vdso_callback_fn vdso_callback = ld_vdso_callback;
 #ifdef __NX_INTERCEPT_RDTSC
 sbr_rdtsc_handler_fn plugin_rdtsc_handler;
 #endif
