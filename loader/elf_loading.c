@@ -5,18 +5,65 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include <unistd.h>
-#include <sys/mman.h>
+#include <fcntl.h>
+#include <gelf.h>
+#include <limits.h>
 #include <linux/limits.h>
 #include <string.h>
-#include <elf.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "elf_loading.h"
 #include "macros.h"
 
 #define MAX_PHNUM 16
 
+GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name) {
+  // TODO(andronat): This opens a file. Can we make it faster?
+  Elf *elf;
+  Elf_Scn *scn = NULL;
+  GElf_Shdr shdr;
+  Elf_Data *data;
+  int fd, count;
+  GElf_Sym rv;
 
+  if (elf_version(EV_CURRENT) == EV_NONE)
+    _nx_fatal_printf("ELF library initialization failed\n");
+
+  fd = open(elf_path, O_RDONLY);
+  elf = elf_begin(fd, ELF_C_READ, NULL);
+
+  while ((scn = elf_nextscn(elf, scn)) != NULL) {
+    gelf_getshdr(scn, &shdr);
+    if (shdr.sh_type == SHT_SYMTAB) {
+      // Found a symbol table.
+      break;
+    }
+  }
+
+  data = elf_getdata(scn, NULL);
+  count = shdr.sh_size / shdr.sh_entsize;
+
+  // Go through symbols
+  for (int i = 0; i < count; ++i) {
+    GElf_Sym sym;
+    gelf_getsym(data, i, &sym);
+    if (!strcmp(sym_name, elf_strptr(elf, shdr.sh_link, sym.st_name))) {
+      rv = sym;
+      break;
+    }
+  }
+
+  elf_end(elf);
+  close(fd);
+  return rv;
+}
+
+ElfW(Addr) addr_of_elf_symbol(const char *elf_path, const char *sym_name) {
+  return find_elf_symbol(elf_path, sym_name).st_value;
+}
 
 static int prot_from_phdr(const ElfW(Phdr) * phdr) {
   int prot = 0;

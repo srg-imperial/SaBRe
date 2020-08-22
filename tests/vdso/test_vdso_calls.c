@@ -6,24 +6,40 @@
  */
 
 /*
- * RUN: %{cc} %s -o %t1
- * RUN: %{sbr} %t1 &> %t1.actual
- * RUN: echo "Success" > %t1.expected
- * RUN: diff %t1.actual %t1.expected
+ * RUN: %{cc} -g %s -o %t1
+ * RUN: %{sbr-trc} %t1 &> %t1.actual
+ * RUN: [ $(grep "(vDSO)" %t1.actual | wc -l) -eq 4 ]
+ * RUN: [ $(grep "time(0x0)" %t1.actual | wc -l) -eq 2 ]
+ * RUN: [ $(grep "gettimeofday" %t1.actual | wc -l) -eq 2 ]
+ * RUN: [ $(grep "clock_gettime" %t1.actual | wc -l) -eq 2 ]
+ * RUN: [ $(grep "getcpu" %t1.actual | wc -l) -eq 2 ]
  */
 
+#define _GNU_SOURCE
+#include <assert.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
-
-#include <assert.h>
 
 /* Utility functions */
 
 /* Tests */
+
+static void test_all_vdso() {
+  struct timespec ts;
+  assert(clock_gettime(CLOCK_REALTIME, &ts) != -1);
+
+  assert(sched_getcpu() != -1);
+
+  struct timeval tv;
+  assert(gettimeofday(&tv, NULL) == 0);
+
+  assert(time(NULL) != -1);
+}
 
 static void test_clock_gettime() {
   struct timespec t;
@@ -35,9 +51,7 @@ static void test_gettimeofday() {
   assert(syscall(SYS_gettimeofday, &t, NULL, NULL) == 0);
 }
 
-static void test_time() {
-  assert(syscall(SYS_time, NULL, NULL, NULL) != -1);
-}
+static void test_time() { assert(syscall(SYS_time, NULL, NULL, NULL) != -1); }
 
 static void test_getcpu() {
   int cpu, node;
@@ -52,6 +66,7 @@ int main(int argc, char **argv) {
   test_getcpu();
   test_gettimeofday();
   test_clock_gettime();
+  test_all_vdso();
 
   /* Tear-down */
 

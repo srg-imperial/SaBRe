@@ -19,9 +19,13 @@ function(sabre_add_executable exe_name)
 endfunction()
 
 function(sabre_add_plugin plugin_name)
-  add_library(${plugin_name} MODULE ${ARGN})
+  # get_target_property(realsyscall_SOURCES realsyscall SOURCES)
+  # get_target_property(backend_SOURCES backend SOURCES)
+  add_library(${plugin_name} MODULE ${PROTECTOR} ${ARGN})
   target_include_directories(${plugin_name} PUBLIC ${SABRE_PLUGIN_INCLUDE_DIRS})
   target_compile_definitions(${plugin_name} PUBLIC ${SABRE_PLUGIN_C_DEFINES})
   target_compile_options(${plugin_name} PUBLIC ${SABRE_PLUGIN_C_FLAGS})
-  target_link_libraries(${plugin_name} realsyscall)
+  # TODO(andronat): Is it a good idea to link again backend? Or maybe add the
+  # source files as ${PROTECTOR}?
+  target_link_libraries(${plugin_name} realsyscall backend)
 endfunction()

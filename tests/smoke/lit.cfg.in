@@ -39,6 +39,6 @@ config.target_triple = '(unused)'
 
 config.substitutions.append(('%{gcc}',      '@TEST_GCC_PATH@'))
 
-config.substitutions.append(('%{id}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-id/libsbr-id.so'))
-config.substitutions.append(('%{sbrtrace}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-trace/libsbr-trace.so --output=/dev/null -- '))
-config.substitutions.append(('%{fault-injector}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-scfuzzer/libsbr-scfuzzer.so -u 0 -d 0 -f 0 -n 0 -p 0 -m 0 -o /dev/null -- '))
+config.substitutions.append(('%{id}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-id/libsbr-id.so --'))
+config.substitutions.append(('%{sbrtrace}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-trace/libsbr-trace.so --output=/dev/null --'))
+config.substitutions.append(('%{fault-injector}', '@CMAKE_BINARY_DIR@/sabre @CMAKE_BINARY_DIR@/plugins/sbr-scfuzzer/libsbr-scfuzzer.so -u 0 -d 0 -f 0 -n 0 -p 0 -m 0 -o /dev/null --'))

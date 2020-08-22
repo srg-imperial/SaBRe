@@ -94,21 +94,9 @@ handle_syscall:
   movq %rdi, %rsi    # arg1
   movq %rax, %rdi    # sc_no
 
-  # ARCH_SET_FS needs special handling because it switches TLS
-  #   int arch_prctl(int code, unsigned long addr)
-  cmp $SYS_arch_prctl, %rdi
-  jne 2f
-  cmp $ARCH_SET_FS, %rsi
-  jne 2f
-  movq %rdx, %rdi	// use addr as first (and only) argument
-  call *arch_set_fs_handler@GOTPCREL(%rip)
-  jmp 3f
-
-  2:
   # Call the actual handler
-  call *plugin_sc_handler(%rip)
+  call *runtime_syscall_router@GOTPCREL(%rip)
 
-  3:
   # Pop arguments
   popq %r9
   popq %r15    # skip wrapper_sp

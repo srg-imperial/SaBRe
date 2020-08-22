@@ -9,6 +9,7 @@
 #include "config.h"
 #include "rewriter.h"
 
+#include "elf_loading.h"
 #include "global_vars.h"
 #include "macros.h"
 #include "maps.h"
@@ -605,6 +606,20 @@ static void patch_funcs(struct library *lib) {
                                 intercept_records[i].callback,
                                 &extra_space,
                                 &extra_len);
+      } else if (sym == NULL && !strcmp(short_libname, "ld")) {
+        char ld_symbols_path[] =
+            "/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.27.so";
+        assert(access(ld_symbols_path, F_OK) != -1);
+
+        GElf_Sym gsym =
+            find_elf_symbol(ld_symbols_path, intercept_records[i].fn_name);
+
+        _nx_debug_printf("patching at address %lx\n",
+                         (long)lib->asr_offset + gsym.st_value);
+        api_detour_func(lib, lib->asr_offset + gsym.st_value,
+                        lib->asr_offset + gsym.st_value + gsym.st_size,
+                        intercept_records[i].callback, &extra_space,
+                        &extra_len);
       }
     }
   }
@@ -798,6 +813,8 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
   // determine its address before we can compare it to jumps from inside
   // other libraries.
 
+  // TODO(andronat): I think this is wrong. We are in the loader and vdso will
+  // be redirected in the plugin without switching the TLS.
   if (maps->lib_vdso != NULL && parse_elf(maps->lib_vdso, bin)) {
     _nx_debug_printf("memrewrite: patching vdso\n");
     library_make_writable(maps->lib_vdso, true);
