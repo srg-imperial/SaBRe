@@ -393,7 +393,8 @@ static void_void_fn actual_time = NULL;
 
 typedef int clock_gettime_fn(clockid_t, struct timespec *);
 static int vdso_clock_gettime_router(clockid_t arg1, struct timespec *arg2) {
-  if (plugin_clock_gettime == NULL)
+  if (plugin_clock_gettime == NULL || calling_from_plugin == NULL ||
+      calling_from_plugin())
     return ((clock_gettime_fn *)actual_clock_gettime)(arg1, arg2);
 
   enter_plugin();
@@ -405,7 +406,8 @@ static int vdso_clock_gettime_router(clockid_t arg1, struct timespec *arg2) {
 // arg3 has type: struct getcpu_cache *
 typedef int getcpu_fn(unsigned *, unsigned *, void *);
 static int vdso_getcpu_router(unsigned *arg1, unsigned *arg2, void *arg3) {
-  if (plugin_getcpu == NULL)
+  if (plugin_getcpu == NULL || calling_from_plugin == NULL ||
+      calling_from_plugin())
     return ((getcpu_fn *)actual_getcpu)(arg1, arg2, arg3);
 
   enter_plugin();
@@ -417,7 +419,8 @@ static int vdso_getcpu_router(unsigned *arg1, unsigned *arg2, void *arg3) {
 typedef int gettimeofday_fn(struct timeval *, struct timezone *);
 static int vdso_gettimeofday_router(struct timeval *arg1,
                                     struct timezone *arg2) {
-  if (plugin_gettimeofday == NULL)
+  if (plugin_gettimeofday == NULL || calling_from_plugin == NULL ||
+      calling_from_plugin())
     return ((gettimeofday_fn *)actual_gettimeofday)(arg1, arg2);
 
   enter_plugin();
@@ -429,7 +432,8 @@ static int vdso_gettimeofday_router(struct timeval *arg1,
 #ifdef __x86_64__
 typedef int time_fn(time_t *);
 static int vdso_time_router(time_t *arg1) {
-  if (plugin_time == NULL)
+  if (plugin_time == NULL || calling_from_plugin == NULL ||
+      calling_from_plugin())
     return ((time_fn *)actual_time)(arg1);
 
   enter_plugin();
