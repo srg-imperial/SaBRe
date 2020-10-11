@@ -289,7 +289,8 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   // Get the absolute path of the plugin so we can add it as DT_NEEDED
   // dependency in the client's elf file.
-  realpath(argv[0], abs_plugin_path);
+  char *rv = realpath(argv[0], abs_plugin_path);
+  assert(rv != NULL);
 
   // Find client's path. It should be right after `--`.
   size_t client_path_idx = find_client_path_idx(argv);
