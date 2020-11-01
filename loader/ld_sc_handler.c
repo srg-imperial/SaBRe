@@ -262,6 +262,7 @@ long ld_sc_handler(long sc_no, long arg1, long arg2, long arg3, long arg4,
     // wrapper_sp);
     long fd = real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
 
+    // TODO: Why do we add a pre-page in our plugin?
     ret = process_fd(fd, pathname, flags, mode);
     break;
   }
@@ -490,6 +491,12 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
   }
 
   long rc = 0;
+
+  // TODO: I think the following crashes because malloc goes through SBR's libc
+  // rather than the client libc. How can I prove this?
+  // load_sabre_tls();
+  // dprintf(1, "test %ld\n", sc_no);
+  // load_client_tls();
 
   enter_plugin();
   // ARCH_SET_FS needs special handling because it switches TLS.

@@ -251,6 +251,7 @@ static char* library_buf_get_original(struct library *l,
     l->image = (char *)mremap(start, 4096, l->image_size, MREMAP_MAYMOVE);
     if (l->image_size == 8192 && l->image == start) {
       // We really mean it, when we say we want the memory to be moved.
+      // TODO: WHY?!
       l->image = (char *)mremap(start, 4096, l->image_size, MREMAP_MAYMOVE);
       munmap((char *)start + 4096, 4096);
     }
