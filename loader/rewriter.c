@@ -557,6 +557,7 @@ static void patch_syscalls(struct library *lib, bool loader) {
   const ElfW(Shdr) *shdr = &scn->shdr;
   char *start = (char *)(shdr->sh_addr + lib->asr_offset);
   char *stop = start + shdr->sh_size;
+  // dprintf(1, "Tas (%s) start: %p stop: %p\n", lib->pathname, start, stop);
   patch_syscalls_in_range(lib, start, stop, &extra_space, &extra_len, loader);
 
   _nx_debug_printf("mprotect extra space %p\n", extra_space);

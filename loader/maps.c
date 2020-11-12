@@ -196,6 +196,8 @@ uintptr_t end_of_stack_region() {
   return out;
 }
 
+// TODO: there is a bug there with gnu pth and pthreads. I had to change name to
+// lib2pthread.
 struct maps* maps_read(const char* libname) {
   int fd = open("/proc/self/maps", O_RDONLY, 0);
   if (fd < 0)

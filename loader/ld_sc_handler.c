@@ -117,6 +117,7 @@ static long process_fd(long fd, const char *pathname, int flags, mode_t mode) {
   // library names anyway.
 
   int l = which_lib_name_interesting(known_syscall_libs, pathname);
+  // dprintf(2, "which_lib_name_interesting: %d %s\n", l, pathname);
   if (l >= 0) {
     if (interesting_fd == NO_FD && interesting_lib == NO_FD) {
       interesting_fd = fd;
