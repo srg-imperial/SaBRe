@@ -14,7 +14,7 @@ find_program(GCC_PATH gcc)
 
 set(SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes")
 set(SABRE_COMPONENT_C_DEFINES "")
-set(SABRE_COMPONENT_C_FLAGS "-std=gnu99" "-Wall" "-Wextra" "-Werror" "-fPIE" "-fstack-protector")
+set(SABRE_COMPONENT_C_FLAGS "-std=gnu99" "-Wall" "-Wextra" "-Werror" "-fPIE" "-fstack-protector" "-fno-common")
 set(SABRE_EXE_LINK_FLAGS "-pie" "-rdynamic")
 set(SABRE_PLUGIN_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/plugins")
 set(SABRE_PLUGIN_C_DEFINES "")
