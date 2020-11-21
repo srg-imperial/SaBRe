@@ -104,11 +104,15 @@ static ElfW(Dyn) new_dyn_entries[2] = {{.d_tag = DT_PREINIT_ARRAY},
 
 typedef void (*_dl_init_fn)(struct ld_link_map *, int, char **, char **);
 static _dl_init_fn real_dl_init;
+static bool sbr_preinit_done = false;
 
 // TODO: The following mechanism is very fragile. This should be ideally
 // replaced by elfutils altering the elf headers and injecting the
 // .preinit_array section.
 void sbr_dl_init(struct ld_link_map *main_map, int ac, char **av, char **e) {
+  if (sbr_preinit_done)
+    return real_dl_init(main_map, ac, av, e);
+
   // Make sure this function shouldn't use the %fs register. e.g. don't use
   // printf.
   assert(main_map != NULL);
@@ -166,6 +170,10 @@ void sbr_dl_init(struct ld_link_map *main_map, int ac, char **av, char **e) {
 
   new_dyn_entries[0].d_un.d_val =
       (ElfW(Addr))new_preinit_array - main_map->l_addr;
+
+  // We need to make sure we won't call this again as there are cases were libc
+  // might call _dl_init multiple times. e.g. when loading libnss.
+  sbr_preinit_done = true;
 
   // Interesting Trivia: glibc initializes the pthread library first with a
   // dirty hack as shown here:
