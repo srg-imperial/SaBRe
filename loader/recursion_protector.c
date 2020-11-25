@@ -19,8 +19,7 @@
 // sanitizers initialization phase.
 // TODO(andronat): Will the following create any issues with other libraries?
 // e.g. overlapping offsets and thus writting/reading from wrong variables?
-static _Thread_local
-    __attribute__((tls_model("initial-exec"))) bool from_plugin = false;
+static _Thread_local bool from_plugin = false;
 
 bool calling_from_plugin() { return from_plugin; }
 void enter_plugin() { from_plugin = true; }
@@ -44,8 +43,7 @@ void exit_plugin() { from_plugin = false; }
 // Until them, we used a guard that will change value after glibc is
 // initialized.
 
-static _Thread_local
-    __attribute__((tls_model("initial-exec"))) bool vdso_ready = false;
+static _Thread_local bool vdso_ready = false;
 
 void vdso_are_ready() __attribute__((constructor));
 void vdso_are_ready() { vdso_ready = true; }
