@@ -28,7 +28,6 @@ enum vdso_flags {
 };
 
 // Global state - not the nicest, but this is a tiny application
-static bool raw_out = false;
 static enum vdso_flags vdso_arg_flag = VDSO_SYSCALL;
 
 int log_fd;
@@ -193,7 +192,6 @@ static const struct_sysent sysent[] = {
 #include "syscallent.h"
 };
 
-#define RAW_ARG raw
 #define OUT_ARG output
 #define VDSO_ARG handle-vdso
 #define ARG_PATTERN2(s) "--" #s "="
@@ -641,10 +639,6 @@ void handle_args(int *argc, char **argv[]) {
         exit(1);
       }
     }
-
-    // Handle raw output
-    if (!strcmp(ARG_PATTERN_NO_PARAM(RAW_ARG), **argv))
-      raw_out = true;
 
     if ((strlen(**argv) == 2) && !strncmp("--", **argv, 3)) {
       sep_found = true;
