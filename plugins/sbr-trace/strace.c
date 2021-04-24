@@ -28,15 +28,170 @@ enum vdso_flags {
 };
 
 // Global state - not the nicest, but this is a tiny application
-static bool raw_out = false;
 static enum vdso_flags vdso_arg_flag = VDSO_SYSCALL;
-static FILE *out_stream = NULL;
+
+int log_fd;
+
+static void append_buffer(const char *data, ssize_t len) {
+  // These should be buffered by the OS anyway and the previous implementation
+  // was broken.
+  real_syscall(SYS_write, log_fd, (long)data, len, 0, 0, 0);
+}
+
+static char *print_cstr(char *dst, const char *str) {
+  while (*str != '\0')
+    *dst++ = *str++;
+
+  return dst;
+}
+
+static const char xdigit[16] = "0123456789ABCDEF";
+
+static char *print_hex_impl(char *dst, unsigned long n) {
+  *dst++ = '0';
+  *dst++ = 'X';
+
+  // Handle 0 specialy because __builtin_clzl(0) is undefined.
+  if (n == 0) {
+    *dst++ = '0';
+    return dst;
+  }
+
+  static const char num_xdigits[] = {
+      16, 16, 16, 16, 15, 15, 15, 15, 14, 14, 14, 14, 13, 13, 13, 13, 12,
+      12, 12, 12, 11, 11, 11, 11, 10, 10, 10, 10, 9,  9,  9,  9,  8,  8,
+      8,  8,  7,  7,  7,  7,  6,  6,  6,  6,  5,  5,  5,  5,  4,  4,  4,
+      4,  3,  3,  3,  3,  2,  2,  2,  2,  1,  1,  1,  1,  1};
+
+  char *end = dst + num_xdigits[__builtin_clzl(n)];
+  char *curr = end;
+  do {
+    *curr-- = xdigit[n & 0xf];
+    n >>= 4;
+  } while (curr >= dst);
+
+  return end + 1;
+}
+
+static char *print_hex(char *dst, long n) {
+  if (n < 0) {
+    *dst++ = '-';
+    return print_hex_impl(dst, -n);
+  }
+  return print_hex_impl(dst, n);
+}
+
+static char *print_octal_impl(char *dst, long n) {
+  *dst++ = '0';
+
+  // Handle 0 specialy because __builtin_clzl(0) is undefined.
+  if (n == 0) {
+    *dst++ = '0';
+    return dst;
+  }
+
+  static const char num_odigits[] = {
+      22, 21, 21, 21, 20, 20, 20, 19, 19, 19, 18, 18, 18, 17, 17, 17, 16,
+      16, 16, 15, 15, 15, 14, 14, 14, 13, 13, 13, 12, 12, 12, 11, 11, 11,
+      10, 10, 10, 9,  9,  9,  8,  8,  8,  7,  7,  7,  6,  6,  6,  5,  5,
+      5,  4,  4,  4,  3,  3,  3,  2,  2,  2,  1,  1,  1,  1};
+
+  dst++;
+  char *end = dst + num_odigits[__builtin_clzl(n)];
+  char *curr = end;
+  do {
+    *curr-- = xdigit[n & 07];
+    n >>= 3;
+  } while (curr >= dst);
+
+  return end + 1;
+}
+
+static char *print_octal(char *dst, long n) {
+  if (n < 0) {
+    *dst++ = '-';
+    return print_octal_impl(dst, -n);
+  }
+  return print_octal_impl(dst, n);
+}
+
+static char *print_dec_impl(char *dst, unsigned long n) {
+  char digits[0x40];
+
+  digits[sizeof(digits) - 1] = '\0';
+  char *c = digits + sizeof(digits) - 1;
+
+  do {
+    *--c = xdigit[n % 10];
+    n /= 10;
+  } while (n > 0);
+
+  while (*c != '\0')
+    *dst++ = *c++;
+
+  return dst;
+}
+
+static char *print_signed_dec(char *dst, long n) {
+  if (n < 0) {
+    *dst++ = '-';
+    return print_dec_impl(dst, -n);
+  }
+
+  return print_dec_impl(dst, n);
+}
+
+static char *print_fd(char *dst, long n) { return print_signed_dec(dst, n); }
+
+// We don't want to use ctype since it accesses TLS,
+// which messes with %fs and causes segfault
+static bool my_isprint(char ch) { return ((ch >= ' ') && (ch <= '~')); }
+
+#define CSTR_MAX_LEN 0x100
+
+static char *print_cstr_escaped(char *dst, const char *str, long max_len) {
+  size_t len = 0;
+  if (max_len == 0 || max_len >= CSTR_MAX_LEN)
+    max_len = CSTR_MAX_LEN;
+  *dst++ = '"';
+  while (*str != '\0' && len < max_len) {
+    if (*str == '\n') {
+      *dst++ = '\\';
+      *dst++ = 'n';
+    } else if (*str == '\\') {
+      *dst++ = '\\';
+      *dst++ = '\\';
+    } else if (*str == '\t') {
+      *dst++ = '\\';
+      *dst++ = 't';
+    } else if (*str == '\"') {
+      *dst++ = '\\';
+      *dst++ = '"';
+    } else if (my_isprint((unsigned char)*str)) {
+      *dst++ = *str;
+    } else {
+      *dst++ = '\\';
+      *dst++ = 'x';
+      *dst++ = xdigit[((unsigned char)*str) / 0x10];
+      *dst++ = xdigit[((unsigned char)*str) % 0x10];
+    }
+
+    ++len;
+    ++str;
+  }
+
+  if (*str != '\0')
+    dst = print_cstr(dst, "...");
+
+  *dst++ = '"';
+
+  return dst;
+}
 
 static const struct_sysent sysent[] = {
 #include "syscallent.h"
 };
 
-#define RAW_ARG raw
 #define OUT_ARG output
 #define VDSO_ARG handle-vdso
 #define ARG_PATTERN2(s) "--" #s "="
@@ -45,342 +200,338 @@ static const struct_sysent sysent[] = {
 #define ARG_PATTERN_NO_PARAM(s) ARG_PATTERN_NO_PARAM2(s)
 
 static void print_help(void) {
-  fputs("Arguments passed to the sbr_strace "
-        "shared object should follow the following syntax:\n",
-        out_stream);
-  fputs("[SBR_STRACE_ARGS] -- EXE_PATH [EXE_ARGS]\n", out_stream);
-  fputs("SBR_STRACE_ARGS:\n", out_stream);
-  fputs(ARG_PATTERN(OUT_ARG) "stream|filename - redirect output to either "
-        "stream or file; default value is stderr\n",
-        out_stream);
-  fputs(ARG_PATTERN(VDSO_ARG) "strace|syscall|special - how to handle vDSO calls; default value is syscall\n",
-        out_stream);
+  // This macro works for string literals because char [N] does not decay to
+  // char * when passed to sizeof.
+#define WRITE_STRING_LITERAL(FD, LIT)                                          \
+  real_syscall(SYS_write, (long)(FD), (long)(LIT), sizeof((LIT)), 0, 0, 0)
+
+  WRITE_STRING_LITERAL(log_fd,
+                       "Arguments passed to the sbr_strace "
+                       "shared object should follow the following syntax:\n");
+  WRITE_STRING_LITERAL(log_fd, "[SBR_STRACE_ARGS] -- EXE_PATH [EXE_ARGS]\n");
+  WRITE_STRING_LITERAL(log_fd, "SBR_STRACE_ARGS:\n");
+  WRITE_STRING_LITERAL(
+      log_fd,
+      ARG_PATTERN(OUT_ARG) "stream|filename - redirect output to either "
+                           "stream or file; default value is stderr\n");
+  WRITE_STRING_LITERAL(
+      log_fd,
+      ARG_PATTERN(VDSO_ARG) "strace|syscall|special - how to handle vDSO "
+                            "calls; default value is syscall\n");
+#undef WRITE_STRING_LITERAL
 }
 
-// We don't want to use ctype since it accesses TLS,
-// which messes with %fs and causes segfault
-static bool my_isprint(char ch) { return ((ch >= ' ') && (ch <= '~')); }
+static char *print_prot(char *dst, long flags) {
+  char *dst_next = dst;
+  if (!flags) {
+    dst_next = print_cstr(dst_next, "PROT_NONE|");
+  } else {
+    if (flags & PROT_EXEC)
+      dst_next = print_cstr(dst_next, "PROT_EXEC|");
 
-static void print_prot(long flags, FILE *stream) {
-  if (!flags)
-    fputs("PROT_NONE", stream);
-
-  else {
-    bool first_flag = true;
-
-    if (flags & PROT_EXEC) {
-      fputs("PROT_EXEC", stream);
-      first_flag = false;
-    }
-
-    if (flags & PROT_READ) {
-      if (!first_flag)
-        fputc('|', stream);
-      else
-        first_flag = false;
-      fputs("PROT_READ", stream);
-    }
+    if (flags & PROT_READ)
+      dst_next = print_cstr(dst_next, "PROT_READ|");
 
     if (flags & PROT_WRITE) {
-      if (!first_flag)
-        fputc('|', stream);
-      else
-        first_flag = false;
-      fputs("PROT_WRITE", stream);
+      dst_next = print_cstr(dst_next, "PROT_WRITE|");
     }
   }
+
+  flags &= ~(PROT_EXEC | PROT_READ | PROT_WRITE);
+  if (flags)
+    dst_next = print_hex(dst_next, flags);
+  else if (dst_next != dst)
+    dst_next--; // All flags were parsed and we wrote some text, let's get
+                // rid of the extra "|" at then end
+  return dst_next;
 }
 
-static void print_mmap_flags(long flags, FILE *stream) {
+static char *print_mmap_flags(char *dst, long flags) {
   if (flags & MAP_SHARED)
-    fputs("MAP_SHARED", stream);
+    dst = print_cstr(dst, "MAP_SHARED");
   else
-    fputs("MAP_PRIVATE", stream);
+    dst = print_cstr(dst, "MAP_PRIVATE");
 
 #ifdef __x86_64__
   if (flags & MAP_32BIT)
-    fputs("|MAP_32BIT", stream);
+    dst = print_cstr(dst, "|MAP_32_BIT");
 #endif // __x86_64__
 
   if (flags & MAP_ANONYMOUS)
-    fputs("|MAP_ANONYMOUS", stream);
+    dst = print_cstr(dst, "|MAP_ANONYMOUS");
 
   if (flags & MAP_DENYWRITE)
-    fputs("|MAP_DENYWRITE", stream);
+    dst = print_cstr(dst, "|MAP_DENYWRITE");
 
   if (flags & MAP_EXECUTABLE)
-    fputs("|MAP_EXECUTABLE", stream);
+    dst = print_cstr(dst, "|MAP_EXECUTABLE");
 
   if (flags & MAP_FILE)
-    fputs("|MAP_FILE", stream);
+    dst = print_cstr(dst, "|MAP_FILE");
 
   if (flags & MAP_FIXED)
-    fputs("|MAP_FIXED", stream);
+    dst = print_cstr(dst, "|MAP_FIXED");
 
   if (flags & MAP_GROWSDOWN)
-    fputs("|MAP_GROWSDOWN", stream);
+    dst = print_cstr(dst, "|MAP_GROWSDOWN");
 
   if (flags & MAP_HUGETLB)
-    fputs("|MAP_HUGETLB", stream);
+    dst = print_cstr(dst, "|MAP_HUGETLB");
 
   if (flags & MAP_LOCKED)
-    fputs("|MAP_LOCKED", stream);
+    dst = print_cstr(dst, "|MAP_LOCKED");
 
   if (flags & MAP_NONBLOCK)
-    fputs("|MAP_NONBLOCK", stream);
+    dst = print_cstr(dst, "|MAP_NONBLOCK");
 
   if (flags & MAP_NORESERVE)
-    fputs("|MAP_NORESERVE", stream);
+    dst = print_cstr(dst, "|MAP_NORESERVE");
 
   if (flags & MAP_POPULATE)
-    fputs("|MAP_POPULATE", stream);
+    dst = print_cstr(dst, "|MAP_POPULATE");
 
   if (flags & MAP_STACK)
-    fputs("|MAP_STACK", stream);
+    dst = print_cstr(dst, "|MAP_STACK");
 
-  // if (flags & MAP_UNINITIALIZED)
-  //    fputs("|MAP_UNINITIALIZED", stream);
+  flags &= ~(MAP_SHARED | MAP_PRIVATE |
+#ifdef __x86_64__
+             MAP_32BIT |
+#endif // __x86_64__
+             MAP_ANONYMOUS | MAP_DENYWRITE | MAP_EXECUTABLE | MAP_FILE |
+             MAP_FIXED | MAP_GROWSDOWN | MAP_HUGETLB | MAP_LOCKED |
+             MAP_NONBLOCK | MAP_NORESERVE | MAP_POPULATE | MAP_STACK);
+
+  if (flags) {
+    *dst++ = '|';
+    dst = print_hex(dst, flags);
+  }
+
+  return dst;
 }
 
-static bool print_open_flags(long flags, FILE *stream) {
-  bool res = false;
+static char *print_open_flags(char *dst, long flags, bool *creates) {
+  *creates = false;
 
   if (flags & O_RDWR)
-    fputs("O_RDWR", stream);
+    dst = print_cstr(dst, "O_RDWR");
 
   else if (flags & O_WRONLY)
-    fputs("O_WRONLY", stream);
+    dst = print_cstr(dst, "O_WRONLY");
 
   else
-    fputs("O_RDONLY", stream);
+    dst = print_cstr(dst, "O_RDONLY");
 
   // Creation and file status flags
   if (flags & O_APPEND)
-    fputs("|O_APPEND", stream);
+    dst = print_cstr(dst, "|O_APPEND");
 
   if (flags & O_ASYNC)
-    fputs("|O_ASYNC", stream);
+    dst = print_cstr(dst, "|O_ASYNC");
 
   if (flags & O_CLOEXEC)
-    fputs("|O_CLOEXEC", stream);
+    dst = print_cstr(dst, "|O_CLOEXEC");
 
   if (flags & O_CREAT) {
-    fputs("|O_CREAT", stream);
-    res = true;
+    dst = print_cstr(dst, "|O_CREAT");
+    *creates = true;
   }
 
   if (flags & O_DIRECT)
-    fputs("|O_DIRECT", stream);
+    dst = print_cstr(dst, "|O_DIRECT");
 
   if (flags & O_DIRECTORY)
-    fputs("|O_DIRECTORY", stream);
+    dst = print_cstr(dst, "|O_DIRECTORY");
 
   if (flags & O_DSYNC)
-    fputs("|O_DSYNC", stream);
+    dst = print_cstr(dst, "|O_DSYNC");
 
   if (flags & O_EXCL)
-    fputs("|O_EXCL", stream);
+    dst = print_cstr(dst, "|O_EXCL");
 
   if (flags & O_NOATIME)
-    fputs("|O_NOATIME", stream);
+    dst = print_cstr(dst, "|O_NOATIME");
 
   if (flags & O_NOCTTY)
-    fputs("|O_NOCTTY", stream);
+    dst = print_cstr(dst, "|O_NOCTTY");
 
   if (flags & O_NOFOLLOW)
-    fputs("|O_NOFOLLOW", stream);
+    dst = print_cstr(dst, "|O_NOFOLLOW");
 
   if (flags & O_NONBLOCK)
-    fputs("|O_NONBLOCK", stream);
+    dst = print_cstr(dst, "|O_NONBLOCK");
 
   if (flags & O_PATH)
-    fputs("|O_PATH", stream);
+    dst = print_cstr(dst, "|O_PATH");
 
   if (flags & O_SYNC)
-    fputs("|O_SYNC", stream);
+    dst = print_cstr(dst, "|O_SYNC");
 
   if (flags & O_TMPFILE) {
-    fputs("|O_TMPFILE", stream);
-    res = true;
+    dst = print_cstr(dst, "|O_TMPFILE");
+    *creates = true;
   }
 
   if (flags & O_TRUNC)
-    fputs("|O_TRUNC", stream);
+    dst = print_cstr(dst, "|O_TRUNC");
 
-  return res;
-}
+  flags &= ~(O_RDWR | O_WRONLY | O_RDONLY | O_APPEND | O_ASYNC | O_CLOEXEC |
+             O_CREAT | O_DIRECT | O_DIRECTORY | O_DSYNC | O_EXCL | O_NOATIME |
+             O_NOCTTY | O_NOFOLLOW | O_NONBLOCK | O_PATH | O_SYNC | O_TMPFILE |
+             O_TRUNC);
 
-static void print_nonprintable(char ch, FILE *stream) {
-  switch (ch) {
-    case '\n':
-      fputs("\\n", stream);
-      break;
-    case '\t':
-      fputs("\\t", stream);
-      break;
-    default:
-      fprintf(stream, "\\x%02X", ch);
-      break;
+  if (flags) {
+    *dst++ = '|';
+    dst = print_hex(dst, flags);
   }
+
+  return dst;
 }
 
-static void printstr(const char *str_ptr, long len, FILE *stream) {
-  fputc('\"', stream);
+static char *pre_decode_args(char *dst, long sc, const long args[]) {
+  bool creates = false;
 
-  for (int i = 0; (len ? (i < len) : true) && str_ptr[i]; ++i) {
-    if (my_isprint(str_ptr[i]))
-      fputc(str_ptr[i], stream);
-    else
-      print_nonprintable(str_ptr[i], stream);
-  }
-  fputc('\"', stream);
-}
-
-static void pre_decode_args(long sc, const long args[], FILE *stream) {
-  if (!raw_out) {
-    switch (sc) {
-      case SYS_mprotect:
-        fprintf(stream, "0x%lX, 0x%lX, ", args[0], args[1]);
-        print_prot(args[2], stream);
-        break;
+  switch (sc) {
+  case SYS_mprotect:
+    dst = print_hex(dst, args[0]);
+    dst = print_cstr(dst, ", ");
+    dst = print_hex(dst, args[1]);
+    dst = print_cstr(dst, ", ");
+    dst = print_prot(dst, args[2]);
+    break;
 
 #ifdef __x86_64__
-      case SYS_access:
-        printstr((char *)args[0], 0, stream);
-        fprintf(stream, ", %lX", args[1]);
-        break;
+  case SYS_access:
+    dst = print_cstr_escaped(dst, (char *)args[0], 0);
+    dst = print_cstr(dst, ", ");
+    dst = print_hex(dst, args[1]);
+    break;
 #endif // __x86_64__
 
-      case SYS_mmap:
-        for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
-          if (!argno)
-            fprintf(stream, "0x%lX", args[argno]);
-
-          else if (argno == 2) {
-            fputs(", ", stream);
-            print_prot(args[2], stream);
-          } else if (argno == 3) {
-            fputs(", ", stream);
-            print_mmap_flags(args[3], stream);
-          } else
-            fprintf(stream, ", 0x%lX", args[argno]);
-        }
-        break;
-
-#ifdef __x86_64__
-      case SYS_open:
-        printstr((char *)args[0], 0, stream);
-        fputs(", ", stream);
-        if (print_open_flags(args[1], stream)) {
-          fprintf(stream, ", %lo", args[2]);
-        }
-        break;
-#endif // __x86_64__
-
-      case SYS_openat:
-        printstr((char *)args[1], 0, stream);
-        fputs(", ", stream);
-        if (print_open_flags(args[2], stream)) {
-          fprintf(stream, ", %lo", args[3]);
-        }
-        break;
-
-      case SYS_write:
-        for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
-          if (!argno)
-            fprintf(stream, "0x%lX", args[argno]);
-
-          else if (argno == 1) {
-            fputs(", ", stream);
-            printstr((char *)args[argno], args[argno + 1], stream);
-          } else
-            fprintf(stream, ", 0x%lX", args[argno]);
-        }
-        break;
-
-      case SYS_read:
-        fprintf(stream, "0x%lX", args[0]);
-        break;
-
-      default:
-        for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
-          if (!argno)
-            fprintf(stream, "0x%lX", args[argno]);
-          else
-            fprintf(stream, ", 0x%lX", args[argno]);
-        }
-        break;
-    }
-  } else {
+  case SYS_mmap:
     for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
-      if (!argno)
-        fprintf(stream, "0x%lX", args[argno]);
+      if (!argno) {
+        dst = print_hex(dst, args[argno]);
+      } else {
+        dst = print_cstr(dst, ", ");
+        if (argno == 2)
+          dst = print_prot(dst, args[2]);
+        else if (argno == 3)
+          dst = print_mmap_flags(dst, args[3]);
+        else if (argno == 4)
+          dst = print_fd(dst, args[4]);
+        else
+          dst = print_hex(dst, args[argno]);
+      }
+    }
+    break;
+
+#ifdef __x86_64__
+  case SYS_open:
+    dst = print_cstr_escaped(dst, (char *)args[0], 0);
+    dst = print_cstr(dst, ", ");
+    creates = false;
+    dst = print_open_flags(dst, args[1], &creates);
+    if (creates)
+      dst = print_octal(dst, args[2]);
+    break;
+#endif // __x86_64__
+
+  case SYS_openat:
+    dst = print_cstr_escaped(dst, (char *)args[1], 0);
+    dst = print_cstr(dst, ", ");
+    creates = false;
+    dst = print_open_flags(dst, args[2], &creates);
+    if (creates)
+      dst = print_octal(dst, args[3]);
+    break;
+
+  case SYS_write:
+    for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
+      if (!argno) {
+        dst = print_fd(dst, args[argno]);
+      } else {
+        dst = print_cstr(dst, ", ");
+        if (argno == 1)
+          dst = print_cstr_escaped(dst, (char *)args[argno], args[argno + 1]);
+        else
+          dst = print_hex(dst, args[argno]);
+      }
+    }
+    break;
+
+  case SYS_read:
+    dst = print_fd(dst, args[0]);
+    break;
+
+  default:
+    for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
+      if (!argno) {
+        dst = print_hex(dst, args[argno]);
+      } else {
+        dst = print_cstr(dst, ", ");
+        dst = print_hex(dst, args[argno]);
+      }
+    }
+    break;
+  }
+  return dst;
+}
+
+static char *post_decode_args(char *dst, long sc, const long args[], long rtn) {
+  (void)rtn; // unused
+  switch (sc) {
+  case SYS_read:
+    for (int argno = 1; argno < sysent[sc].nargs; ++argno) {
+      dst = print_cstr(dst, ", ");
+      if (argno == 1)
+        dst = print_cstr_escaped(dst, (char *)args[argno], args[argno + 1]);
       else
-        fprintf(stream, ", 0x%lX", args[argno]);
+        dst = print_hex(dst, args[argno]);
     }
+    break;
+
+  default:
+    break;
   }
+  return dst;
 }
 
-static void post_decode_args(long sc,
-                             const long args[],
-                             FILE *stream,
-                             long rtn) {
-  (void)rtn;  // unused
-  if (!raw_out) {
-    switch (sc) {
-      case SYS_read:
-        for (int argno = 1; argno < sysent[sc].nargs; ++argno) {
-          if (argno == 1) {
-            fputs(", ", stream);
-            printstr((char *)args[argno], args[argno + 1], stream);
-          } else
-            fprintf(stream, ", 0x%lX", args[argno]);
-        }
-        break;
-
-      default:
-        break;
-    }
-  }
-}
-
-long handle_syscall_real(long sc_no,
-                         long arg1,
-                         long arg2,
-                         long arg3,
-                         long arg4,
-                         long arg5,
-                         long arg6,
-                         bool vdso) {
+long handle_syscall_real(long sc_no, long arg1, long arg2, long arg3, long arg4,
+                         long arg5, long arg6, bool vdso) {
   long local_args[] = {arg1, arg2, arg3, arg4, arg5, arg6};
+
   long syscall_rtn;
+  char local_buffer[0x300];
+  char *dst = local_buffer;
   static bool outfd_close = false;
 
   if (vdso)
-    fputs("(vDSO): ", out_stream);
-  fprintf(out_stream, "%s(", sysent[sc_no].sys_name);
+    dst = print_cstr(dst, "(vDSO): ");
+  dst = print_cstr(dst, sysent[sc_no].sys_name);
+  *dst++ = '(';
 
   // Special-case the exit syscalls
   if ((sc_no == SYS_exit) || (sc_no == SYS_exit_group)) {
-    fprintf(out_stream, "%ld) = ?\n", arg1);
-    fflush(out_stream);
+    dst = print_signed_dec(dst, arg1);
+    dst = print_cstr(dst, ") = ?\n");
 
     if (outfd_close)
-      (void)real_syscall(
-          SYS_close, (long)fileno(out_stream), arg2, arg3, arg4, arg5, arg6);
+      (void)real_syscall(SYS_close, (long)(log_fd), arg2, arg3, arg4, arg5,
+                         arg6);
 
     // More sophisticated checks should be implemented at some point -
     // what if target app doesn't use output streams at all, and we
     // use stderr? But not closing a stream is not catastrophic.
-    else if ((out_stream != stdout) && (out_stream != stderr))
-      fclose(out_stream);
+    /* else if ((out_stream != stdout) && (out_stream != stderr)) */
+    /*   fclose(out_stream); */
 
+    append_buffer(local_buffer, dst - local_buffer);
     return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
   } else {
-    pre_decode_args(sc_no, local_args, out_stream);
+    dst = pre_decode_args(dst, sc_no, local_args);
 
     // If the sandboxed app is closing our output FD
-    if ((sc_no == SYS_close) && ((int)arg1 == fileno(out_stream))) {
+    if ((sc_no == SYS_close) && ((int)arg1 == log_fd)) {
       // A bit hacky - what if there was an error? We can't see in the future
       // though, so...
       syscall_rtn = 0;
@@ -388,12 +539,17 @@ long handle_syscall_real(long sc_no,
     } else
       syscall_rtn = real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
 
-    post_decode_args(sc_no, local_args, out_stream, syscall_rtn);
+    dst = post_decode_args(dst, sc_no, local_args, syscall_rtn);
 
-    if (syscall_rtn > -1)
-      fprintf(out_stream, ") = 0x%lX\n", syscall_rtn);
-    else
-      fprintf(out_stream, ") = %ld (error)\n", syscall_rtn);
+    dst = print_cstr(dst, ") = ");
+    if (syscall_rtn > -1) {
+      dst = print_hex(dst, syscall_rtn);
+    } else {
+      dst = print_signed_dec(dst, syscall_rtn);
+      dst = print_cstr(dst, "(error)");
+    }
+    *dst++ = '\n';
+    append_buffer(local_buffer, dst - local_buffer);
 
     return syscall_rtn;
   }
@@ -438,16 +594,17 @@ void handle_args(int *argc, char **argv[]) {
       char *out_file = (**argv + strlen(ARG_PATTERN(OUT_ARG)));
 
       if (!strcmp(out_file, "stdout"))
-        out_stream = stdout;
+        log_fd = STDOUT_FILENO;
 
       else if (!strcmp(out_file, "stderr"))
-        out_stream = stderr;
+        log_fd = STDERR_FILENO;
 
       else {
         if (*out_file) {
-          out_stream = fopen(out_file, "w");
-
-          if (!out_stream) {
+          log_fd =
+              real_syscall(SYS_open, (long)out_file, (long)(O_CREAT | O_RDWR),
+                           (long)((mode_t)0700), 0, 0, 0);
+          if (log_fd < 0) {
             fputs("Could not open file ", stderr);
             fputs(out_file, stderr);
             fputs(" for sbr_strace output.\n", stderr);
@@ -476,16 +633,12 @@ void handle_args(int *argc, char **argv[]) {
         vdso_arg_flag = VDSO_SPECIAL;
 
       else {
-        fputs("Unsupported vDSO handling option: ", out_stream);
-        fputs(string_selection, out_stream);
-        fputc('\n', out_stream);
+        fputs("Unsupported vDSO handling option: ", stderr);
+        fputs(string_selection, stderr);
+        fputc('\n', stderr);
         exit(1);
       }
     }
-
-    // Handle raw output
-    if (!strcmp(ARG_PATTERN_NO_PARAM(RAW_ARG), **argv))
-      raw_out = true;
 
     if ((strlen(**argv) == 2) && !strncmp("--", **argv, 3)) {
       sep_found = true;
@@ -499,7 +652,7 @@ void handle_args(int *argc, char **argv[]) {
   }
 
   if (!sep_found) {
-    fputs("Invalid arguments, missing \"--\" separator\n", out_stream);
+    fputs("Invalid arguments, missing \"--\" separator\n", stderr);
     print_help();
     exit(1);
   }
@@ -553,7 +706,7 @@ void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
   (void)post_load;    // unused
 
   // For error messages before handling the args
-  out_stream = stderr;
+  log_fd = STDERR_FILENO;
 
   handle_args(argc, argv);
 
