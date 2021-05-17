@@ -19,7 +19,8 @@
 // sanitizers initialization phase.
 // TODO(andronat): Will the following create any issues with other libraries?
 // e.g. overlapping offsets and thus writting/reading from wrong variables?
-static _Thread_local bool from_plugin = false;
+static _Thread_local bool from_plugin
+    __attribute__((tls_model("initial-exec"))) = false;
 
 bool calling_from_plugin() { return from_plugin; }
 void enter_plugin() { from_plugin = true; }

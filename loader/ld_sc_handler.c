@@ -488,6 +488,11 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
   // locks etc. While pthreads is initializing calling_from_plugin is NULL.
   // Look: https://code.woboq.org/userspace/glibc/elf/dl-init.c.html#84
   if (calling_from_plugin == NULL || calling_from_plugin()) {
+    if (sc_no == SYS_clone && arg2 != 0) { // clone
+      void *ret_addr = get_syscall_return_address(wrapper_sp);
+      return clone_syscall(arg1, (void *)arg2, (void *)arg3, (void *)arg4, arg5,
+                           ret_addr);
+    }
     return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
   }
 
