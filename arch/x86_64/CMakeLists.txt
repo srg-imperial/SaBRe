@@ -12,6 +12,7 @@ set(SRCS
   handle_vdso.s
   rewriter.c
   syscall_stackframe.c
+  tls_helper.c
   x86_decoder.c
 )
 
@@ -20,6 +21,7 @@ if (RDTSC)
 endif(RDTSC)
 
 sabre_add_component(backend ${SRCS})
+target_link_libraries(backend loader)
 
 sabre_add_component(realsyscall
   clone_syscall.s
