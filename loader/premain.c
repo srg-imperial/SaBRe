@@ -40,26 +40,27 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
   if (lib_base == 0)
     errx(EXIT_FAILURE, "Couldn't find memory base of %s.", abs_plugin_path);
 
+  bool valid = false;
   ElfW(Addr) sym_addr;
   // TODO(andronat): add vaddr?
-  sym_addr = addr_of_elf_symbol(abs_plugin_path, "sbr_init");
-  assert(sym_addr != 0);
+  sym_addr = addr_of_elf_symbol(abs_plugin_path, "sbr_init", &valid);
+  assert(valid == true && "No symbol 'sbr_init'");
   sbr_init_fn plugin_init = (void *)lib_base + sym_addr;
 
-  sym_addr = addr_of_elf_symbol(abs_plugin_path, "calling_from_plugin");
-  assert(sym_addr != 0);
+  sym_addr = addr_of_elf_symbol(abs_plugin_path, "calling_from_plugin", &valid);
+  assert(valid == true && "No symbol 'calling_from_plugin'");
   calling_from_plugin = (void *)lib_base + sym_addr;
 
-  sym_addr = addr_of_elf_symbol(abs_plugin_path, "enter_plugin");
-  assert(sym_addr != 0);
+  sym_addr = addr_of_elf_symbol(abs_plugin_path, "enter_plugin", &valid);
+  assert(valid == true && "No symbol 'enter_plugin'");
   enter_plugin = (void *)lib_base + sym_addr;
 
-  sym_addr = addr_of_elf_symbol(abs_plugin_path, "exit_plugin");
-  assert(sym_addr != 0);
+  sym_addr = addr_of_elf_symbol(abs_plugin_path, "exit_plugin", &valid);
+  assert(valid == true && "No symbol 'exit_plugin'");
   exit_plugin = (void *)lib_base + sym_addr;
 
-  sym_addr = addr_of_elf_symbol(abs_plugin_path, "is_vdso_ready");
-  assert(sym_addr != 0);
+  sym_addr = addr_of_elf_symbol(abs_plugin_path, "is_vdso_ready", &valid);
+  assert(valid == true && "No symbol 'is_vdso_ready'");
   is_vdso_ready = (void *)lib_base + sym_addr;
 
   load_client_tls();

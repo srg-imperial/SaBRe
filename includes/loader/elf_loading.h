@@ -10,11 +10,12 @@
 
 #include <gelf.h>
 #include <link.h>
+#include <stdbool.h>
 #include <stddef.h>
 
-int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr);
-GElf_Sym find_elf_symbol(const char *, const char *);
-ElfW(Addr) addr_of_elf_symbol(const char *, const char *);
+int elfld_getehdr(int, ElfW(Ehdr) *);
+GElf_Sym find_elf_symbol(const char *, const char *, bool *);
+ElfW(Addr) addr_of_elf_symbol(const char *, const char *, bool *);
 ElfW(Addr) elfld_load_elf(int fd, ElfW(Ehdr) const *ehdr, size_t pagesize,
                           ElfW(Addr) * out_phdr, ElfW(Addr) * out_phnum,
                           const char **out_interp);

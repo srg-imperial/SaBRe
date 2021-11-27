@@ -568,6 +568,28 @@ static void patch_syscalls(struct library *lib, bool loader) {
   _nx_debug_printf("mprotected\n");
 }
 
+// Under some OSes (e.g. Ubuntu 18.04), ld comes without debug symbols. This
+// wrapper function firstly checks if ld has debug symbols and then just looks
+// over various other places to find the symbols.
+static GElf_Sym find_ld_symbol(const char *ld_path, const char *fn_name) {
+  GElf_Sym gsym;
+  const char *ld_symbols_paths[] = {
+      ld_path, "/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.27.so", NULL};
+
+  for (int i = 0; ld_symbols_paths[i] != NULL; i++) {
+    if (access(ld_symbols_paths[i], F_OK) == -1)
+      continue;
+
+    bool valid = false;
+    gsym = find_elf_symbol(ld_symbols_paths[i], fn_name, &valid);
+    if (!valid)
+      continue;
+
+    return gsym;
+  }
+  assert(false && "We couldn't find ld symbols");
+}
+
 static void patch_funcs(struct library *lib) {
   if (!lib->valid)
     return;
@@ -609,12 +631,8 @@ static void patch_funcs(struct library *lib) {
                                 &extra_space,
                                 &extra_len);
       } else if (sym == NULL && !strcmp(short_libname, "ld")) {
-        char ld_symbols_path[] =
-            "/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.27.so";
-        assert(access(ld_symbols_path, F_OK) != -1);
-
         GElf_Sym gsym =
-            find_elf_symbol(ld_symbols_path, intercept_records[i].fn_name);
+            find_ld_symbol(lib->pathname, intercept_records[i].fn_name);
 
         _nx_debug_printf("patching at address %lx\n",
                          (long)lib->asr_offset + gsym.st_value);

@@ -20,14 +20,16 @@
 
 #define MAX_PHNUM 16
 
-GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name) {
+GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name,
+                         bool *valid) {
   // TODO(andronat): This opens a file. Can we make it faster?
   Elf *elf;
   Elf_Scn *scn = NULL;
   GElf_Shdr shdr;
   Elf_Data *data;
   int fd, count;
-  GElf_Sym rv;
+  GElf_Sym rv = {0};
+  *valid = false;
 
   if (elf_version(EV_CURRENT) == EV_NONE)
     _nx_fatal_printf("ELF library initialization failed\n");
@@ -43,6 +45,10 @@ GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name) {
     }
   }
 
+  if (shdr.sh_type != SHT_SYMTAB) {
+    return rv;
+  }
+
   data = elf_getdata(scn, NULL);
   count = shdr.sh_size / shdr.sh_entsize;
 
@@ -52,6 +58,7 @@ GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name) {
     gelf_getsym(data, i, &sym);
     if (!strcmp(sym_name, elf_strptr(elf, shdr.sh_link, sym.st_name))) {
       rv = sym;
+      *valid = true;
       break;
     }
   }
@@ -61,8 +68,9 @@ GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name) {
   return rv;
 }
 
-ElfW(Addr) addr_of_elf_symbol(const char *elf_path, const char *sym_name) {
-  return find_elf_symbol(elf_path, sym_name).st_value;
+ElfW(Addr) addr_of_elf_symbol(const char *elf_path, const char *sym_name,
+                              bool *valid) {
+  return find_elf_symbol(elf_path, sym_name, valid).st_value;
 }
 
 static int prot_from_phdr(const ElfW(Phdr) * phdr) {
