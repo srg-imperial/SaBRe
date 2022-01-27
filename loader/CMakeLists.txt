@@ -20,6 +20,7 @@ sabre_add_component(loader
 )
 
 add_library(patchelf STATIC patchelf.cpp)
+set_property(TARGET patchelf PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(loader ${CMAKE_DL_LIBS} realsyscall backend patchelf elf)
 
