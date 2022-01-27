@@ -995,11 +995,9 @@ void ElfFile<ElfFileParamNames>::addNeeded(const std::set<std::string> &libs) {
   int inject_idx = 1;
 
   /* Shift all entries down by the number of new entries. */
-  setSubstr(newDynamic, 0,
-            std::string(newDynamic, 0, sizeof(Elf_Dyn) * (idx + 1)));
   setSubstr(newDynamic, sizeof(Elf_Dyn) * (libs.size() + inject_idx),
             std::string(newDynamic, sizeof(Elf_Dyn) * inject_idx,
-                        sizeof(Elf_Dyn) * (idx + 1)));
+                        sizeof(Elf_Dyn) * idx));
 
   /* Add the DT_NEEDED entries at the top. */
   unsigned int i = inject_idx;
