@@ -38,6 +38,7 @@ include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_component.cmake")
 
 # Sources
 add_subdirectory("arch/${CMAKE_SYSTEM_PROCESSOR}" arch)
+add_subdirectory("patchelf")
 add_subdirectory("loader")
 file(GLOB subdirs CONFIGURE_DEPENDS "plugins/*")
 foreach(subdir ${subdirs})
