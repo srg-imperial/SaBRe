@@ -13,6 +13,7 @@
 # where `#ifdef SABRE` is used to see what has been modified from the original.
 # All modifications should be contained by that preprocessor definition.
 
+set(CMAKE_CXX_STANDARD 17)
 add_library(patchelf STATIC patchelf.cc)
 set_property(TARGET patchelf PROPERTY POSITION_INDEPENDENT_CODE ON)
 # Define 'SABRE' to make it easy to distinguish our changes to patchelf.
