@@ -47,12 +47,9 @@ static inline bool is_safe_insn(unsigned short insn) {
 
 #define TRAMPOLINE_MAX_DISTANCE (1536 << 20)
 
-static void patch_syscalls_in_func(struct library *lib,
-                                           char *start,
-                                           char *end,
-                                           char **extra_space,
-                                           int *extra_len,
-                                           bool loader) {
+static void patch_syscalls_in_func(struct library *lib, char *start, char *end,
+                                   char **extra_space, int *extra_len,
+                                   bool loader) {
   struct rb_root branch_targets = RB_ROOT;
 
   _nx_debug_printf("patch_syscalls_in_func: function %p-%p\n", start, end);
@@ -61,8 +58,8 @@ static void patch_syscalls_in_func(struct library *lib,
     // Count how many targets we'll need
     unsigned long total = 0;
     for (char *ptr = start; ptr < end;) {
-      unsigned short insn = next_inst(
-          (const char **)&ptr, __WORDSIZE == 64, NULL, NULL, NULL, NULL, NULL);
+      unsigned short insn = next_inst((const char **)&ptr, __WORDSIZE == 64,
+                                      NULL, NULL, NULL, NULL, NULL);
       if ((insn >= 0x70 && insn <= 0x7F) /* Jcc */ || insn == 0xEB /* JMP */ ||
           insn == 0xE8 /* CALL */ || insn == 0xE9 /* JMP */ ||
           (insn >= 0x0F80 && insn <= 0x0F8F) /* Jcc */) {
@@ -71,17 +68,17 @@ static void patch_syscalls_in_func(struct library *lib,
     }
 
     // Allocate all the memory we'll need in one go
-    struct branch_target *target = malloc(total*sizeof(*target));
+    struct branch_target *target = malloc(total * sizeof(*target));
 
     // Lookup branch targets dynamically.
     for (char *ptr = start; ptr < end;) {
-      unsigned short insn = next_inst(
-          (const char **)&ptr, __WORDSIZE == 64, NULL, NULL, NULL, NULL, NULL);
+      unsigned short insn = next_inst((const char **)&ptr, __WORDSIZE == 64,
+                                      NULL, NULL, NULL, NULL, NULL);
       char *addr;
       if ((insn >= 0x70 && insn <= 0x7F) /* Jcc */ || insn == 0xEB /* JMP */) {
         addr = ptr + ((signed char *)(ptr))[-1];
       } else if (insn == 0xE8 /* CALL */ || insn == 0xE9 /* JMP */ ||
-          (insn >= 0x0F80 && insn <= 0x0F8F) /* Jcc */) {
+                 (insn >= 0x0F80 && insn <= 0x0F8F) /* Jcc */) {
         addr = ptr + ((int *)(ptr))[-1];
       } else
         continue;
@@ -108,8 +105,7 @@ static void patch_syscalls_in_func(struct library *lib,
     code[i].insn =
         next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
     code[i].len = ptr - code[i].addr;
-    code[i].is_ip_relative =
-        mod_rm && (*mod_rm & 0xC7) == 0x5;
+    code[i].is_ip_relative = mod_rm && (*mod_rm & 0xC7) == 0x5;
 
     // Whenever we find a system call, we patch it with a jump to out-of-line
     // code that redirects to our system call entrypoint.
@@ -120,7 +116,7 @@ static void patch_syscalls_in_func(struct library *lib,
 #ifdef __NX_INTERCEPT_RDTSC
         || ((is_rdtsc = (code[i].insn == 0x0F31)) /* RDTSC */ && !loader)
 #endif
-       ) {
+    ) {
 
       // Found a system call. Search backwards to figure out how to redirect
       // the code. We will need to overwrite a couple of instructions and,
@@ -147,12 +143,12 @@ static void patch_syscalls_in_func(struct library *lib,
           break;
         }
       }
-// Search forward past the system call, too. Sometimes, we can only find
-// relocatable instructions following the system call.
+      // Search forward past the system call, too. Sometimes, we can only find
+      // relocatable instructions following the system call.
       char *next = ptr;
       for (int j = i;
-           next < end && (j = (j + 1) % (sizeof(code) / sizeof(struct code))) !=
-                             start_idx;) {
+           next < end &&
+           (j = (j + 1) % (sizeof(code) / sizeof(struct code))) != start_idx;) {
         struct branch_target *target =
             rb_lower_bound_target(&branch_targets, next);
         if (target && target->addr == next) {
@@ -161,8 +157,8 @@ static void patch_syscalls_in_func(struct library *lib,
         }
         char *tmp_rm;
         code[j].addr = next;
-        code[j].insn = next_inst(
-            (const char **)&next, __WORDSIZE == 64, 0, 0, &tmp_rm, 0, 0);
+        code[j].insn = next_inst((const char **)&next, __WORDSIZE == 64, 0, 0,
+                                 &tmp_rm, 0, 0);
         code[j].len = next - code[j].addr;
         code[j].is_ip_relative = tmp_rm && (*tmp_rm & 0xC7) == 0x5;
         if (!code[j].is_ip_relative && is_safe_insn(code[j].insn)) {
@@ -251,8 +247,7 @@ static void patch_syscalls_in_func(struct library *lib,
         if (is_rdtsc) {
           memcpy(code[i].addr, "\x0F\x0B" /* UD2 */, 2);
           goto replaced;
-        }
-        else
+        } else
 #endif
         {
           memcpy(code[i].addr, "\x0F\xFF" /* UD0 */, 2);
@@ -281,8 +276,9 @@ static void patch_syscalls_in_func(struct library *lib,
 
       // Allocate scratch space and copy the preamble of code that was moved
       // from the function that we are patching.
-      char *dest = alloc_scratch_space(
-          lib->maps->fd, code[first].addr, needed, extra_space, extra_len, true, TRAMPOLINE_MAX_DISTANCE);
+      char *dest = alloc_scratch_space(lib->maps->fd, code[first].addr, needed,
+                                       extra_space, extra_len, true,
+                                       TRAMPOLINE_MAX_DISTANCE);
       memcpy(dest, code[first].addr, preamble);
 
       // For jumps from the VDSO to the VSyscalls we sometimes allow exactly
@@ -293,36 +289,32 @@ static void patch_syscalls_in_func(struct library *lib,
       }
 
       // Copy the static body of the assembly code.
-      memcpy(
-          dest + preamble,
-              "\x48\x81\xEC\x80\x00\x00\x00" // SUB  $0x80, %rsp
-              "\x50"                         // PUSH %rax
-              "\x48\x8D\x05\x00\x00\x00\x00" // LEA  ...(%rip), %rax
-              "\x50"                         // PUSH %rax
-              "\x48\xB8\x00\x00\x00\x00\x00" // MOV $entrypoint,
-              "\x00\x00\x00"                 //     %rax
-              "\x50"                         // PUSH %rax
-              "\x48\x8D\x05\x06\x00\x00\x00" // LEA  6(%rip), %rax
-              "\x48\x87\x44\x24\x10"         // XCHG %rax, 16(%rsp)
-              "\xC3"                         // RETQ
-              "\x48\x81\xC4\x80\x00\x00",    // ADD  $0x80, %rsp
-          47
-          );
+      memcpy(dest + preamble,
+             "\x48\x81\xEC\x80\x00\x00\x00" // SUB  $0x80, %rsp
+             "\x50"                         // PUSH %rax
+             "\x48\x8D\x05\x00\x00\x00\x00" // LEA  ...(%rip), %rax
+             "\x50"                         // PUSH %rax
+             "\x48\xB8\x00\x00\x00\x00\x00" // MOV $entrypoint,
+             "\x00\x00\x00"                 //     %rax
+             "\x50"                         // PUSH %rax
+             "\x48\x8D\x05\x06\x00\x00\x00" // LEA  6(%rip), %rax
+             "\x48\x87\x44\x24\x10"         // XCHG %rax, 16(%rsp)
+             "\xC3"                         // RETQ
+             "\x48\x81\xC4\x80\x00\x00",    // ADD  $0x80, %rsp
+             47);
 
       // Copy the postamble that was moved from the function that we are
       // patching.
-      memcpy(dest + preamble + 47,
-             code[i].addr + code[i].len,
-             postamble);
+      memcpy(dest + preamble + 47, code[i].addr + code[i].len, postamble);
 
       // Patch up the various computed values
       int post = preamble + 47 + postamble;
-      dest[post] = '\xE9';  // JMPQ
+      dest[post] = '\xE9'; // JMPQ
       *(int *)(dest + post + 1) =
           (code[second].addr + code[second].len) - (dest + post + 5);
       *(int *)(dest + preamble + 11) =
           (code[second].addr + code[second].len) - (dest + preamble + 15);
-      void* entrypoint;
+      void *entrypoint;
 
       if (loader)
         entrypoint = handle_syscall_loader;
@@ -335,15 +327,14 @@ static void patch_syscalls_in_func(struct library *lib,
         entrypoint = handle_syscall;
       *(void **)(dest + preamble + 18) = entrypoint;
       // Pad unused space in the original function with NOPs
-      memset(code[first].addr,
-             0x90 /* NOP */,
+      memset(code[first].addr, 0x90 /* NOP */,
              code[second].addr + code[second].len - code[first].addr);
 
       // Replace the system call with an unconditional jump to our new code.
-      *code[first].addr = '\xE9';  // JMPQ
+      *code[first].addr = '\xE9'; // JMPQ
       *(int *)(code[first].addr + 1) = dest - (code[first].addr + 5);
       _nx_debug_printf("patched %s at %p (scratch space at %p)\n",
-                  (is_rdtsc ? "rdtsc" : "syscall"), code[i].addr, dest);
+                       (is_rdtsc ? "rdtsc" : "syscall"), code[i].addr, dest);
     }
   replaced:
     i = (i + 1) % (sizeof(code) / sizeof(struct code));
@@ -359,8 +350,8 @@ static inline struct rb_root *lookup_branch_targets(char *start, char *end) {
 
   // Lookup branch targets dynamically.
   for (char *ptr = start; ptr < end;) {
-    unsigned short insn = next_inst(
-        (const char **)&ptr, __WORDSIZE == 64, NULL, NULL, NULL, NULL, NULL);
+    unsigned short insn = next_inst((const char **)&ptr, __WORDSIZE == 64, NULL,
+                                    NULL, NULL, NULL, NULL);
     char *addr;
     if ((insn >= 0x70 && insn <= 0x7F) /* Jcc */ || insn == 0xEB /* JMP */) {
       addr = ptr + ((signed char *)(ptr))[-1];
@@ -379,193 +370,136 @@ static inline struct rb_root *lookup_branch_targets(char *start, char *end) {
   return branch_targets;
 }
 
-
 #if defined(USE_ABS_JMP_DETOUR)
-#define JUMP_SIZE 12 // 10 bytes to load target address into register + 2 bytes to jump
+#define JUMP_SIZE                                                              \
+  12 // 10 bytes to load target address into register + 2 bytes to jump
 #else
-#define JUMP_SIZE 5 // 1 byte for the opcode + 4 bytes for the 32-bit displacement
+#define JUMP_SIZE                                                              \
+  5 // 1 byte for the opcode + 4 bytes for the 32-bit displacement
 #endif
 
-static const char DETOUR_ASM [] =
+static const char DETOUR_ASM[] =
     // after rewriting, the detoured function jumps to here
-    "\x48\x83\xEC\x08"              // SUB  $0x8, %rsp          # stack alignment
-    "\x49\xBB\x00\x00\x00\x00\x00"  // MOVABS $handler, %r11    # load handler address
+    "\x48\x83\xEC\x08"             // SUB  $0x8, %rsp          # stack alignment
+    "\x49\xBB\x00\x00\x00\x00\x00" // MOVABS $handler, %r11    # load handler address
     "\x00\x00\x00"
-    "\x41\xFF\xD3"                  // CALLQ *%r11              # call handler
-    "\x48\x83\xC4\x08"              // ADD  $0x8, %rsp          # stack alignment
-    "\xC3";                         // RETQ                     # return to detoured function (except for __libc_start_main)
-    // the postamble (i.e. first instructions of detoured function relocated to accommodate the jump) comes here
-    // then comes the jump back to detoured function after relocated instructions
+    "\x41\xFF\xD3"     // CALLQ *%r11              # call handler
+    "\x48\x83\xC4\x08" // ADD  $0x8, %rsp          # stack alignment
+    "\xC3"; // RETQ                     # return to detoured function (except for __libc_start_main)
+// the postamble (i.e. first instructions of detoured function relocated to accommodate the jump) comes here
+// then comes the jump back to detoured function after relocated instructions
 
 static const size_t DETOUR_ASM_SIZE = sizeof(DETOUR_ASM) - 1;
 static const size_t HANDLER_OFFSET = 6;
 
-
-static inline void copy_postamble(void * dest, struct s_code code[], int second) {
+static inline void copy_postamble(void *dest, struct s_code code[],
+                                  int second) {
   // Copy each instruction, one by one,
   // fixing eventual instructions that use the RIP register
-  void * curr = dest;
-  for (int insn = 0 ; insn <= second ; insn++) {
-    if (code[insn].is_ip_relative
-        || code[insn].insn == 0x0f84 /* JE */) {
+  void *curr = dest;
+  for (int insn = 0; insn <= second; insn++) {
+    if (code[insn].is_ip_relative || code[insn].insn == 0x0f84 /* JE */) {
       bool has_prefix;
       char *rex_ptr;
       char *mod_rm_ptr;
       char *sib_ptr;
       switch (code[insn].insn) {
-        case 0x83: // CMP
-          {
-          // Instruction format:
-          //         83 3D XX XX XX XX XX
-          //         -- -- ----------- --
-          // addr +  0  1  2           6
-          //         |  |  |            -> 8 bit immediate
-          //         |  |   -> 32 bit RIP displacement
-          //         |   -> Mod R/M byte
-          //          -> Opcode
+      case 0x83: // CMP
+      {
+        // Instruction format:
+        //         83 3D XX XX XX XX XX
+        //         -- -- ----------- --
+        // addr +  0  1  2           6
+        //         |  |  |            -> 8 bit immediate
+        //         |  |   -> 32 bit RIP displacement
+        //         |   -> Mod R/M byte
+        //          -> Opcode
 
+        // Compute value the RIP would hold at runtime
+        char *rip = code[insn].addr;
+        // Get the RIP-relative displacement in the instruction
+        int disp = *(int *)(rip + 2);
+        // Compute displacement from the new code to the original instruction
+        long ldisp = ((long)rip - (long)curr);
+        // Displacement larger than 32 bits?  Not supported yet
+        if (ldisp > (long)UINT32_MAX || (ldisp * -1) > (long)UINT32_MAX)
+          _nx_fatal_printf(
+              "vDSO RIP MOV requires unsupported 64 bit displacement");
 
+        // Emit instruction
+        memcpy(curr, code[insn].addr,
+               code[insn].len); // CMP [rip+0xXXXX]      , 0xXX
+        *(int *)(((char *)curr) + 2) =
+            (int)ldisp + disp; // CMP [rip+0xXXXX+disp] , 0xXX
+        curr += code[insn].len;
+        break;
+      }
+      case 0x8B: // REX.W MOV
+      {
+        // Instruction format:
+        //         48 8B X5 XX XX XX XX
+        //         -- -- -- -----------
+        // addr +  0  1  2  3
+        //         |  |  |   -> 32 bit RIP displacement
+        //         |  |   -> Mod R/M byte ending in 0x5
+        //         |   -> Opcode
+        //          -> Preffix REX.W
+
+        //         8B X5 XX XX XX XX
+        //         -- -- ------------
+        // addr +  0  1  2
+        //         |  |  |
+        //         |  |   -> 32 bit RIP displacement
+        //         |   -> Mod R/M byte ending in 0x5
+        //          -> Opcode
+
+        // Decode instruction
+        const char *code_ptr = code[insn].addr;
+        next_inst(&code_ptr, __WORDSIZE == 64, &has_prefix, &rex_ptr,
+                  &mod_rm_ptr, &sib_ptr, NULL);
+        if (has_prefix && *rex_ptr == (char)0x48) {
           // Compute value the RIP would hold at runtime
-          char* rip = code[insn].addr;
+          char *rip = code[insn].addr;
           // Get the RIP-relative displacement in the instruction
-          int disp = *(int*)(rip+2);
+          int disp = *(int *)(rip + 3);
           // Compute displacement from the new code to the original instruction
           long ldisp = ((long)rip - (long)curr);
           // Displacement larger than 32 bits?  Not supported yet
-          if (ldisp > (long)UINT32_MAX || (ldisp*-1) > (long)UINT32_MAX)
-            _nx_fatal_printf("vDSO RIP MOV requires unsupported 64 bit displacement");
+          if (ldisp > (long)UINT32_MAX || (ldisp * -1) > (long)UINT32_MAX)
+            _nx_fatal_printf(
+                "vDSO RIP MOV requires unsupported 64 bit displacement");
 
           // Emit instruction
-          memcpy(curr, code[insn].addr, code[insn].len); // CMP [rip+0xXXXX]      , 0xXX
-          *(int*)(((char*)curr)+2) = (int)ldisp + disp;  // CMP [rip+0xXXXX+disp] , 0xXX
-          curr += code[insn].len;
-          break;
-          }
-        case 0x8B: // REX.W MOV
-          {
-          // Instruction format:
-          //         48 8B X5 XX XX XX XX
-          //         -- -- -- -----------
-          // addr +  0  1  2  3
-          //         |  |  |   -> 32 bit RIP displacement
-          //         |  |   -> Mod R/M byte ending in 0x5
-          //         |   -> Opcode
-          //          -> Preffix REX.W
-
-          //         8B X5 XX XX XX XX
-          //         -- -- ------------
-          // addr +  0  1  2
-          //         |  |  |
-          //         |  |   -> 32 bit RIP displacement
-          //         |   -> Mod R/M byte ending in 0x5
-          //          -> Opcode
-
-
-          // Decode instruction
-          const char * code_ptr = code[insn].addr;
-          next_inst(
-            &code_ptr,
-            __WORDSIZE == 64,
-            &has_prefix,
-            &rex_ptr,
-            &mod_rm_ptr,
-            &sib_ptr,
-            NULL
-          );
-          if (has_prefix && *rex_ptr == (char)0x48) {
-            // Compute value the RIP would hold at runtime
-            char* rip = code[insn].addr;
-            // Get the RIP-relative displacement in the instruction
-            int disp = *(int*)(rip+3);
-            // Compute displacement from the new code to the original instruction
-            long ldisp = ((long)rip - (long)curr);
-            // Displacement larger than 32 bits?  Not supported yet
-            if (ldisp > (long)UINT32_MAX || (ldisp*-1) > (long)UINT32_MAX)
-              _nx_fatal_printf("vDSO RIP MOV requires unsupported 64 bit displacement");
-
-            // Emit instruction
-            memcpy(
-                curr,
-                "\x48\x8B\x00\x00\x00\x00\x00",             // REX.W MOV ... , [...]
-                7);
-            *(((char*)curr)+2) = *mod_rm_ptr;             // REX.W MOV reg , [rip+...]
-            *(int*)(((char*)curr)+3) = (int)ldisp + disp; // REX.W MOV reg , [rip+disp]
-            curr += 7;
-          } else {
-            // Compute value the RIP would hold at runtime
-            char* rip = code[insn].addr;
-            // Get the RIP-relative displacement in the instruction
-            int disp = *(int*)(rip+2);
-            // Compute displacement from the new code to the original instruction
-            long ldisp = ((long)rip - (long)curr);
-            // Displacement larger than 32 bits?  Not supported yet
-            if (ldisp > (long)UINT32_MAX || (ldisp*-1) > (long)UINT32_MAX)
-              _nx_fatal_printf("vDSO RIP MOV requires unsupported 64 bit displacement");
-
-            // Emit instruction
-            memcpy(
-                curr,
-                "\x8B\x00\x00\x00\x00\x00",             // MOV ... , [...]
-                6);
-            *(((char*)curr)+1) = *mod_rm_ptr;             // REX.W MOV reg , [rip+...]
-            *(int*)(((char*)curr)+2) = (int)ldisp + disp; // REX.W MOV reg , [rip+disp]
-            curr += 6;
-          }
-
-          /* ******************************************************************
-          // The following is commented out to provide some guidance for future
-          // implementations of instructions not currently supported:
-          // Get register from Mod R/M byte
-          char reg_w = (char) (*mod_rm_ptr & 0b00111000);
-          // Compute new Mod R/M byte
-          char mod_rm = (char) 0b00000100 | reg_w;
-          ****************************************************************** */
-
-          break;
-          }
-        case 0x8D: // LEA
-          {
-          //         8B X5 XX XX XX XX XX
-          //         -- -- -- ------------
-          // addr +  0  1  2  3
-          //         |  |     |
-          //         |  |      -> 32 bit RIP displacement
-          //         |   -> Mod R/M byte ending in 0x5
-          //          -> Opcode
-
-
-          // Decode instruction
-          const char * code_ptr = code[insn].addr;
-          next_inst(
-            &code_ptr,
-            __WORDSIZE == 64,
-            &has_prefix,
-            &rex_ptr,
-            &mod_rm_ptr,
-            &sib_ptr,
-            NULL
-          );
-
-          // Compute value the RIP would hold at runtime
-          char* rip = code[insn].addr;
-          // Get the RIP-relative displacement in the instruction
-          int disp = *(int*)(rip+3);
-          // Compute displacement from the new code to the original instruction
-          long ldisp = ((long)rip - (long)curr);
-          ldisp += disp;
-          // Displacement larger than 32 bits?  Not supported yet
-          if (ldisp > (long)UINT32_MAX || (ldisp*-1) > (long)UINT32_MAX)
-            _nx_fatal_printf("vDSO RIP MOV requires unsupported 64 bit displacement");
-
-          // Emit instruction
-          memcpy(
-              curr,
-              rip,             // LEA ... , [...]
-              7);
-          *(int*)(((char*)curr)+3) = (int)ldisp; // LEA reg , [rip+disp]
+          memcpy(curr,
+                 "\x48\x8B\x00\x00\x00\x00\x00", // REX.W MOV ... , [...]
+                 7);
+          *(((char *)curr) + 2) = *mod_rm_ptr; // REX.W MOV reg , [rip+...]
+          *(int *)(((char *)curr) + 3) =
+              (int)ldisp + disp; // REX.W MOV reg , [rip+disp]
           curr += 7;
+        } else {
+          // Compute value the RIP would hold at runtime
+          char *rip = code[insn].addr;
+          // Get the RIP-relative displacement in the instruction
+          int disp = *(int *)(rip + 2);
+          // Compute displacement from the new code to the original instruction
+          long ldisp = ((long)rip - (long)curr);
+          // Displacement larger than 32 bits?  Not supported yet
+          if (ldisp > (long)UINT32_MAX || (ldisp * -1) > (long)UINT32_MAX)
+            _nx_fatal_printf(
+                "vDSO RIP MOV requires unsupported 64 bit displacement");
 
-          /* ******************************************************************
+          // Emit instruction
+          memcpy(curr,
+                 "\x8B\x00\x00\x00\x00\x00", // MOV ... , [...]
+                 6);
+          *(((char *)curr) + 1) = *mod_rm_ptr; // REX.W MOV reg , [rip+...]
+          *(int *)(((char *)curr) + 2) =
+              (int)ldisp + disp; // REX.W MOV reg , [rip+disp]
+          curr += 6;
+        }
+
+        /* ******************************************************************
           // The following is commented out to provide some guidance for future
           // implementations of instructions not currently supported:
           // Get register from Mod R/M byte
@@ -574,53 +508,90 @@ static inline void copy_postamble(void * dest, struct s_code code[], int second)
           char mod_rm = (char) 0b00000100 | reg_w;
           ****************************************************************** */
 
-          break;
-          }
-        case 0x0F84: // JE
-          {
-          //         0F 84 XX XX XX XX
-          //         ----- -----------
-          // addr +  0  1  2  3  4  5
-          //         |     |
-          //         |      -> 32 bit displacement
-          //          -> Opcode
+        break;
+      }
+      case 0x8D: // LEA
+      {
+        //         8B X5 XX XX XX XX XX
+        //         -- -- -- ------------
+        // addr +  0  1  2  3
+        //         |  |     |
+        //         |  |      -> 32 bit RIP displacement
+        //         |   -> Mod R/M byte ending in 0x5
+        //          -> Opcode
 
+        // Decode instruction
+        const char *code_ptr = code[insn].addr;
+        next_inst(&code_ptr, __WORDSIZE == 64, &has_prefix, &rex_ptr,
+                  &mod_rm_ptr, &sib_ptr, NULL);
 
-          // Decode instruction
-          const char * code_ptr = code[insn].addr;
-          next_inst(
-            &code_ptr,
-            __WORDSIZE == 64,
-            &has_prefix,
-            &rex_ptr,
-            &mod_rm_ptr,
-            &sib_ptr,
-            NULL
-          );
+        // Compute value the RIP would hold at runtime
+        char *rip = code[insn].addr;
+        // Get the RIP-relative displacement in the instruction
+        int disp = *(int *)(rip + 3);
+        // Compute displacement from the new code to the original instruction
+        long ldisp = ((long)rip - (long)curr);
+        ldisp += disp;
+        // Displacement larger than 32 bits?  Not supported yet
+        if (ldisp > (long)UINT32_MAX || (ldisp * -1) > (long)UINT32_MAX)
+          _nx_fatal_printf(
+              "vDSO RIP MOV requires unsupported 64 bit displacement");
 
-          // Compute value the RIP would hold at runtime
-          char* rip = code[insn].addr;
-          // Get the RIP-relative displacement in the instruction
-          int disp = *(int*)(rip+2);
-          // Compute displacement from the new code to the original instruction
-          long ldisp = ((long)rip - (long)curr);
-          ldisp += disp;
-          // Displacement larger than 32 bits?  Not supported yet
-          if (ldisp > (long)UINT32_MAX || (ldisp*-1) > (long)UINT32_MAX)
-            _nx_fatal_printf("vDSO RIP MOV requires unsupported 64 bit displacement");
+        // Emit instruction
+        memcpy(curr,
+               rip, // LEA ... , [...]
+               7);
+        *(int *)(((char *)curr) + 3) = (int)ldisp; // LEA reg , [rip+disp]
+        curr += 7;
 
-          // Emit instruction
-          memcpy(
-              curr,
-              rip,             // JE ...
-              6);
-          *(int*)(((char*)curr)+2) = (int)ldisp; // JE rel32
-          curr += 6;
+        /* ******************************************************************
+          // The following is commented out to provide some guidance for future
+          // implementations of instructions not currently supported:
+          // Get register from Mod R/M byte
+          char reg_w = (char) (*mod_rm_ptr & 0b00111000);
+          // Compute new Mod R/M byte
+          char mod_rm = (char) 0b00000100 | reg_w;
+          ****************************************************************** */
 
-          break;
-          }
-        default:
-          _nx_fatal_printf("vDSO RIP relative instruction not supported");
+        break;
+      }
+      case 0x0F84: // JE
+      {
+        //         0F 84 XX XX XX XX
+        //         ----- -----------
+        // addr +  0  1  2  3  4  5
+        //         |     |
+        //         |      -> 32 bit displacement
+        //          -> Opcode
+
+        // Decode instruction
+        const char *code_ptr = code[insn].addr;
+        next_inst(&code_ptr, __WORDSIZE == 64, &has_prefix, &rex_ptr,
+                  &mod_rm_ptr, &sib_ptr, NULL);
+
+        // Compute value the RIP would hold at runtime
+        char *rip = code[insn].addr;
+        // Get the RIP-relative displacement in the instruction
+        int disp = *(int *)(rip + 2);
+        // Compute displacement from the new code to the original instruction
+        long ldisp = ((long)rip - (long)curr);
+        ldisp += disp;
+        // Displacement larger than 32 bits?  Not supported yet
+        if (ldisp > (long)UINT32_MAX || (ldisp * -1) > (long)UINT32_MAX)
+          _nx_fatal_printf(
+              "vDSO RIP MOV requires unsupported 64 bit displacement");
+
+        // Emit instruction
+        memcpy(curr,
+               rip, // JE ...
+               6);
+        *(int *)(((char *)curr) + 2) = (int)ldisp; // JE rel32
+        curr += 6;
+
+        break;
+      }
+      default:
+        _nx_fatal_printf("vDSO RIP relative instruction not supported");
       }
     } else {
       memcpy(curr, code[insn].addr, code[insn].len);
@@ -629,12 +600,8 @@ static inline void copy_postamble(void * dest, struct s_code code[], int second)
   }
 }
 
-void detour_func(struct library *lib,
-                 char *start,
-                 char *end,
-                 int syscall_no,
-                 char **extra_space,
-                 int *extra_len) {
+void detour_func(struct library *lib, char *start, char *end, int syscall_no,
+                 char **extra_space, int *extra_len) {
   void *trampoline_addr = NULL;
   struct rb_root *branch_targets;
   struct s_code code[JUMP_SIZE] = {{0}};
@@ -649,8 +616,7 @@ void detour_func(struct library *lib,
   code[0].insn =
       next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
   code[0].len = ptr - code[0].addr;
-  code[0].is_ip_relative =
-      mod_rm && (*mod_rm & 0xC7) == 0x5;
+  code[0].is_ip_relative = mod_rm && (*mod_rm & 0xC7) == 0x5;
   int length = code[0].len;
   char *next = ptr;
   for (size_t i = 1; next < end && i < JUMP_SIZE; i++) {
@@ -664,12 +630,11 @@ void detour_func(struct library *lib,
     code[i].insn =
         next_inst((const char **)&next, __WORDSIZE == 64, 0, 0, &tmp_rm, 0, 0);
     code[i].len = next - code[i].addr;
-    code[i].is_ip_relative =
-        tmp_rm && (*tmp_rm & 0xC7) == 0x5;
+    code[i].is_ip_relative = tmp_rm && (*tmp_rm & 0xC7) == 0x5;
     if (is_safe_insn(code[i].insn) ||
-         (code[i].insn >= 0x50 && code[i].insn <= 0x57) /* PUSH */ ||
-         (code[i].insn == 0x6A) /* PUSH */ ||
-         (code[i].insn == 0x68) /* PUSH */) {
+        (code[i].insn >= 0x50 && code[i].insn <= 0x57) /* PUSH */ ||
+        (code[i].insn == 0x6A) /* PUSH */ ||
+        (code[i].insn == 0x68) /* PUSH */) {
       length = next - code[0].addr;
     } else {
       break;
@@ -683,20 +648,20 @@ void detour_func(struct library *lib,
   int needed, postamble, second;
   needed_space(code, &needed, &postamble, &second,
 #if defined(USE_ABS_JMP_DETOUR)
-		       70,
+               70,
 #else
-		       67,
+               67,
 #endif
-		       JUMP_SIZE);
+               JUMP_SIZE);
 
   // Allocate scratch space and copy the preamble of code that was moved
   // from the function that we are patching.
-  char *dest = alloc_scratch_space(
-      lib->maps->fd, code[0].addr, needed, extra_space, extra_len,
+  char *dest = alloc_scratch_space(lib->maps->fd, code[0].addr, needed,
+                                   extra_space, extra_len,
 #if defined(USE_ABS_JMP_DETOUR)
-      false);
+                                   false);
 #else
-      true, TRAMPOLINE_MAX_DISTANCE);
+                                   true, TRAMPOLINE_MAX_DISTANCE);
 #endif
 #if defined(USE_ABS_JMP_DETOUR)
   trampoline_addr = dest + 70;
@@ -713,45 +678,44 @@ void detour_func(struct library *lib,
 
   // Copy the static body of the assembly code.
   memcpy(dest,
-         "\xb8\x00\x00\x00\x00"          // MOV $syscall_no, %eax
-         "\x48\x81\xEC\x80\x00\x00\x00"  // SUB  $0x80, %rsp
-         "\x41\x57"                      // PUSH %r15
-         "\x49\xBF\x00\x00\x00\x00\x00"  // MOV $plugin_handler
-         "\x00\x00\x00"                  //     %r15
-         "\x50"                          // PUSH %rax
+         "\xb8\x00\x00\x00\x00"         // MOV $syscall_no, %eax
+         "\x48\x81\xEC\x80\x00\x00\x00" // SUB  $0x80, %rsp
+         "\x41\x57"                     // PUSH %r15
+         "\x49\xBF\x00\x00\x00\x00\x00" // MOV $plugin_handler
+         "\x00\x00\x00"                 //     %r15
+         "\x50"                         // PUSH %rax
 #if defined(USE_ABS_JMP_DETOUR)
-         "\x48\xB8\x00\x00\x00\x00\x00"  // MOV ...,
-         "\x00\x00\x00"                  //     %rax
+         "\x48\xB8\x00\x00\x00\x00\x00" // MOV ...,
+         "\x00\x00\x00"                 //     %rax
 #else
-         "\x48\x8D\x05\x00\x00\x00\x00"  // LEA $fake_ret_addr(%rip), %rax
+         "\x48\x8D\x05\x00\x00\x00\x00" // LEA $fake_ret_addr(%rip), %rax
 #endif
-         "\x50"                          // PUSH %rax
-         "\x48\xB8\x00\x00\x00\x00\x00"  // MOV $handle_vdso,
-         "\x00\x00\x00"                  //     %rax
-         "\x50"                          // PUSH %rax
-         "\x48\x8D\x05\x06\x00\x00\x00"  // LEA  6(%rip), %rax
-         "\x48\x87\x44\x24\x10"          // XCHG %rax, 16(%rsp)
-         "\xC3"                          // RETQ
-         "\x41\x5f"                      // POP %r15
-         "\x48\x81\xC4\x80\x00\x00\x00"  // ADD  $0x80, %rsp
-         "\xC3",                         // RETQ
+         "\x50"                         // PUSH %rax
+         "\x48\xB8\x00\x00\x00\x00\x00" // MOV $handle_vdso,
+         "\x00\x00\x00"                 //     %rax
+         "\x50"                         // PUSH %rax
+         "\x48\x8D\x05\x06\x00\x00\x00" // LEA  6(%rip), %rax
+         "\x48\x87\x44\x24\x10"         // XCHG %rax, 16(%rsp)
+         "\xC3"                         // RETQ
+         "\x41\x5f"                     // POP %r15
+         "\x48\x81\xC4\x80\x00\x00\x00" // ADD  $0x80, %rsp
+         "\xC3",                        // RETQ
 #if defined(USE_ABS_JMP_DETOUR)
          70
 #else
          67
 #endif
-         );
+  );
 
   // Copy the postamble that was moved from the function that we are
   // patching.
   copy_postamble(dest +
 #if defined(USE_ABS_JMP_DETOUR)
-             70,
+                     70,
 #else
-             67,
+                     67,
 #endif
-         code,
-         second);
+                 code, second);
 
   // Patch up the various computed values
 #if defined(USE_ABS_JMP_DETOUR)
@@ -761,11 +725,10 @@ void detour_func(struct library *lib,
          "\x00\x00\x00"                 //     %rax
          "\xFF\xE0",                    // JMP *%rax
          CODE_LENGTH);
-  *(void **)(dest + post + 2) =
-      (void *)(code[second].addr + code[second].len);
+  *(void **)(dest + post + 2) = (void *)(code[second].addr + code[second].len);
 #else
   int post = 67 + postamble;
-  dest[post] = '\xE9';  // JMPQ
+  dest[post] = '\xE9'; // JMPQ
   *(int *)(dest + post + 1) =
       (code[second].addr + code[second].len) - (dest + post + JUMP_SIZE);
 #endif
@@ -775,14 +738,14 @@ void detour_func(struct library *lib,
   *(void **)(dest + 27) = (void *)code[second].addr;
   *(void **)(dest + 38) = handle_vdso;
 #else
-  ptrdiff_t fake_ret_addr = (code[second].addr + code[second].len) - (dest + 32);
+  ptrdiff_t fake_ret_addr =
+      (code[second].addr + code[second].len) - (dest + 32);
   *(int *)(dest + 28) = fake_ret_addr;
   *(void **)(dest + 35) = handle_vdso;
 #endif
 
   // Pad unused space in the original function with NOPs
-  memset(code[0].addr,
-         0x90 /* NOP */,
+  memset(code[0].addr, 0x90 /* NOP */,
          (code[second].addr + code[second].len) - code[0].addr);
 
   // Replace the system call with an unconditional jump to our new code.
@@ -795,19 +758,14 @@ void detour_func(struct library *lib,
          JUMP_SIZE);
   *(void **)(code[0].addr + 2) = (void *)(dest);
 #else
-  *code[0].addr = '\xE9';  // JMPQ
+  *code[0].addr = '\xE9'; // JMPQ
   *(int *)(code[0].addr + 1) = dest - (code[0].addr + JUMP_SIZE);
 #endif
-
 }
 
-
-void api_detour_func(struct library *lib,
-                                        char *start,
-                                        char *end,
-                                           sbr_icept_callback_fn callback,
-                                        char **extra_space,
-                                        int *extra_len) {
+void api_detour_func(struct library *lib, char *start, char *end,
+                     sbr_icept_callback_fn callback, char **extra_space,
+                     int *extra_len) {
   void *trampoline_addr = NULL;
   struct rb_root *branch_targets;
   struct s_code code[JUMP_SIZE] = {{0}};
@@ -822,8 +780,7 @@ void api_detour_func(struct library *lib,
   code[0].insn =
       next_inst((const char **)&ptr, __WORDSIZE == 64, 0, 0, &mod_rm, 0, 0);
   code[0].len = ptr - code[0].addr;
-  code[0].is_ip_relative =
-      mod_rm && (*mod_rm & 0xC7) == 0x5;
+  code[0].is_ip_relative = mod_rm && (*mod_rm & 0xC7) == 0x5;
   int length = code[0].len;
   char *next = ptr;
   for (size_t i = 1; next < end && i < JUMP_SIZE; i++) {
@@ -837,13 +794,11 @@ void api_detour_func(struct library *lib,
     code[i].insn =
         next_inst((const char **)&next, __WORDSIZE == 64, 0, 0, &tmp_rm, 0, 0);
     code[i].len = next - code[i].addr;
-    code[i].is_ip_relative =
-        tmp_rm && (*tmp_rm & 0xC7) == 0x5;
-    if (is_safe_insn(code[i].insn) ||
-         (code[i].insn == 0x0F84) /* JE rel32 */ ||
-         (code[i].insn >= 0x50 && code[i].insn <= 0x57) /* PUSH */ ||
-         (code[i].insn == 0x6A) /* PUSH */ ||
-         (code[i].insn == 0x68) /* PUSH */) {
+    code[i].is_ip_relative = tmp_rm && (*tmp_rm & 0xC7) == 0x5;
+    if (is_safe_insn(code[i].insn) || (code[i].insn == 0x0F84) /* JE rel32 */ ||
+        (code[i].insn >= 0x50 && code[i].insn <= 0x57) /* PUSH */ ||
+        (code[i].insn == 0x6A) /* PUSH */ ||
+        (code[i].insn == 0x68) /* PUSH */) {
       length = next - code[0].addr;
     } else {
       break;
@@ -859,21 +814,19 @@ void api_detour_func(struct library *lib,
 
   // Allocate scratch space and copy the preamble of code that was moved
   // from the function that we are patching.
-  char *dest = alloc_scratch_space(
-      lib->maps->fd, code[0].addr, needed, extra_space, extra_len,
+  char *dest = alloc_scratch_space(lib->maps->fd, code[0].addr, needed,
+                                   extra_space, extra_len,
 #if defined(USE_ABS_JMP_DETOUR)
-      false);
+                                   false);
 #else
-      true, TRAMPOLINE_MAX_DISTANCE);
+                                   true, TRAMPOLINE_MAX_DISTANCE);
 #endif
 
   memcpy(dest, DETOUR_ASM, DETOUR_ASM_SIZE);
 
   // Copy the postamble that was moved from the function that we are
   // patching.
-  copy_postamble(dest + DETOUR_ASM_SIZE,
-         code,
-         second);
+  copy_postamble(dest + DETOUR_ASM_SIZE, code, second);
 
   // Patch up the various computed values
   trampoline_addr = dest + DETOUR_ASM_SIZE;
@@ -881,13 +834,12 @@ void api_detour_func(struct library *lib,
   assert(handler);
 
   int post = DETOUR_ASM_SIZE + postamble;
-  dest[post] = '\xE9';  // JMPQ
+  dest[post] = '\xE9'; // JMPQ
   *(int *)(dest + post + 1) =
       (code[second].addr + code[second].len) - (dest + post + JUMP_SIZE);
   *(void **)(dest + HANDLER_OFFSET) = handler;
   // Pad unused space in the original function with NOPs
-  memset(code[0].addr,
-         0x90 /* NOP */,
+  memset(code[0].addr, 0x90 /* NOP */,
          (code[second].addr + code[second].len) - code[0].addr);
 
 // Replace the system call with an unconditional jump to our new code.
@@ -900,24 +852,20 @@ void api_detour_func(struct library *lib,
          JUMP_SIZE);
   *(void **)(code[0].addr + 2) = (void *)(dest);
 #else
-  *code[0].addr = '\xE9';  // JMPQ
+  *code[0].addr = '\xE9'; // JMPQ
   *(int *)(code[0].addr + 1) = dest - (code[0].addr + JUMP_SIZE);
 #endif
-
 }
 
-void patch_syscalls_in_range(struct library *lib,
-                                     char *start,
-                                     char *stop,
-                                     char **extra_space,
-                                     int *extra_len,
-                                     bool loader) {
+void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
+                             char **extra_space, int *extra_len, bool loader) {
   _nx_debug_printf("patch syscalls in range %p-%p\n", start, stop);
   char *func = start;
   int nopcount = 0;
   bool has_syscall = false;
   for (char *ptr = start; ptr < stop; ptr++) {
-    if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) || (lib->vdso && *ptr == '\xFF')
+    if ((*ptr == '\x0F' && ptr[1] == '\x05' /* SYSCALL */) ||
+        (lib->vdso && *ptr == '\xFF')
 #ifdef __NX_INTERCEPT_RDTSC
         || (*ptr == '\x0F' && ptr[1] == '\x31' /* RDTSC */)
 #endif
@@ -941,7 +889,8 @@ void patch_syscalls_in_range(struct library *lib,
           // Quick scan of the function found a potential syscall, do thorough
           // scan
           _nx_debug_printf("patch syscalls in func after quick scan\n");
-          patch_syscalls_in_func(lib, func, stop, extra_space, extra_len, loader);
+          patch_syscalls_in_func(lib, func, stop, extra_space, extra_len,
+                                 loader);
         }
         func = ptr;
       }
@@ -958,4 +907,3 @@ void patch_syscalls_in_range(struct library *lib,
   }
   _nx_debug_printf("patched syscalls in range\n");
 }
-

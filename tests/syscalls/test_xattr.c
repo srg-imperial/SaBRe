@@ -14,9 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/xattr.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 // TODO(andronat): By default ext4 doesn't mount with user_xattr and thus
@@ -25,7 +25,7 @@
 // they properly work. Ideally a new mount should be created with
 // user_xattr enabled and this code should be tested inside it.
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv) {
   const char test_key[] = "user.test-key";
   const char test_val[] = "test val";
   char buf[1024];
@@ -34,7 +34,6 @@ int main(int argc, char ** argv) {
   setxattr(argv[1], test_key, test_val, sizeof(test_val), XATTR_CREATE);
   // if (setxattr(argv[1], test_key, test_val, sizeof(test_val), XATTR_CREATE) < 0)
   //   return 1;
-
 
   if ((s = getxattr(argv[1], test_key, buf, sizeof(test_val))) < 0)
     return 2;
@@ -53,7 +52,8 @@ int main(int argc, char ** argv) {
   /* link variants */
 
   // this should fail as user extended attributes are not allowed on non-regular files
-  if (lsetxattr(argv[2], test_key, test_val, sizeof(test_val), XATTR_CREATE) != -1)
+  if (lsetxattr(argv[2], test_key, test_val, sizeof(test_val), XATTR_CREATE) !=
+      -1)
     return 7;
 
   // hence the attribute list should be empty

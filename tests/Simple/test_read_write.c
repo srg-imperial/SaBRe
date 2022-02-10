@@ -17,18 +17,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <assert.h>
 
 /* Utility functions */
 
 /* Tests */
-static void test_lseek(int fd) {
-  assert(lseek(fd, 1, SEEK_SET) != -1);
-}
+static void test_lseek(int fd) { assert(lseek(fd, 1, SEEK_SET) != -1); }
 
 int main(int argc, char **argv) {
   /* Set-up */

@@ -10,19 +10,17 @@
 
 #define _GNU_SOURCE
 #include <stddef.h>
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 
-int main (void)
-{
+int main(void) {
   struct rlimit limit;
 
   if (prlimit(0, RLIMIT_STACK, NULL, &limit) != 0)
     return 1;
 
-  limit.rlim_cur = limit.rlim_cur * 8 <= limit.rlim_max
-                 ? limit.rlim_cur * 8
-                 : limit.rlim_cur / 8;
+  limit.rlim_cur = limit.rlim_cur * 8 <= limit.rlim_max ? limit.rlim_cur * 8
+                                                        : limit.rlim_cur / 8;
 
   if (prlimit(0, RLIMIT_STACK, &limit, NULL) != 0)
     return 2;

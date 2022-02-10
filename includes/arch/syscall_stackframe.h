@@ -13,7 +13,7 @@
 // Stack frame built by handle_syscall and in the patching code in rewriter.c
 struct syscall_stackframe;
 
-void *get_syscall_return_address (struct syscall_stackframe* stack_frame);
-size_t get_offsetof_syscall_return_address (void);
+void *get_syscall_return_address(struct syscall_stackframe *stack_frame);
+size_t get_offsetof_syscall_return_address(void);
 
 #endif /* SABRE_INCLUDES_ARCH_SYSCALL_STACKFRAME_H_ */

@@ -6,20 +6,19 @@
  */
 
 #include <arch/rewriter_tools.h>
+#include <elf.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-#include <elf.h>
 
 #include "compiler.h"
 #include "config.h"
 #include "kernel.h"
 #include "loader/maps.h"
-
 
 int main(int argc, char **argv, char **envp) {
   int out_fd = open(argv[1], O_WRONLY | O_CREAT, 00600);

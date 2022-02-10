@@ -7,6 +7,7 @@
  */
 
 #include "config.h"
+
 #include "rewriter.h"
 
 #include "elf_loading.h"
@@ -25,11 +26,10 @@
 
 #define section_hashfn(n) jhash(n, strlen(n), 0) & (sectionhash_size - 1)
 
-static inline void section_init(struct section *s,
-                                const char *name,
+static inline void section_init(struct section *s, const char *name,
                                 ElfW(Shdr) shdr) {
   s->name = name;
-  s->shdr = shdr;  // TODO: should we use malloc + memcpy
+  s->shdr = shdr; // TODO: should we use malloc + memcpy
 
   INIT_HLIST_NODE(&s->section_hash);
 }
@@ -41,8 +41,8 @@ static inline struct section *section_find(struct hlist_head *hash,
   struct section *s;
 
   head = &hash[section_hashfn(name)];
-  _nx_debug_printf(
-      "search: %s = %u (%zu)\n", name, section_hashfn(name), strlen(name));
+  _nx_debug_printf("search: %s = %u (%zu)\n", name, section_hashfn(name),
+                   strlen(name));
   hlist_for_each_entry(s, node, head, section_hash) {
     if (strcmp(name, s->name) == 0)
       return s;
@@ -57,9 +57,7 @@ static inline void section_add(struct hlist_head *hash, struct section *scn) {
   struct section *s;
 
   head = &hash[section_hashfn(scn->name)];
-  _nx_debug_printf("add: %s = %u (%zu)\n",
-                   scn->name,
-                   section_hashfn(scn->name),
+  _nx_debug_printf("add: %s = %u (%zu)\n", scn->name, section_hashfn(scn->name),
                    strlen(scn->name));
   hlist_for_each_entry(s, node, head, section_hash) {
     if (strcmp(scn->name, s->name) == 0)
@@ -71,8 +69,7 @@ static inline void section_add(struct hlist_head *hash, struct section *scn) {
 
 #define symbol_hashfn(n) jhash(n, strlen(n), 0) & (symbolhash_size - 1)
 
-static inline void symbol_init(struct symbol *s,
-                               const char *name,
+static inline void symbol_init(struct symbol *s, const char *name,
                                ElfW(Sym) sym) {
   s->name = name;
   s->sym = sym;
@@ -131,10 +128,7 @@ static inline struct region *rb_lower_bound_region(struct library *lib,
   return parent ? rb_entry_region(parent) : NULL;
 }
 
-
-static char *memcpy_fromlib(void *dst,
-                            const void *src,
-                            size_t len,
+static char *memcpy_fromlib(void *dst, const void *src, size_t len,
                             struct library *lib) {
   // Some kernels don't allow accessing the VDSO from write()
   if (lib->vdso && src >= rb_entry_region(rb_first(&lib->rb_region))->start &&
@@ -185,25 +179,20 @@ static char *memcpy_fromlib(void *dst,
   return dst;
 }
 
-static char *library_buf_get(struct library *lib,
-                             ElfW(Addr) offset,
-                             char *buf,
+static char *library_buf_get(struct library *lib, ElfW(Addr) offset, char *buf,
                              size_t len) {
   memset(buf, 0, len);
 
   if (!lib->valid)
     return NULL;
 
-  _nx_debug_printf("library_buf_get: search for lower bound 0x%lx\n",
-                   offset);
+  _nx_debug_printf("library_buf_get: search for lower bound 0x%lx\n", offset);
   struct region *reg = rb_lower_bound_region(lib, offset);
   if (!reg)
     return NULL;
 
   _nx_debug_printf("library_buf_get: lower bound found 0x%lx (%p-%p)\n",
-                   reg->offset,
-                   reg->start,
-                   reg->end);
+                   reg->offset, reg->start, reg->end);
   offset -= reg->offset;
   if (offset > reg->size - len)
     return NULL;
@@ -216,10 +205,8 @@ static char *library_buf_get(struct library *lib,
   return buf;
 }
 
-static char* library_buf_get_original(struct library *l,
-                                      ElfW(Addr) offset,
-                                      char *buf,
-                                      size_t len) {
+static char *library_buf_get_original(struct library *l, ElfW(Addr) offset,
+                                      char *buf, size_t len) {
   if (!l->valid) {
     if (buf != NULL)
       memset(buf, 0, len);
@@ -228,7 +215,7 @@ static char* library_buf_get_original(struct library *l,
 
   _nx_debug_printf("library_buf_get_original: offset 0x%lx\n", offset);
 
-    struct region *first = rb_entry_region(rb_last(&l->rb_region));
+  struct region *first = rb_entry_region(rb_last(&l->rb_region));
   if (!l->image && !l->vdso && !RB_EMPTY_ROOT(&l->rb_region) &&
       first->offset == 0) {
     _nx_debug_printf("library_buf_get_original: image missing and not VDSO\n");
@@ -258,12 +245,8 @@ static char* library_buf_get_original(struct library *l,
     if (l->image == MAP_FAILED) {
       l->image = NULL;
     } else {
-      void *addr = mmap(start,
-                            4096,
-                            PROT_READ | PROT_WRITE | PROT_EXEC,
-                            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                            -1,
-                            0);
+      void *addr = mmap(start, 4096, PROT_READ | PROT_WRITE | PROT_EXEC,
+                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
       if (addr != start) {
         _nx_fatal_printf("library_buf_get_original: mmap failed\n");
       }
@@ -294,7 +277,7 @@ static char* library_buf_get_original(struct library *l,
   return buf ? library_buf_get(l, offset, buf, len) : NULL;
 }
 
-static const char* library_copy(struct library *lib, ElfW(Addr) offset) {
+static const char *library_copy(struct library *lib, ElfW(Addr) offset) {
   if (!lib->valid)
     return "";
 
@@ -304,7 +287,8 @@ static const char* library_copy(struct library *lib, ElfW(Addr) offset) {
   if (reg == NULL)
     return "";
 
-  _nx_debug_printf("library_copy: lower bound 0x%lx (%p-%p)\n", reg->offset, reg->start, reg->end);
+  _nx_debug_printf("library_copy: lower bound 0x%lx (%p-%p)\n", reg->offset,
+                   reg->start, reg->end);
 
   offset -= reg->offset;
   const char *start = (char *)reg->start + offset;
@@ -313,28 +297,29 @@ static const char* library_copy(struct library *lib, ElfW(Addr) offset) {
   _nx_debug_printf("library_copy: range %p-%p\n", start, stop);
 
   char buf[4096] = {0};
-  memcpy_fromlib(buf,
-                 start,
+  memcpy_fromlib(buf, start,
                  (uintptr_t)(stop - start) >= sizeof(buf)
                      ? sizeof(buf) - 1
                      : (uintptr_t)(stop - start),
                  lib);
-  for (start = buf, stop = buf; *stop != '\0'; ++stop);
+  for (start = buf, stop = buf; *stop != '\0'; ++stop)
+    ;
 
   _nx_debug_printf("library_copy: updated range %p-%p\n", start, stop);
 
   if (stop <= start)
     return "";
 
-  size_t len = stop - start + 1; // stop == \0 thus +1 to include NULL termination
+  size_t len =
+      stop - start + 1; // stop == \0 thus +1 to include NULL termination
   char *string = malloc(len);
   memcpy(string, start, len);
 
-  assert(string[len-1] == '\0');
+  assert(string[len - 1] == '\0');
   return string;
 }
 
-static const char* library_copy_original(struct library *l, ElfW(Addr) offset) {
+static const char *library_copy_original(struct library *l, ElfW(Addr) offset) {
   if (!l->valid)
     goto empty;
 
@@ -358,7 +343,8 @@ static const char* library_copy_original(struct library *l, ElfW(Addr) offset) {
       }
       size_t len = stop - start;
       char *string = malloc(len + 1);
-      _nx_debug_printf("library_copy_original: copy 0x%lx from %p to %p\n", len, start, string);
+      _nx_debug_printf("library_copy_original: copy 0x%lx from %p to %p\n", len,
+                       start, string);
       *((char *)memcpy(string, start, len) + len) = '\0';
       return string;
     }
@@ -370,21 +356,21 @@ empty:
   return "";
 }
 
-#define library_get(lib, off, val) \
-  (typeof(val)) library_buf_get(lib, off, (char *)val, sizeof(typeof(*val)))
+#define library_get(lib, off, val)                                             \
+  (typeof(val))library_buf_get(lib, off, (char *)val, sizeof(typeof(*val)))
 
-#define library_get_original(lib, off, val) \
-  (typeof(val))                             \
-      library_buf_get_original(lib, off, (char *)val, sizeof(typeof(*val)))
+#define library_get_original(lib, off, val)                                    \
+  (typeof(val))library_buf_get_original(lib, off, (char *)val,                 \
+                                        sizeof(typeof(*val)))
 
-#define library_set(lib, off, val)                        \
-  ({                                                      \
-    struct region *__r = rb_lower_bound_region(lib, off); \
-    if (__r) {                                            \
-      off -= __r->offset;                                 \
-      if (off <= __r.size - sizeof(typeof(*val)))         \
-        *(typeof(val))((char *)__r->start + off) = *val;  \
-    }                                                     \
+#define library_set(lib, off, val)                                             \
+  ({                                                                           \
+    struct region *__r = rb_lower_bound_region(lib, off);                      \
+    if (__r) {                                                                 \
+      off -= __r->offset;                                                      \
+      if (off <= __r.size - sizeof(typeof(*val)))                              \
+        *(typeof(val))((char *)__r->start + off) = *val;                       \
+    }                                                                          \
   })
 
 static void library_make_writable(struct library *l, bool state) {
@@ -412,7 +398,7 @@ static void patch_vdso(struct library *lib) {
   size_t size = round_up(shdr->sh_size, 0x1000);
 
   if (mprotect((void *)((long)addr & ~0xFFF), size,
-                   PROT_READ | PROT_WRITE | PROT_EXEC)) {
+               PROT_READ | PROT_WRITE | PROT_EXEC)) {
     _nx_fatal_printf("mprotect failed\n");
   }
   _nx_debug_printf("mprotect done\n");
@@ -420,44 +406,32 @@ static void patch_vdso(struct library *lib) {
   _nx_debug_printf("detouring __vdso_getcpu\n");
   struct symbol *sym = symbol_find(lib->symbol_hash, "__vdso_getcpu");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    detour_func(lib,
-        lib->asr_offset + sym->sym.st_value,
-        lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        SYS_getcpu,
-        &extra_space,
-        &extra_len);
+    detour_func(lib, lib->asr_offset + sym->sym.st_value,
+                lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
+                SYS_getcpu, &extra_space, &extra_len);
   }
 #ifdef __x86_64__
   _nx_debug_printf("detouring __vdso_time\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_time");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    detour_func(lib,
-        lib->asr_offset + sym->sym.st_value,
-        lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        SYS_time,
-        &extra_space,
-        &extra_len);
+    detour_func(lib, lib->asr_offset + sym->sym.st_value,
+                lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
+                SYS_time, &extra_space, &extra_len);
   }
 #endif // __x86_64__
   _nx_debug_printf("detouring __vdso_gettimeofday\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_gettimeofday");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    detour_func(lib,
-        lib->asr_offset + sym->sym.st_value,
-        lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        SYS_gettimeofday,
-        &extra_space,
-        &extra_len);
+    detour_func(lib, lib->asr_offset + sym->sym.st_value,
+                lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
+                SYS_gettimeofday, &extra_space, &extra_len);
   }
   _nx_debug_printf("detouring __vdso_clock_gettime\n");
   sym = symbol_find(lib->symbol_hash, "__vdso_clock_gettime");
   if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-    detour_func(lib,
-        lib->asr_offset + sym->sym.st_value,
-        lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-        SYS_clock_gettime,
-        &extra_space,
-        &extra_len);
+    detour_func(lib, lib->asr_offset + sym->sym.st_value,
+                lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
+                SYS_clock_gettime, &extra_space, &extra_len);
   }
 
   if (extra_space != NULL) {
@@ -468,13 +442,11 @@ static void patch_vdso(struct library *lib) {
 
 // Returns a pointer to a stripped version of pathname that corresponds
 // to the library
-static const char *strip_pathname(const char *pathname)
-{
+static const char *strip_pathname(const char *pathname) {
   const char *real = pathname;
 
   for (const char *delim = " /"; *delim; ++delim) {
-    const char *skip =
-        strrchr(real, *delim);
+    const char *skip = strrchr(real, *delim);
     if (skip) {
       real = skip + 1;
     }
@@ -484,16 +456,14 @@ static const char *strip_pathname(const char *pathname)
 }
 
 // Returns true if real library filename corresponds to bare library name
-static bool lib_name_match(const char *bare, const char *pathname)
-{
+static bool lib_name_match(const char *bare, const char *pathname) {
   const char *real = strip_pathname(pathname);
 
   const char *name;
-  if ((name = strstr(real, bare)))
-  {
+  if ((name = strstr(real, bare))) {
     char ch = name[strlen(bare)];
     if (ch < 'A' || (ch > 'Z' && ch < 'a') || ch > 'z') {
-        return true;
+      return true;
     }
   }
 
@@ -502,22 +472,17 @@ static bool lib_name_match(const char *bare, const char *pathname)
 
 // Returns a short version of the library (e.g. full path to libc.so.6 would
 // result in string "libc"
-static const char *lib_get_stripped_name(const char *pathname)
-{
+static const char *lib_get_stripped_name(const char *pathname) {
   const char *rtn_str = NULL;
-  for (int i = 0; i < registered_icept_cnt; ++i)
-  {
-    if (lib_name_match(intercept_records[i].lib_name, pathname))
-    {
+  for (int i = 0; i < registered_icept_cnt; ++i) {
+    if (lib_name_match(intercept_records[i].lib_name, pathname)) {
       rtn_str = intercept_records[i].lib_name;
       goto rtn;
     }
   }
 
-  for (const char **lib = known_syscall_libs; *lib != NULL; lib++)
-  {
-    if (lib_name_match(*lib, pathname))
-    {
+  for (const char **lib = known_syscall_libs; *lib != NULL; lib++) {
+    if (lib_name_match(*lib, pathname)) {
       rtn_str = *lib;
       goto rtn;
     }
@@ -527,11 +492,10 @@ rtn:
   return rtn_str;
 }
 
-// Returns true if library defined by pathname has functions that we want to intercept
-static bool lib_is_icepted(const char *pathname)
-{
-  for (int i = 0; i < registered_icept_cnt; ++i)
-  {
+// Returns true if library defined by pathname has functions that we want to
+// intercept
+static bool lib_is_icepted(const char *pathname) {
+  for (int i = 0; i < registered_icept_cnt; ++i) {
     if (lib_name_match(intercept_records[i].lib_name, pathname))
       return true;
   }
@@ -549,7 +513,8 @@ static void patch_syscalls(struct library *lib, bool loader) {
   char *extra_space = NULL;
 
   struct section *scn = section_find(lib->section_hash, ".text");
-  // TODO if the section table has been stripped, we should look at executable segments instead
+  // TODO if the section table has been stripped, we should look at executable
+  // segments instead
   if (!scn)
     return;
 
@@ -599,10 +564,8 @@ static void patch_funcs(struct library *lib) {
 
   const char *short_libname = lib_get_stripped_name(lib->pathname);
 
-  for (int i = 0; i < registered_icept_cnt; ++i)
-  {
-    if (!strcmp(short_libname, intercept_records[i].lib_name))
-    {
+  for (int i = 0; i < registered_icept_cnt; ++i) {
+    if (!strcmp(short_libname, intercept_records[i].lib_name)) {
       _nx_debug_printf("patching intercepts: %s\n", lib->pathname);
       struct section *scn = section_find(lib->section_hash, ".text");
       _nx_debug_printf(".text section %p\n", scn);
@@ -613,23 +576,22 @@ static void patch_funcs(struct library *lib) {
       char *addr = (char *)(shdr->sh_addr + lib->asr_offset);
       size_t size = round_up(shdr->sh_size, 0x1000);
 
-      if (mprotect((void *)((long)addr & ~0xFFF),
-                   size,
+      if (mprotect((void *)((long)addr & ~0xFFF), size,
                    PROT_READ | PROT_WRITE | PROT_EXEC)) {
         _nx_debug_printf("mprotect failed\n");
         return;
       }
       _nx_debug_printf("mprotect done\n");
 
-      struct symbol *sym = symbol_find(lib->symbol_hash, intercept_records[i].fn_name);
+      struct symbol *sym =
+          symbol_find(lib->symbol_hash, intercept_records[i].fn_name);
       if (sym != NULL && (void *)sym->sym.st_value != NULL) {
-        _nx_debug_printf("patching at address %lx\n", (long)lib->asr_offset + sym->sym.st_value);
-        api_detour_func(lib,
-                                lib->asr_offset + sym->sym.st_value,
-                                lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
-                                intercept_records[i].callback,
-                                &extra_space,
-                                &extra_len);
+        _nx_debug_printf("patching at address %lx\n",
+                         (long)lib->asr_offset + sym->sym.st_value);
+        api_detour_func(lib, lib->asr_offset + sym->sym.st_value,
+                        lib->asr_offset + sym->sym.st_value + sym->sym.st_size,
+                        intercept_records[i].callback, &extra_space,
+                        &extra_len);
       } else if (sym == NULL && !strcmp(short_libname, "ld")) {
         GElf_Sym gsym =
             find_ld_symbol(lib->pathname, intercept_records[i].fn_name);
@@ -651,8 +613,7 @@ static bool parse_symbols(struct library *lib) {
 
   ElfW(Shdr) str_shdr;
   ignore_result(library_get_original(
-      lib,
-      lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
+      lib, lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
       &str_shdr));
 
   // Find symbol table
@@ -662,15 +623,15 @@ static bool parse_symbols(struct library *lib) {
   if (symtab) {
     if (symtab->sh_link >= lib->ehdr.e_shnum ||
         !library_get_original(
-            lib,
-            lib->ehdr.e_shoff + symtab->sh_link * lib->ehdr.e_shentsize,
+            lib, lib->ehdr.e_shoff + symtab->sh_link * lib->ehdr.e_shentsize,
             &strtab)) {
       _nx_debug_printf("WARN: cannot find valid symbol table\n");
       goto error;
     }
 
     // Parse symbol table and add its entries
-    for (ElfW(Addr) addr = 0; addr < symtab->sh_size; addr += sizeof(ElfW(Sym))) {
+    for (ElfW(Addr) addr = 0; addr < symtab->sh_size;
+         addr += sizeof(ElfW(Sym))) {
       ElfW(Sym) sym;
       if (!library_get_original(lib, symtab->sh_offset + addr, &sym) ||
           (sym.st_shndx >= lib->ehdr.e_shnum && sym.st_shndx < SHN_LORESERVE)) {
@@ -698,7 +659,7 @@ error:
   return false;
 }
 
-static bool parse_elf(struct library *lib, const char * prog_name) {
+static bool parse_elf(struct library *lib, const char *prog_name) {
   lib->valid = true;
 
   // Verify ELF header
@@ -708,8 +669,7 @@ static bool parse_elf(struct library *lib, const char * prog_name) {
       lib->ehdr.e_phentsize < sizeof(ElfW(Phdr)) ||
       lib->ehdr.e_shentsize < sizeof(ElfW(Shdr)) ||
       !library_get_original(
-          lib,
-          lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
+          lib, lib->ehdr.e_shoff + lib->ehdr.e_shstrndx * lib->ehdr.e_shentsize,
           &str_shdr)) {
     _nx_debug_printf("parse_elf: header invalid\n");
     goto error;
@@ -754,7 +714,7 @@ static bool parse_elf(struct library *lib, const char * prog_name) {
   if (prog_name && !strcmp(lib->pathname, prog_name))
     return parse_symbols(lib);
 
-  const char * libnames[] = { "[vdso]", "libc" , "libpthread" , NULL };
+  const char *libnames[] = {"[vdso]", "libc", "libpthread", NULL};
   if (which_lib_name_interesting(libnames, lib->pathname) >= 0)
     return parse_symbols(lib);
   else
@@ -766,7 +726,8 @@ error:
   return false;
 }
 
-int which_lib_name_interesting(const char * interesting_libs[], const char * pathname) {
+int which_lib_name_interesting(const char *interesting_libs[],
+                               const char *pathname) {
   const char *mapping = pathname;
   for (const char *delim = " /"; *delim; ++delim) {
     // Find the actual base name of the mapped library by skipping past
@@ -776,7 +737,7 @@ int which_lib_name_interesting(const char * interesting_libs[], const char * pat
     //
     // Typically, prior to pruning, entries would look something like
     // this: 08:01 2289011 /lib/libc-2.7.so
-    const char *skip = strrchr(mapping, *delim);  // TODO: do this at maps_read?
+    const char *skip = strrchr(mapping, *delim); // TODO: do this at maps_read?
     if (skip) {
       mapping = skip + 1;
     }
@@ -787,7 +748,7 @@ int which_lib_name_interesting(const char * interesting_libs[], const char * pat
     if (name != NULL) {
       char ch = name[strlen(*lib)];
       if (ch < 'A' || (ch > 'Z' && ch < 'a') || ch > 'z') {
-          return lib - interesting_libs;
+        return lib - interesting_libs;
       }
     }
   }
@@ -795,16 +756,18 @@ int which_lib_name_interesting(const char * interesting_libs[], const char * pat
   return -1;
 }
 
-void memorymaps_rewrite_lib(const char* libname) {
-  struct maps* maps = maps_read(libname);
+void memorymaps_rewrite_lib(const char *libname) {
+  struct maps *maps = maps_read(libname);
   if (maps == NULL)
-    _nx_fatal_printf("memrewrite: couldn't find library %s, when we should had\n", libname);
+    _nx_fatal_printf(
+        "memrewrite: couldn't find library %s, when we should had\n", libname);
 
-  struct library* l;
+  struct library *l;
   int guard = 0; // Test that we always find exactly 1 library
   for_each_library(l, maps) {
     if (parse_elf(l, libname)) {
-      _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
+      _nx_debug_printf("memrewrite: patching syscalls in library %s\n",
+                       l->pathname);
       library_make_writable(l, true);
       patch_syscalls(l, false);
       if (lib_is_icepted(l->pathname))
@@ -819,13 +782,13 @@ void memorymaps_rewrite_lib(const char* libname) {
   _nx_debug_printf("memrewrite: done processing libraries\n");
 }
 
-void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) {
+void memorymaps_rewrite_all(const char *libs[], const char *bin, bool loader) {
   // We find all libraries that have system calls and redirect the system
   // calls to the sandbox. If we miss any system calls, the application will
   // be terminated by the kernel's seccomp code. So, from a security point of
   // view, if this code fails to identify system calls, we are still behaving
   // correctly.
-  struct maps* maps = maps_read(NULL);
+  struct maps *maps = maps_read(NULL);
 
   // Intercept system calls in the VDSO segment (if any). This has to happen
   // before intercepting system calls in any of the other libraries, as the
@@ -848,10 +811,13 @@ void memorymaps_rewrite_all(const char * libs[], const char * bin, bool loader) 
   for_each_library(l, maps) {
     _nx_debug_printf("memrewrite: processing library %s\n", l->pathname);
     bool is_bin = false;
-    if ((which_lib_name_interesting(libs, l->pathname) >= 0
-            || (bin && (is_bin = !strcmp(l->pathname, bin)))) // FIXME here bin should be the full path
+    if ((which_lib_name_interesting(libs, l->pathname) >= 0 ||
+         (bin &&
+          (is_bin = !strcmp(l->pathname,
+                            bin)))) // FIXME here bin should be the full path
         && parse_elf(l, bin)) {
-      _nx_debug_printf("memrewrite: patching syscalls in library %s\n", l->pathname);
+      _nx_debug_printf("memrewrite: patching syscalls in library %s\n",
+                       l->pathname);
       library_make_writable(l, true);
       patch_syscalls(l, is_bin ? false : loader);
       if (lib_is_icepted(l->pathname))

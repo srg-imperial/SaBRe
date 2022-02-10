@@ -18,25 +18,19 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include<sys/stat.h>
-#include<sys/types.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <assert.h>
 
 /* Utility functions */
 
 /* Tests */
-static void test_mkdir(char * dirname) {
-  assert(mkdir(dirname, 0777) == 0);
-}
+static void test_mkdir(char *dirname) { assert(mkdir(dirname, 0777) == 0); }
 
-static void test_rename(char * from, char * to) {
-  assert(rename(from, to) == 0);
-}
+static void test_rename(char *from, char *to) { assert(rename(from, to) == 0); }
 
-static void test_unlink(char * filename) {
-  assert(unlink(filename) == 0);
-}
+static void test_unlink(char *filename) { assert(unlink(filename) == 0); }
 
 int main(int argc, char **argv) {
   /* Set-up */

@@ -6,19 +6,19 @@
  * SPDX-License-Identifier: GPL-3.0-or-later AND BSD-3-Clause
  */
 
-#include <arch/rewriter_tools.h>
 #include "maps.h"
+#include <arch/rewriter_tools.h>
 
 #include <assert.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <malloc.h>
 #include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/mman.h>
 #include <stdlib.h>
-#include <fcntl.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <linux/limits.h>
 
@@ -38,9 +38,7 @@
 static long initial_mappings[MAX_INITIAL_MAPPINGS];
 static int initial_mapping_cnt = 0;
 
-
-static void library_init(struct library *l,
-                         const char *name,
+static void library_init(struct library *l, const char *name,
                          struct maps *maps) {
   l->pathname = strdup(name);
 
@@ -68,8 +66,9 @@ static void library_release(struct library *lib) {
   free(lib->symbol_hash);
 }
 
-static inline struct library* library_find(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
-                                            const char* pathname) {
+static inline struct library *
+library_find(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
+             const char *pathname) {
   struct hlist_head *head;
   struct hlist_node *node;
   struct library *l;
@@ -84,8 +83,8 @@ static inline struct library* library_find(struct hlist_head hashtable[LIBS_HASH
 }
 
 static inline void library_add(struct hlist_head hashtable[LIBS_HASHTABLE_SIZE],
-                                struct library *lib) {
-  struct hlist_head* head = &hashtable[library_hashfn(lib->pathname)];
+                               struct library *lib) {
+  struct hlist_head *head = &hashtable[library_hashfn(lib->pathname)];
   hlist_add_head(&lib->library_hash, head);
 }
 
@@ -134,17 +133,15 @@ static void maps_init(struct maps *maps, int fd) {
 
 void maps_release(struct maps *maps) {
   struct library *lib;
-  for_each_library(lib, maps) {
-    library_release(lib);
-  }
+  for_each_library(lib, maps) { library_release(lib); }
   close(maps->fd);
 }
 
 // Returns false if segment that starts with check_addr should not be touched
-static bool maps_check(unsigned long check_addr, long no_touch_addrs[], int addr_cnt) {
+static bool maps_check(unsigned long check_addr, long no_touch_addrs[],
+                       int addr_cnt) {
   for (int i = 0; i < addr_cnt; ++i)
-    if (check_addr == (unsigned long)no_touch_addrs[i])
-    {
+    if (check_addr == (unsigned long)no_touch_addrs[i]) {
       _nx_debug_printf("Not touching %lX\n", check_addr);
       return false;
     }
@@ -198,15 +195,15 @@ uintptr_t end_of_stack_region() {
 
 // TODO: there is a bug there with gnu pth and pthreads. I had to change name to
 // lib2pthread.
-struct maps* maps_read(const char* libname) {
+struct maps *maps_read(const char *libname) {
   int fd = open("/proc/self/maps", O_RDONLY, 0);
   if (fd < 0)
     _nx_fatal_printf("opening /proc/self/maps failed\n");
 
-  struct maps* maps = malloc(sizeof(struct maps));
+  struct maps *maps = malloc(sizeof(struct maps));
   maps_init(maps, fd);
 
-  struct library* lib = NULL;
+  struct library *lib = NULL;
   if (libname != NULL) {
     lib = malloc(sizeof(struct library));
     assert(lib != NULL);
@@ -221,8 +218,8 @@ struct maps* maps_read(const char* libname) {
   _nx_debug_printf("reading /proc/self/maps\n");
   do {
     from = next; /* advance to the start of the next line */
-    next = (char *)memchr(
-        from, '\n', to - from); /* check if we have another line */
+    next = (char *)memchr(from, '\n',
+                          to - from); /* check if we have another line */
     if (!next) {
       /* shift/fill the buffer */
       size_t len = to - from;
@@ -278,7 +275,7 @@ struct maps* maps_read(const char* libname) {
       if (libname != NULL) {
         // If it is not the library we are looking for, there is
         // no point to continue and malloc a new region struct.
-        const char* name = strstr(pathname, libname);
+        const char *name = strstr(pathname, libname);
         if (name == NULL)
           continue;
         // Ensure the full name of the library has been matched:
@@ -290,8 +287,8 @@ struct maps* maps_read(const char* libname) {
           continue;
       }
 
-      if ((flags[0] == 'r') && ((end - start) > 0)
-          && maps_check(start, initial_mappings, initial_mapping_cnt)) {
+      if ((flags[0] == 'r') && ((end - start) > 0) &&
+          maps_check(start, initial_mappings, initial_mapping_cnt)) {
         /* allocate a new region structure */
         struct region *reg = (struct region *)malloc(sizeof(struct region));
         assert(reg != NULL);
@@ -322,11 +319,11 @@ struct maps* maps_read(const char* libname) {
           reg->type = REGION_LIBRARY;
 
           rb_insert_region(lib, offset, &reg->rb_region);
-        }
-        else if (strncmp(pathname, "[vdso]", 6) == 0) {
+        } else if (strncmp(pathname, "[vdso]", 6) == 0) {
           _nx_debug_printf("vdso library found\n");
 
-          assert(maps->lib_vdso == NULL); // We currently support only 1 memory region
+          assert(maps->lib_vdso ==
+                 NULL); // We currently support only 1 memory region
           assert(offset == 0);
           reg->type = REGION_VDSO;
 
@@ -359,7 +356,8 @@ struct maps* maps_read(const char* libname) {
 
 #define PAGE_ALIGNMENT 4096
 
-void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near, uint64_t max_distance) {
+void *maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
+                      uint64_t max_distance) {
   if (lseek(maps_fd, 0, SEEK_SET) < 0)
     return NULL;
 
@@ -377,8 +375,8 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
 
   do {
     from = next; /* advance to the start of the next line */
-    next = (char *)memchr(
-        from, '\n', to - from); /* check if we have another line */
+    next = (char *)memchr(from, '\n',
+                          to - from); /* check if we have another line */
     if (!next) {
       /* shift/fill the buffer */
       size_t len = to - from;
@@ -407,10 +405,7 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
     int name;
 
     // Parse each line of /proc/<pid>/maps file.
-    if (sscanf(from,
-               "%llx-%llx %*4s %*d %*x:%*x %*d %n",
-               &gap_end,
-               &map_end,
+    if (sscanf(from, "%llx-%llx %*4s %*d %*x:%*x %*d %n", &gap_end, &map_end,
                &name) > 1) {
       // gap_start to gap_end now covers the region of empty space before the
       // current line.
@@ -441,24 +436,17 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
               // Otherwise, take the end of the region
               pos = gap_end - size;
             }
-            void *ptr = mmap((void *)pos,
-                                 size,
-                                 prot,
-                                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                                 -1,
-                                 0);
+            void *ptr = mmap((void *)pos, size, prot,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
             if (ptr != MAP_FAILED)
               return ptr;
           }
-        } else if (!near || (gap_start + size - (uintptr_t)addr < max_distance)) {
+        } else if (!near ||
+                   (gap_start + size - (uintptr_t)addr < max_distance)) {
           // Gap is after the address, above checks that we can wrap around
           // through 0 to a space we'd use
-          void *ptr = mmap((void *)gap_start,
-                               size,
-                               prot,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
-                               -1,
-                               0);
+          void *ptr = mmap((void *)gap_start, size, prot,
+                           MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
           if (ptr != MAP_FAILED)
             return ptr;
         }
@@ -470,8 +458,8 @@ void* maps_alloc_near(int maps_fd, void *addr, size_t size, int prot, bool near,
   return NULL;
 }
 
-
-// Populates array initial_mappings with the starts of mappings of executable regions
+// Populates array initial_mappings with the starts of mappings of executable
+// regions
 void binrw_rd_init_maps(void) {
   int fd = open("/proc/self/maps", O_RDONLY, 0);
   if (fd < 0)
@@ -483,8 +471,8 @@ void binrw_rd_init_maps(void) {
 
   do {
     from = next; /* advance to the start of the next line */
-    next = (char *)memchr(
-        from, '\n', to - from); /* check if we have another line */
+    next = (char *)memchr(from, '\n',
+                          to - from); /* check if we have another line */
     if (!next) {
       /* shift/fill the buffer */
       size_t len = to - from;
@@ -519,7 +507,7 @@ void binrw_rd_init_maps(void) {
       while (*ptr && *ptr != ' ' && *ptr != '\t')
         ++ptr;
       assert(ptr - flags >= 4);
-      //unsigned long offset = strtoul(ptr, &ptr, 16);
+      // unsigned long offset = strtoul(ptr, &ptr, 16);
       (void)strtoul(ptr, &ptr, 16);
       while (*ptr == ' ' || *ptr == '\t')
         ++ptr;
@@ -539,8 +527,8 @@ void binrw_rd_init_maps(void) {
         ++ptr;
 
       if ((flags[0] == 'r') && ((end - start) > 0) && pathname[0] == '/') {
-          assert(initial_mapping_cnt < MAX_INITIAL_MAPPINGS);
-          initial_mappings[initial_mapping_cnt++] = start;
+        assert(initial_mapping_cnt < MAX_INITIAL_MAPPINGS);
+        initial_mappings[initial_mapping_cnt++] = start;
       }
     }
   } while (to > buf);
@@ -548,20 +536,17 @@ void binrw_rd_init_maps(void) {
   close(fd);
 }
 
-void print_maps(void)
-{
-    char *line = NULL;
-    size_t len = 0;
-    FILE *maps;
+void print_maps(void) {
+  char *line = NULL;
+  size_t len = 0;
+  FILE *maps;
 
-    maps = fopen("/proc/self/maps", "r");
+  maps = fopen("/proc/self/maps", "r");
 
-    while (getline(&line, &len, maps) != -1)
-    {
-        printf("%s", line);
-    }
+  while (getline(&line, &len, maps) != -1) {
+    printf("%s", line);
+  }
 
-    free(line);
-    fclose(maps);
+  free(line);
+  fclose(maps);
 }
-

@@ -11,8 +11,8 @@
 */
 
 #include "real_syscall.h"
-#include "sysent.h"
 #include "sbr_api_defs.h"
+#include "sysent.h"
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -55,18 +55,11 @@ static enum log_level log_lvl = LOG_NONE;
 static FILE *out_stream = NULL;
 static _Bool output_colors = false;
 
-static long default_handler(long sc_no,
-                            long a1,
-                            long a2,
-                            long a3,
-                            long a4,
-                            long a5,
-                            long a6,
-                            void **aux,
-                            _Bool *fail);
+static long default_handler(long sc_no, long a1, long a2, long a3, long a4,
+                            long a5, long a6, void **aux, _Bool *fail);
 
 static const struct sysent sys_entries[] = {
-#define X(sc_no, nargs, name, default_errno, families) \
+#define X(sc_no, nargs, name, default_errno, families)                         \
   [sc_no] = {nargs, name, default_handler, default_errno, families, NULL},
     SYSENT_SYSCALL_LIST
 #undef X
@@ -99,43 +92,41 @@ static void print_system_call(const struct print_system_call_args *args,
   }
 
   switch (args->entry->nargs) {
-    case 0:
-      fprintf(out_stream, "%s() = %ld #%zu\n", args->entry->sys_name,
-              args->sys_ret, sys_call_nums[args->sc_no]);
-      break;
-    case 1:
-      fprintf(out_stream, "%s(%ld) = %ld #%zu\n", args->entry->sys_name,
-              args->arg1, args->sys_ret, sys_call_nums[args->sc_no]);
-      break;
-    case 2:
-      fprintf(out_stream, "%s(%ld, %ld) = %ld #%zu\n", args->entry->sys_name,
-              args->arg1, args->arg2, args->sys_ret,
-              sys_call_nums[args->sc_no]);
-      break;
-    case 3:
-      fprintf(out_stream, "%s(%ld, %ld, %ld) = %ld #%zu\n",
-              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
-              args->sys_ret, sys_call_nums[args->sc_no]);
-      break;
-    case 4:
-      fprintf(out_stream, "%s(%ld, %ld, %ld, %ld) = %ld #%zu\n",
-              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
-              args->arg4, args->sys_ret, sys_call_nums[args->sc_no]);
-      break;
-    case 5:
-      fprintf(out_stream, "%s(%ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
-              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
-              args->arg4, args->arg5, args->sys_ret,
-              sys_call_nums[args->sc_no]);
-      break;
-    case 6:
-      fprintf(out_stream, "%s(%ld, %ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
-              args->entry->sys_name, args->arg1, args->arg2, args->arg3,
-              args->arg4, args->arg5, args->arg6, args->sys_ret,
-              sys_call_nums[args->sc_no]);
-      break;
-    default:
-      __builtin_unreachable();
+  case 0:
+    fprintf(out_stream, "%s() = %ld #%zu\n", args->entry->sys_name,
+            args->sys_ret, sys_call_nums[args->sc_no]);
+    break;
+  case 1:
+    fprintf(out_stream, "%s(%ld) = %ld #%zu\n", args->entry->sys_name,
+            args->arg1, args->sys_ret, sys_call_nums[args->sc_no]);
+    break;
+  case 2:
+    fprintf(out_stream, "%s(%ld, %ld) = %ld #%zu\n", args->entry->sys_name,
+            args->arg1, args->arg2, args->sys_ret, sys_call_nums[args->sc_no]);
+    break;
+  case 3:
+    fprintf(out_stream, "%s(%ld, %ld, %ld) = %ld #%zu\n", args->entry->sys_name,
+            args->arg1, args->arg2, args->arg3, args->sys_ret,
+            sys_call_nums[args->sc_no]);
+    break;
+  case 4:
+    fprintf(out_stream, "%s(%ld, %ld, %ld, %ld) = %ld #%zu\n",
+            args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+            args->arg4, args->sys_ret, sys_call_nums[args->sc_no]);
+    break;
+  case 5:
+    fprintf(out_stream, "%s(%ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
+            args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+            args->arg4, args->arg5, args->sys_ret, sys_call_nums[args->sc_no]);
+    break;
+  case 6:
+    fprintf(out_stream, "%s(%ld, %ld, %ld, %ld, %ld, %ld) = %ld #%zu\n",
+            args->entry->sys_name, args->arg1, args->arg2, args->arg3,
+            args->arg4, args->arg5, args->arg6, args->sys_ret,
+            sys_call_nums[args->sc_no]);
+    break;
+  default:
+    __builtin_unreachable();
   }
 
   fflush(out_stream);
@@ -205,94 +196,94 @@ static void handle_arguments(int *argc, char **argv[]) {
   while ((ch = getopt_long(*argc, *argv, opt_string, long_opts, &opt_index)) !=
          -1) {
     switch (ch) {
-      case 'd':
-        failure_probabilities.device = extract_probability(optarg);
-        break;
+    case 'd':
+      failure_probabilities.device = extract_probability(optarg);
+      break;
 
-      case 'u':
-        failure_probabilities.unassigned = extract_probability(optarg);
-        break;
+    case 'u':
+      failure_probabilities.unassigned = extract_probability(optarg);
+      break;
 
-      case 'f':
-        failure_probabilities.file = extract_probability(optarg);
-        break;
+    case 'f':
+      failure_probabilities.file = extract_probability(optarg);
+      break;
 
-      case 'n':
-        failure_probabilities.network = extract_probability(optarg);
-        break;
+    case 'n':
+      failure_probabilities.network = extract_probability(optarg);
+      break;
 
-      case 'p':
-        failure_probabilities.process = extract_probability(optarg);
-        break;
+    case 'p':
+      failure_probabilities.process = extract_probability(optarg);
+      break;
 
-      case 'm':
-        failure_probabilities.memory = extract_probability(optarg);
-        break;
+    case 'm':
+      failure_probabilities.memory = extract_probability(optarg);
+      break;
 
-      case 's':
+    case 's':
+      errno = 0;
+      uintmax_t seed = strtoumax(optarg, NULL, 0);
+      if (errno || !seed || seed > (uintmax_t)UINT_MAX) {
+        fputs("Received an invalid seed on the command line.\n", stderr);
+        display_help();
+        exit(EXIT_FAILURE);
+      }
+      random_seed = (unsigned int)seed;
+      break;
+
+    case 'l':
+      if (strcmp(optarg, "all") == 0) {
+        log_lvl = LOG_ALL;
+        break;
+      }
+
+      if (strcmp(optarg, "fail") == 0) {
+        log_lvl = LOG_FAIL;
+        break;
+      }
+
+      fputs("Received invalid log level on the command line.\n\n", stderr);
+      display_help();
+      exit(EXIT_FAILURE);
+
+    case 'o':
+      if (strcmp(optarg, "stdout") == 0)
+        out_stream = stdout;
+
+      else if (strcmp(optarg, "stderr") == 0)
+        out_stream = stderr;
+
+      else {
         errno = 0;
-        uintmax_t seed = strtoumax(optarg, NULL, 0);
-        if (errno || !seed || seed > (uintmax_t)UINT_MAX) {
-          fputs("Received an invalid seed on the command line.\n", stderr);
+        out_stream = fopen(optarg, "w");
+        if (!out_stream) {
+          perror("Could not open specified output file for writing");
           display_help();
           exit(EXIT_FAILURE);
         }
-        random_seed = (unsigned int)seed;
+      }
+      break;
+
+    case 'v':
+      verbose_flag = 1;
+      break;
+    case 'h': // fallthrough
+    case '?':
+      // Display usage and exit with failure.
+      display_help();
+      exit(EXIT_SUCCESS);
+      break;
+
+    case 0:
+      // getopt_long will already have handled this
+      if (long_opts[opt_index].flag != NULL)
         break;
+      // fallthrough
 
-      case 'l':
-        if (strcmp(optarg, "all") == 0) {
-          log_lvl = LOG_ALL;
-          break;
-        }
-
-        if (strcmp(optarg, "fail") == 0) {
-          log_lvl = LOG_FAIL;
-          break;
-        }
-
-        fputs("Received invalid log level on the command line.\n\n", stderr);
-        display_help();
-        exit(EXIT_FAILURE);
-
-      case 'o':
-        if (strcmp(optarg, "stdout") == 0)
-          out_stream = stdout;
-
-        else if (strcmp(optarg, "stderr") == 0)
-          out_stream = stderr;
-
-        else {
-          errno = 0;
-          out_stream = fopen(optarg, "w");
-          if (!out_stream) {
-            perror("Could not open specified output file for writing");
-            display_help();
-            exit(EXIT_FAILURE);
-          }
-        }
-        break;
-
-      case 'v':
-        verbose_flag = 1;
-        break;
-      case 'h': // fallthrough
-      case '?':
-        // Display usage and exit with failure.
-        display_help();
-        exit(EXIT_SUCCESS);
-        break;
-
-      case 0:
-        // getopt_long will already have handled this
-        if (long_opts[opt_index].flag != NULL)
-          break;
-        // fallthrough
-
-      default:
-        fputs("Unknown or bad arguments!\n\n", stderr);
-        display_help();
-        exit(EXIT_FAILURE);
+    default:
+      fputs("Unknown or bad arguments!\n\n", stderr);
+      display_help();
+      exit(EXIT_FAILURE);
     }
   }
 
@@ -318,16 +309,9 @@ static void handle_arguments(int *argc, char **argv[]) {
  *  - SYS_FAMILY_MEMORY
  *  - SYS_FAMILY_UNASSIGNED
  */
-static long default_handler(long sc_no,
-                            long a1,
-                            long a2,
-                            long a3,
-                            long a4,
-                            long a5,
-                            long a6,
-                            void **aux,
-                            _Bool *fail) {
-  (void)aux;  // unused
+static long default_handler(long sc_no, long a1, long a2, long a3, long a4,
+                            long a5, long a6, void **aux, _Bool *fail) {
+  (void)aux; // unused
   int random = rand() % 100 + 1;
   const struct sysent *entry = &sys_entries[sc_no];
 
@@ -377,15 +361,9 @@ caused_failure:
   return -entry->default_errno;
 }
 
-long handle_syscall(long sc_no,
-                    long arg1,
-                    long arg2,
-                    long arg3,
-                    long arg4,
-                    long arg5,
-                    long arg6,
-                    void *wrapper_sp) {
-  (void)wrapper_sp;  // unused
+long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
+                    long arg5, long arg6, void *wrapper_sp) {
+  (void)wrapper_sp; // unused
 
   const struct sysent *entry = &sys_entries[sc_no];
 
@@ -411,14 +389,14 @@ long handle_syscall(long sc_no,
 }
 
 void_void_fn handle_vdso(long sc_no, void_void_fn actual_fn) {
-  (void)(sc_no);  // unused
+  (void)(sc_no); // unused
   return actual_fn;
 }
 #ifdef __NX_INTERCEPT_RDTSC
 long handle_rdtsc() {
   long high, low;
 
-  asm volatile ("rdtsc;" :"=a"(low), "=d"(high) : : );
+  asm volatile("rdtsc;" : "=a"(low), "=d"(high) : :);
 
   long ret = high;
   ret <<= 32;
@@ -430,7 +408,8 @@ long handle_rdtsc() {
 
 static void segv_handler(int sig) {
   ssize_t bytes = write(STDERR_FILENO, "Caught SIGSEGV at:\n", 19);
-  if (bytes != 19) goto error;
+  if (bytes != 19)
+    goto error;
 
   // This does not have the expected behaviour, but leaving it here for now, in
   // case there is a solution

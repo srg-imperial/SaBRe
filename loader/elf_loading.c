@@ -90,8 +90,7 @@ static int prot_from_phdr(const ElfW(Phdr) * phdr) {
  * whole pages in this region, we over-map anonymous pages.  For the
  * sub-page remainder, we zero-fill bytes directly.
  */
-static void handle_bss(const ElfW(Phdr) * ph,
-                       ElfW(Addr) load_bias,
+static void handle_bss(const ElfW(Phdr) * ph, ElfW(Addr) load_bias,
                        size_t pagesize) {
   if (ph->p_memsz > ph->p_filesz) {
     ElfW(Addr) file_end = ph->p_vaddr + load_bias + ph->p_filesz;
@@ -100,12 +99,9 @@ static void handle_bss(const ElfW(Phdr) * ph,
         round_up(ph->p_vaddr + load_bias + ph->p_memsz, pagesize);
     if (page_end > file_page_end) {
       void *result;
-      result = mmap((void *)file_page_end,
-                    page_end - file_page_end,
-                    prot_from_phdr(ph),
-                    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-                    -1,
-                    0);
+      result = mmap((void *)file_page_end, page_end - file_page_end,
+                    prot_from_phdr(ph), MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                    -1, 0);
       if ((void *)result == MAP_FAILED) {
         _nx_fatal_printf("Failed to map segment.\n");
       }
@@ -116,8 +112,7 @@ static void handle_bss(const ElfW(Phdr) * ph,
   }
 }
 
-
-int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr) {
+int elfld_getehdr(int fd, ElfW(Ehdr) * ehdr) {
   int result;
 
   result = pread(fd, ehdr, sizeof(*ehdr), 0);
@@ -135,14 +130,12 @@ int elfld_getehdr(int fd, ElfW(Ehdr) *ehdr) {
     _nx_fatal_printf("File has no valid ELF header!\n");
   }
 
-
 #ifdef __x86_64__
-    if (ehdr->e_machine != EM_X86_64)
+  if (ehdr->e_machine != EM_X86_64)
 #elif defined(__riscv)
-    if (ehdr->e_machine != EM_RISCV)
+  if (ehdr->e_machine != EM_RISCV)
 #endif
-      _nx_fatal_printf("ELF file has wrong architecture (%u)\n",
-                       ehdr->e_machine);
+    _nx_fatal_printf("ELF file has wrong architecture (%u)\n", ehdr->e_machine);
 
   return 0;
 }

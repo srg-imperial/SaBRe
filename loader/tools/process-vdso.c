@@ -8,6 +8,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <elf.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -15,22 +16,20 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <elf.h>
 
+#include "../loader/rewriter.c"
+#include "../maps.c"
 #include "compiler.h"
 #include "kernel.h"
-#include "../maps.c"
-#include "../loader/rewriter.c"
 
 // TODO(andronat): We should use this code as a unit test
 
 extern struct region *rb_insert_region(struct library *library,
-                                              ElfW(Addr) offset,
-                                              struct rb_node *node);
+                                       ElfW(Addr) offset, struct rb_node *node);
 
 int main(int argc, char **argv, char **envp) {
   //  Take vdso elf file as first argument
-  char * vdso = argv[1];
+  char *vdso = argv[1];
 
   // Open vdso
   int vdso_fd = open(vdso, O_RDONLY, 00600);
@@ -39,20 +38,15 @@ int main(int argc, char **argv, char **envp) {
   fstat(vdso_fd, &vdso_stat);
 
   //  mmap it
-  void * start_addr = (caddr_t) mmap(
-          NULL,
-          vdso_stat.st_size,
-          PROT_READ | PROT_WRITE,
-          MAP_PRIVATE,
-          vdso_fd,
-          0);
+  void *start_addr = (caddr_t)mmap(
+      NULL, vdso_stat.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE, vdso_fd, 0);
 
   //  Close vdso
   close(vdso_fd);
 
   //  Set up library with vdso
-  void * start = start_addr;
-  void * end = start_addr + vdso_stat.st_size;
+  void *start = start_addr;
+  void *end = start_addr + vdso_stat.st_size;
   char *pathname = vdso;
 
   /* allocate a new region structure */

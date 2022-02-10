@@ -29,10 +29,10 @@ struct syscall_stackframe {
   void *ret;
 } __packed;
 
-void *get_syscall_return_address (struct syscall_stackframe* stack_frame) {
+void *get_syscall_return_address(struct syscall_stackframe *stack_frame) {
   return stack_frame->ret;
 }
 
-size_t get_offsetof_syscall_return_address (void) {
+size_t get_offsetof_syscall_return_address(void) {
   return offsetof(struct syscall_stackframe, ret);
 }

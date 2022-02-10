@@ -15,7 +15,7 @@
 
 #include <sys/stat.h>
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv) {
 
   if (chmod(argv[1], 00755) < 0)
     return 1;

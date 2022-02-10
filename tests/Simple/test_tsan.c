@@ -19,7 +19,6 @@
  * RUN: grep "Location is global 'Global' of size" %t2.actual
  */
 
-
 #include <pthread.h>
 
 int Global;

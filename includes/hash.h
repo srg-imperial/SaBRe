@@ -3,8 +3,8 @@
 #ifndef HASH_H_
 #define HASH_H_
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #ifdef __AVX2__
@@ -75,28 +75,28 @@ static inline unsigned long hash_internal(const void *data, unsigned int len) {
 #ifdef __AVX2__
   // Proceed in 8x32 bit steps
 
-  __m256i pack_h      = _mm256_set1_epi32(0xfeedbeef);
+  __m256i pack_h = _mm256_set1_epi32(0xfeedbeef);
   __m256i pack_golden = _mm256_set1_epi32(0x9e3779b9);
   // 32 bit golden number
   // From http://burtleburtle.net/bob/hash/evahash.html
 
   while (true) {
-    unsigned char * aux = p + sizeof(pack_h);
+    unsigned char *aux = p + sizeof(pack_h);
     if (aux > e)
       break;
 
-    __m256i pack_p = _mm256_loadu_si256((void*)p);
+    __m256i pack_p = _mm256_loadu_si256((void *)p);
 
     pack_h = _mm256_xor_si256(pack_h, pack_p);
-    pack_h = _mm256_mullo_epi32(pack_h,pack_golden);
+    pack_h = _mm256_mullo_epi32(pack_h, pack_golden);
 
     p = aux;
   }
 
   uint64_t result[4];
-  _mm256_storeu_si256((void*)result, pack_h);
+  _mm256_storeu_si256((void *)result, pack_h);
 
-  h =  result[0];
+  h = result[0];
   h ^= result[1];
   h ^= result[2];
   h ^= result[3];
@@ -104,11 +104,11 @@ static inline unsigned long hash_internal(const void *data, unsigned int len) {
 #else
   // Proceed in 64 bit steps
   while (true) {
-    unsigned char * aux = p + sizeof(h);
+    unsigned char *aux = p + sizeof(h);
     if (aux > e)
       break;
 
-    h ^= *(uint64_t*)(p);
+    h ^= *(uint64_t *)(p);
     h *= 0x9e3779b97f4a7c13LL;
     // 64 bit golden number
     // From http://burtleburtle.net/bob/hash/evahash.html

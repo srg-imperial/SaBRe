@@ -25,8 +25,8 @@ struct symbol {
 
 /* Internal data structure for sections. */
 struct section {
-  const char *name;    /* section name */
-  ElfW(Shdr) shdr;       /* section header */
+  const char *name; /* section name */
+  ElfW(Shdr) shdr;  /* section header */
   struct hlist_node section_hash;
 };
 
@@ -52,8 +52,9 @@ struct s_code {
   bool is_ip_relative;
 };
 
-int which_lib_name_interesting(const char * interesting_libs[], const char * pathname);
-void memorymaps_rewrite_all(const char* libs[], const char* bin, bool loader);
-void memorymaps_rewrite_lib(const char* libname);
+int which_lib_name_interesting(const char *interesting_libs[],
+                               const char *pathname);
+void memorymaps_rewrite_all(const char *libs[], const char *bin, bool loader);
+void memorymaps_rewrite_lib(const char *libname);
 
 #endif /* LIBRARY_H_ */

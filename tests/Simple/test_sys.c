@@ -17,14 +17,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <sys/types.h>
+#include <sys/fcntl.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/time.h>
 #include <sys/times.h>
-#include <sys/resource.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
-#include <sys/mman.h>
-#include <sys/fcntl.h>
 
 #include <assert.h>
 
@@ -41,9 +41,7 @@ static void test_getuid() {
   geteuid();
 }
 
-static void test_getpid() {
-  getpid();
-}
+static void test_getpid() { getpid(); }
 
 static void test_getrlimit() {
   struct rlimit rl;

@@ -13,21 +13,20 @@
  * RUN: diff %t1.actual %t1.expected
  */
 
+#include <assert.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <assert.h>
+#include <unistd.h>
 
 int main(int argc, char **argv) {
   int pid = fork();
   if (pid == 0) {
     printf("abc\n");
-  }
-  else { 
+  } else {
     wait(NULL);
     printf("def\n");
   }
-  
+
   return 0;
 }

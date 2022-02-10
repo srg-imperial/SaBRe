@@ -55,15 +55,12 @@ enter_plugin_fn enter_plugin = NULL;
 exit_plugin_fn exit_plugin = NULL;
 is_vdso_ready_fn is_vdso_ready = NULL;
 
-void register_function_intercepts(const sbr_fn_icept_struct *r_struct)
-{
+void register_function_intercepts(const sbr_fn_icept_struct *r_struct) {
   assert(strlen(r_struct->lib_name) < MAX_ICEPT_STRLEN);
   assert(strlen(r_struct->fn_name) < MAX_ICEPT_STRLEN);
 
-  strcpy(intercept_records[registered_icept_cnt].lib_name,
-         r_struct->lib_name);
-  strcpy(intercept_records[registered_icept_cnt].fn_name,
-         r_struct->fn_name);
+  strcpy(intercept_records[registered_icept_cnt].lib_name, r_struct->lib_name);
+  strcpy(intercept_records[registered_icept_cnt].fn_name, r_struct->fn_name);
   intercept_records[registered_icept_cnt].callback = r_struct->icept_callback;
 
   ++registered_icept_cnt;
@@ -81,19 +78,21 @@ void *find_auxv(void *argv) {
 }
 
 #ifdef __x86_64__
-static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
+static void sigill_handler(int sig __unused, siginfo_t *info, void *ucontext) {
   assert(sig == SIGILL);
-  ucontext_t* ctx = ucontext;
-  uint16_t faulting_insn = *(uint16_t*) info->si_addr;
+  ucontext_t *ctx = ucontext;
+  uint16_t faulting_insn = *(uint16_t *)info->si_addr;
   // WARNING endianness
   if (faulting_insn == 0xFF0F) { // syscall
     // call syscall handler with proper arguments
-    greg_t* regs = ctx->uc_mcontext.gregs;
+    greg_t *regs = ctx->uc_mcontext.gregs;
     uintptr_t ret_addr = regs[REG_RIP] + 2;
     // simulate a syscall stack frame, as would be built by handle_syscall
-    void *wrapper_sp = (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
-    regs[REG_RAX] = plugin_sc_handler(regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
-               regs[REG_R10], regs[REG_R8], regs[REG_R9], wrapper_sp);
+    void *wrapper_sp =
+        (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
+    regs[REG_RAX] = plugin_sc_handler(
+        regs[REG_RAX], regs[REG_RDI], regs[REG_RSI], regs[REG_RDX],
+        regs[REG_R10], regs[REG_R8], regs[REG_R9], wrapper_sp);
 #ifdef __NX_INTERCEPT_RDTSC
   } else if (faulting_insn == 0x0B0F) { // RDTSC
     plugin_rdtsc_handler();
@@ -115,19 +114,21 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
   ctx->uc_mcontext.gregs[REG_RIP] += 2;
 }
 #elif defined __riscv
-static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
+static void sigill_handler(int sig __unused, siginfo_t *info, void *ucontext) {
   assert(sig == SIGILL);
-  ucontext_t* ctx = ucontext;
-  uint32_t faulting_insn = *(uint32_t*) info->si_addr;
+  ucontext_t *ctx = ucontext;
+  uint32_t faulting_insn = *(uint32_t *)info->si_addr;
 
   if (faulting_insn == 0) { // syscall
     // call syscall handler with proper arguments
-    greg_t* regs = ctx->uc_mcontext.__gregs;
+    greg_t *regs = ctx->uc_mcontext.__gregs;
     uintptr_t ret_addr = regs[REG_PC] + 4;
     // simulate a syscall stack frame, as would be built by handle_syscall
-    void *wrapper_sp = (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
-    regs[REG_A0] = plugin_sc_handler(regs[REG_A0+7], regs[REG_A0], regs[REG_A0+1], regs[REG_A0+2],
-               regs[REG_A0+3], regs[REG_A0+4], regs[REG_A0+5], wrapper_sp);
+    void *wrapper_sp =
+        (void *)((intptr_t)&ret_addr - get_offsetof_syscall_return_address());
+    regs[REG_A0] = plugin_sc_handler(
+        regs[REG_A0 + 7], regs[REG_A0], regs[REG_A0 + 1], regs[REG_A0 + 2],
+        regs[REG_A0 + 3], regs[REG_A0 + 4], regs[REG_A0 + 5], wrapper_sp);
   } else {
     // not from SaBRe, so use default handler
     const struct sigaction dfl_sa = {.sa_handler = SIG_DFL};
@@ -146,8 +147,7 @@ static void sigill_handler (int sig __unused, siginfo_t* info, void* ucontext) {
 }
 #endif // __x86_64__ / __riscv
 
-static void print_usage (void)
-{
+static void print_usage(void) {
   static const char *usage =
       "Usage:\n"
       "\tSaBRe <PLUGIN> [<PLUGIN_OPTIONS>] -- <CLIENT> [<CLIENT_OPTIONS>]\n"
@@ -195,8 +195,7 @@ static void copy_fresh_client_elf(const char *source_path,
 
 // Returns the address of entry point and also populates a pointer
 // for the top of the new stack
-void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
-{
+void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
   if (argc < 4) {
     print_usage();
     exit(EXIT_FAILURE);
@@ -221,26 +220,27 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   ElfW(auxv_t) *av_phnum = NULL;
   size_t pagesize = 0;
 
-  ElfW(auxv_t) *av;
+  ElfW(auxv_t) * av;
   for (av = auxv;
        av_entry == NULL || av_phdr == NULL || av_phnum == NULL || pagesize == 0;
        ++av) {
     switch (av->a_type) {
-      case AT_NULL:
-        _nx_fatal_printf("Failed to find AT_ENTRY, AT_PHDR, AT_PHNUM, or AT_PAGESZ!");
-        /*NOTREACHED*/
-      case AT_ENTRY:
-        av_entry = av;
-        break;
-      case AT_PAGESZ:
-        pagesize = av->a_un.a_val;
-        break;
-      case AT_PHDR:
-        av_phdr = av;
-        break;
-      case AT_PHNUM:
-        av_phnum = av;
-        break;
+    case AT_NULL:
+      _nx_fatal_printf(
+          "Failed to find AT_ENTRY, AT_PHDR, AT_PHNUM, or AT_PAGESZ!");
+      /*NOTREACHED*/
+    case AT_ENTRY:
+      av_entry = av;
+      break;
+    case AT_PAGESZ:
+      pagesize = av->a_un.a_val;
+      break;
+    case AT_PHDR:
+      av_phdr = av;
+      break;
+    case AT_PHNUM:
+      av_phnum = av;
+      break;
     }
   }
 
@@ -349,18 +349,14 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   /* Load the program and point the auxv elements at its phdrs and entry.  */
   const char *interp = NULL;
-  av_entry->a_un.a_val = elfld_load_elf(elf_fd,
-                                        &ehdr,
-                                        pagesize,
-                                        &av_phdr->a_un.a_val,
-                                        &av_phnum->a_un.a_val,
-                                        &interp);
+  av_entry->a_un.a_val =
+      elfld_load_elf(elf_fd, &ehdr, pagesize, &av_phdr->a_un.a_val,
+                     &av_phnum->a_un.a_val, &interp);
 
   close(elf_fd);
 
   ElfW(Addr) entry;
-  if (interp)
-  {
+  if (interp) {
     // There was a PT_INTERP, so we have a dynamic linker to load.
 
     int elf_fd = open(interp, O_RDONLY, 0);
@@ -377,15 +373,15 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
     memorymaps_rewrite_all(libs, new_client_elf_path, true);
   }
 
-  else
-  {
+  else {
     // TODO(andronat): We don't support statically linked binaries for now.
     assert(false);
     entry = av_entry->a_un.a_val;
 
     // No dynamic libraries, rewrite the libraries know to have syscalls
     // The binary itself probably has syscalls too, re-write it
-    const char *libs[] = {"ld", "libc", "librt", "libpthread", "libresolv", NULL};
+    const char *libs[] = {"ld",         "libc",      "librt",
+                          "libpthread", "libresolv", NULL};
     memorymaps_rewrite_all(libs, new_client_elf_path, false);
   }
 
@@ -394,7 +390,8 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   // Set up SIGILL handler for dealing with RDTSC instructions and system calls
   // that have been rewritten to use UD
-  struct sigaction sa_ill = {.sa_sigaction = sigill_handler, .sa_flags = SA_SIGINFO | SA_NODEFER};
+  struct sigaction sa_ill = {.sa_sigaction = sigill_handler,
+                             .sa_flags = SA_SIGINFO | SA_NODEFER};
   sigaction(SIGILL, &sa_ill, NULL);
 
   // Modify the original process stack to represent arguments modified
@@ -405,7 +402,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   stack_val_t *dst = argv_null - argc;
 
   // Check alignment on 16-byte boundary
-  if (((uintptr_t)(dst-1) & 0xF) != 0) {
+  if (((uintptr_t)(dst - 1) & 0xF) != 0) {
     // Move everything down 8 bytes
     dst--;
 
@@ -413,13 +410,15 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
     ElfW(auxv_t) *auxv_null = av;
     while (auxv_null->a_type != AT_NULL)
       ++auxv_null;
-    size_t size = (uintptr_t)auxv_null - (uintptr_t)argv_null + sizeof *auxv_null;
-    memmove(argv_null, argv_null+1, size);
+    size_t size =
+        (uintptr_t)auxv_null - (uintptr_t)argv_null + sizeof *auxv_null;
+    memmove(argv_null, argv_null + 1, size);
   }
 
   size_t size = sizeof(stack_val_t) * argc;
   memmove(dst, src, size);
-  dst[argc] = 0; // restore argv_null that might have been overwritten by alignment
+  dst[argc] =
+      0; // restore argv_null that might have been overwritten by alignment
   *new_stack_top = dst - 1;
   *((stack_val_t *)*new_stack_top) = argc;
   _nx_debug_printf("done rewriting stack\n");

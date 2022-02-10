@@ -13,12 +13,12 @@
  * RUN: diff %t1.actual %t1.expected
  */
 
-#include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 int main() {
   char template[] = "tmpXXXXXX";

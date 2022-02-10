@@ -339,8 +339,8 @@ static inline uint8_t ror8(uint8_t word, unsigned int shift) {
   return (word >> shift) | (word << (8 - shift));
 }
 
-#define for_each_set_bit(bit, addr, size)                      \
-  for ((bit) = find_first_bit((addr), (size)); (bit) < (size); \
+#define for_each_set_bit(bit, addr, size)                                      \
+  for ((bit) = find_first_bit((addr), (size)); (bit) < (size);                 \
        (bit) = find_next_bit((addr), (size), (bit) + 1))
 
 extern unsigned long find_first_bit(const unsigned long *addr,
@@ -350,8 +350,7 @@ extern unsigned long find_first_zero_bit(const unsigned long *addr,
 extern unsigned long find_last_bit(const unsigned long *addr,
                                    unsigned long size);
 extern unsigned long find_next_bit(const unsigned long *addr,
-                                   unsigned long size,
-                                   unsigned long offset);
+                                   unsigned long size, unsigned long offset);
 extern unsigned long find_next_zero_bit(const unsigned long *addr,
                                         unsigned long size,
                                         unsigned long offset);

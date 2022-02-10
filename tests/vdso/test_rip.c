@@ -13,39 +13,35 @@
 #include <stdio.h>
 #include <unistd.h>
 
-void * __vdso_time() {
-  void * ret;
-  asm volatile (
-    "cmp DWORD PTR [rip+0x2],0x42 \n"
-    "jmp end_time                 \n"
-    ".quad 0x1                    \n"
-    "nop                          \n"
-    "nop                          \n"
-    "nop                          \n"
-    "nop                          \n"
-    "end_time: nop"
-    : "=g" (ret) ::
-  );
+void *__vdso_time() {
+  void *ret;
+  asm volatile("cmp DWORD PTR [rip+0x2],0x42 \n"
+               "jmp end_time                 \n"
+               ".quad 0x1                    \n"
+               "nop                          \n"
+               "nop                          \n"
+               "nop                          \n"
+               "nop                          \n"
+               "end_time: nop"
+               : "=g"(ret)::);
   return ret;
 }
 
-void * __vdso_clock_gettime() {
-  void * ret;
-  asm volatile (
-    "movq %0,[rip+0x2] \n"
-    "jmp end           \n"
-    ".quad 42          \n"
-    "nop               \n"
-    "nop               \n"
-    "nop               \n"
-    "nop               \n"
-    "end: nop"
-    : "=g" (ret) ::
-  );
+void *__vdso_clock_gettime() {
+  void *ret;
+  asm volatile("movq %0,[rip+0x2] \n"
+               "jmp end           \n"
+               ".quad 42          \n"
+               "nop               \n"
+               "nop               \n"
+               "nop               \n"
+               "nop               \n"
+               "end: nop"
+               : "=g"(ret)::);
   return ret;
 }
 
 int main(int argc, char **argv) {
-  printf("%ld\n",(const long) __vdso_clock_gettime());
+  printf("%ld\n", (const long)__vdso_clock_gettime());
   return 0;
 }

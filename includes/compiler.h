@@ -38,14 +38,14 @@
 #define __protected __attribute__((visibility("protected")))
 
 #define uninitialized_var(x) x = x
-#define unreferenced_var(x) \
-  do {                      \
-    (void) x;               \
+#define unreferenced_var(x)                                                    \
+  do {                                                                         \
+    (void)x;                                                                   \
   } while (0)
-#define ignore_result(x) \
-  do {                   \
-    __typeof__(x) z = x; \
-    (void)sizeof z;      \
+#define ignore_result(x)                                                       \
+  do {                                                                         \
+    __typeof__(x) z = x;                                                       \
+    (void)sizeof z;                                                            \
   } while (0)
 
 #define __const __attribute__((__const__))

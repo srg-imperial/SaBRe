@@ -16,8 +16,8 @@
 #include "handle_vdso.h"
 #include "rewriter_tools.h"
 
-#include "riscv_utils.h"
 #include "riscv_decoder.h"
+#include "riscv_utils.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -28,28 +28,28 @@
 void (*plugin_vdso_handler)(void) = NULL;
 
 static const char *stub = "\xff\x01\x01\x13" // addi sp, sp, -16
-        "\x00\x51\x30\x23"// sd t0, 0(sp)
-        "\x00\x11\x34\x23"// sd ra, 8(sp)
-        "\x00\x00\x02\x93"// li t0, 0
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x82\x92\x93"// slli t0, t0, 0x8
-        "\x00\x02\x82\x93"// addi t0, t0, ...
-        "\x00\x02\x80\xe7"// jalr t0
-        "\x00\x01\x32\x83"// ld t0, 0(sp)
-        "\x00\x81\x30\x83"// ld ra, 8(sp)
-        "\x01\x01\x01\x13"// addi sp, sp, 16
-;
+                          "\x00\x51\x30\x23" // sd t0, 0(sp)
+                          "\x00\x11\x34\x23" // sd ra, 8(sp)
+                          "\x00\x00\x02\x93" // li t0, 0
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x82\x92\x93" // slli t0, t0, 0x8
+                          "\x00\x02\x82\x93" // addi t0, t0, ...
+                          "\x00\x02\x80\xe7" // jalr t0
+                          "\x00\x01\x32\x83" // ld t0, 0(sp)
+                          "\x00\x81\x30\x83" // ld ra, 8(sp)
+                          "\x01\x01\x01\x13" // addi sp, sp, 16
+    ;
 
 static const size_t stub_n = 22;
 static const uint32_t needed_scratch_space = 22 * 4 + 4;
@@ -58,7 +58,7 @@ static char patched_stub_loader[120];
 static char patched_stub[120];
 
 static void prepare_patched_stub(char *patched_stub,
-    uint64_t handle_syscall_addr) {
+                                 uint64_t handle_syscall_addr) {
   memcpy(patched_stub, stub, stub_n * 4);
 
   char *start = patched_stub + 12;
@@ -120,12 +120,13 @@ static void prepare_patched_stub(char *patched_stub,
 // if nearest, return the first depreated_reg that is found
 // else return after certain range
 static uint32_t forward_search_deprecated_reg(char *curr, char *end, int range,
-    uint32_t depre_mask, uint32_t depen_mask,
-    bool nearest) {
+                                              uint32_t depre_mask,
+                                              uint32_t depen_mask,
+                                              bool nearest) {
   struct rb_root branch_targets = RB_ROOT;
 
   uint32_t inst = 0;
-  char * addr = 0;
+  char *addr = 0;
 
   char *ptr = curr;
   for (int i = 0; ptr < end && i < range; i++) {
@@ -155,7 +156,7 @@ static uint32_t forward_search_deprecated_reg(char *curr, char *end, int range,
 static struct rb_root *lookup_branch_targets(char *start, char *end) {
   struct rb_root *branch_targets;
 
-  branch_targets = (struct rb_root *) malloc(sizeof(*branch_targets));
+  branch_targets = (struct rb_root *)malloc(sizeof(*branch_targets));
   assert(branch_targets != NULL);
   *branch_targets = RB_ROOT;
 
@@ -177,8 +178,8 @@ static struct rb_root *lookup_branch_targets(char *start, char *end) {
   return branch_targets;
 }
 
-static void library_patch_syscalls_in_func(char *start, char *end,
-bool loader, int maps_fd) {
+static void library_patch_syscalls_in_func(char *start, char *end, bool loader,
+                                           int maps_fd) {
   _nx_debug_printf("pathc func start\n");
   struct rb_root branch_targets = RB_ROOT;
 
@@ -213,7 +214,7 @@ bool loader, int maps_fd) {
     char *addr;
     uint32_t insn;
     uint32_t len;
-  } code[9] = { { 0 } };
+  } code[9] = {{0}};
 
   int i = 0;
 
@@ -225,19 +226,19 @@ bool loader, int maps_fd) {
 
     if (code[i].insn == 0x73) { // system call
 
-      char *dest = maps_alloc_near(maps_fd, code[i].addr + 4,
-          needed_scratch_space,
-          PROT_EXEC | PROT_READ | PROT_WRITE,
-          true, 0xfffff); /* alloc within range of 20 bit */
+      char *dest =
+          maps_alloc_near(maps_fd, code[i].addr + 4, needed_scratch_space,
+                          PROT_EXEC | PROT_READ | PROT_WRITE, true,
+                          0xfffff); /* alloc within range of 20 bit */
 
       size_t patch_length = 4;
 
       if (dest == NULL) {
         dest = maps_alloc_near(maps_fd, code[i].addr + 4, needed_scratch_space,
-        PROT_EXEC | PROT_READ | PROT_WRITE,
-        true, 0xffffffff); /* alloc within range of 32 bit */
+                               PROT_EXEC | PROT_READ | PROT_WRITE, true,
+                               0xffffffff); /* alloc within range of 32 bit */
         if (dest == NULL) {
-          *((uint32_t *) code[i].addr) = 0;
+          *((uint32_t *)code[i].addr) = 0;
           goto replaced;
         }
         patch_length = 16;
@@ -249,7 +250,7 @@ bool loader, int maps_fd) {
         {
           char *copy_start = loader ? patched_stub_loader : patched_stub;
           for (size_t i = 0; i < stub_n; i++) {
-            *((uint32_t *) dest) = __bswap_32(*((uint32_t *) copy_start));
+            *((uint32_t *)dest) = __bswap_32(*((uint32_t *)copy_start));
             copy_start += 4;
             dest += 4;
           }
@@ -259,12 +260,12 @@ bool loader, int maps_fd) {
 
         char *return_jal_addr = scratch_start + needed_scratch_space - 4;
         int64_t offset = code[i].addr + 4 - return_jal_addr;
-        *((uint32_t *) return_jal_addr) = get_patch_jal(offset / 2, 0);
+        *((uint32_t *)return_jal_addr) = get_patch_jal(offset / 2, 0);
 
         // patch the system call
 
         offset = scratch_start - code[i].addr;
-        *((uint32_t *) code[i].addr) = get_patch_jal(offset / 2, 0);
+        *((uint32_t *)code[i].addr) = get_patch_jal(offset / 2, 0);
 
       } else {
         int start_idx = i;
@@ -273,11 +274,10 @@ bool loader, int maps_fd) {
         uint32_t depre_mask = 0, depen_mask = 0;
 
         // Find preamble and find deprecated register
-        for (int j = i;
-            (j = (j + (sizeof(code) / sizeof(struct code)) - 1)
-                % (sizeof(code) / sizeof(struct code))) != i;) {
-          struct branch_target *target = rb_upper_bound_target(&branch_targets,
-              code[j].addr);
+        for (int j = i; (j = (j + (sizeof(code) / sizeof(struct code)) - 1) %
+                             (sizeof(code) / sizeof(struct code))) != i;) {
+          struct branch_target *target =
+              rb_upper_bound_target(&branch_targets, code[j].addr);
           if (target && target->addr < ptr) {
             break;
           }
@@ -313,12 +313,12 @@ bool loader, int maps_fd) {
         // Find postamble and place to start searching for
         // deprecated register
         char *next = ptr;
-        for (int j = i;
-            next < end
-                && (j = (j + 1) % (sizeof(code) / sizeof(struct code)))
-                    != start_idx && length < patch_length;) {
-          struct branch_target *target = rb_lower_bound_target(&branch_targets,
-              next);
+        for (int j = i; next < end &&
+                        (j = (j + 1) % (sizeof(code) / sizeof(struct code))) !=
+                            start_idx &&
+                        length < patch_length;) {
+          struct branch_target *target =
+              rb_lower_bound_target(&branch_targets, next);
           if (target && target->addr == next) {
             break;
           }
@@ -344,9 +344,10 @@ bool loader, int maps_fd) {
           depre_search_start = next;
         }
 
-        p_postamble_depre_reg = demask_ignore(
-            forward_search_deprecated_reg(depre_search_start, end, 100, 0, 0,
-                true), 10);
+        p_postamble_depre_reg =
+            demask_ignore(forward_search_deprecated_reg(depre_search_start, end,
+                                                        100, 0, 0, true),
+                          10);
 
         if (p_postamble_depre_reg) {
           length = depre_search_start - code[start_idx].addr;
@@ -356,14 +357,14 @@ bool loader, int maps_fd) {
           patch_length -= 4;
 
         if (length < patch_length) {
-          *((uint32_t *) code[i].addr) = 0;
+          *((uint32_t *)code[i].addr) = 0;
           goto replaced;
         }
 
         // patch nop
         char *patch_nop_start = code[start_idx].addr;
         for (int copy_length = length; copy_length > 0;) {
-          *((uint16_t *) patch_nop_start) = 0x1;
+          *((uint16_t *)patch_nop_start) = 0x1;
           copy_length -= 2;
           patch_nop_start += 2;
         }
@@ -372,11 +373,11 @@ bool loader, int maps_fd) {
 
         // copy preamble
         for (int j = start_idx; j != i;
-            j = (j + 1) % (sizeof(code) / sizeof(struct code))) {
+             j = (j + 1) % (sizeof(code) / sizeof(struct code))) {
           if (code[j].len == 4) {
-            *((uint32_t *) dest) = code[j].insn;
+            *((uint32_t *)dest) = code[j].insn;
           } else {
-            *((uint16_t *) dest) = code[j].insn;
+            *((uint16_t *)dest) = code[j].insn;
           }
           dest += code[j].len;
           copy_length -= code[j].len;
@@ -386,8 +387,8 @@ bool loader, int maps_fd) {
         {
           char *copy_start = loader ? patched_stub_loader : patched_stub;
           for (size_t i = 0; i < stub_n; i++) {
-            uint32_t insn = __bswap_32(*((uint32_t *) copy_start));
-            *((uint32_t *) dest) = insn;
+            uint32_t insn = __bswap_32(*((uint32_t *)copy_start));
+            *((uint32_t *)dest) = insn;
             copy_start += 4;
             dest += 4;
           }
@@ -397,12 +398,12 @@ bool loader, int maps_fd) {
 
         // copy_postamble
         for (int j = (i + 1) % (sizeof(code) / sizeof(struct code));
-            copy_length > 0;
-            j = (j + 1) % (sizeof(code) / sizeof(struct code))) {
+             copy_length > 0;
+             j = (j + 1) % (sizeof(code) / sizeof(struct code))) {
           if (code[j].len == 4) {
-            *((uint32_t *) dest) = code[j].insn;
+            *((uint32_t *)dest) = code[j].insn;
           } else {
-            *((uint16_t *) dest) = code[j].insn;
+            *((uint16_t *)dest) = code[j].insn;
           }
           dest += code[j].len;
           copy_length -= code[j].len;
@@ -413,7 +414,7 @@ bool loader, int maps_fd) {
         char *patch_start = code[start_idx].addr;
         if (!preamble_depre_reg) {
           // patch the store addr
-          *((uint32_t *) patch_start) = get_patch_store();
+          *((uint32_t *)patch_start) = get_patch_store();
           // by default ra is used to store the jump offset
           patch_start += 4;
         }
@@ -428,8 +429,8 @@ bool loader, int maps_fd) {
         jalr_encode.rs1 = auipc_encode.rd;
         jalr_encode.rd = 0;
 
-        *((uint32_t *) patch_start) = encode_auipc32(&auipc_encode);
-        *((uint32_t *) (patch_start + 4)) = encode_jalr32(&jalr_encode);
+        *((uint32_t *)patch_start) = encode_auipc32(&auipc_encode);
+        *((uint32_t *)(patch_start + 4)) = encode_jalr32(&jalr_encode);
         patch_start += 8;
 
         if (!p_postamble_depre_reg) {
@@ -437,7 +438,7 @@ bool loader, int maps_fd) {
           ld_encode.imm = -8;
           ld_encode.rs1 = 2; // sp
           ld_encode.rd = 10;
-          *((uint32_t *) patch_start) = encode_ld32(&ld_encode);
+          *((uint32_t *)patch_start) = encode_ld32(&ld_encode);
           patch_start += 4;
         }
 
@@ -450,32 +451,35 @@ bool loader, int maps_fd) {
         jalr_encode.rs1 = auipc_encode.rd;
         jalr_encode.rd = 0;
 
-        *((uint32_t *) scratch_end) = encode_auipc32(&auipc_encode);
-        *((uint32_t *) (scratch_end + 4)) = encode_jalr32(&jalr_encode);
+        *((uint32_t *)scratch_end) = encode_auipc32(&auipc_encode);
+        *((uint32_t *)(scratch_end + 4)) = encode_jalr32(&jalr_encode);
         ptr = patch_start + 4;
       }
     }
-    replaced: i = (i + 1) % (sizeof(code) / sizeof(struct code));
+  replaced:
+    i = (i + 1) % (sizeof(code) / sizeof(struct code));
   }
   _nx_debug_printf("patch_func end\n");
 }
 
 void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
-    char **extra_space __unused, int *extra_len __unused,
-    bool loader) {
+                             char **extra_space __unused,
+                             int *extra_len __unused, bool loader) {
   _nx_debug_printf("patch syscalls in range %p-%p\n", start, stop);
   _nx_debug_printf("patch syscalls in range =\n");
   char *func = start;
   bool has_syscall = false;
 
   // scan procedure for riscv
-  uint16_t *ptr_riscv = (uint16_t *) start;
-  uint16_t *stop_riscv = (uint16_t *) stop;
+  uint16_t *ptr_riscv = (uint16_t *)start;
+  uint16_t *stop_riscv = (uint16_t *)stop;
 
-  bool prev_ecall_ehi = false; // if the front immediate is the higher part of system call
+  bool prev_ecall_ehi =
+      false; // if the front immediate is the higher part of system call
 
   for (; ptr_riscv < stop_riscv; ptr_riscv++) {
-    if (__bswap_16(*ptr_riscv) == 0x7300) { // swap because riscv is little endian
+    if (__bswap_16(*ptr_riscv) ==
+        0x7300) { // swap because riscv is little endian
       prev_ecall_ehi = true;
     } else {
       if (__bswap_16(*ptr_riscv) == 0 && prev_ecall_ehi) {
@@ -494,13 +498,13 @@ void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
       static bool stub_loader_is_patched = false;
       if (!stub_loader_is_patched) {
         prepare_patched_stub(patched_stub_loader,
-            (uint64_t) handle_syscall_loader);
+                             (uint64_t)handle_syscall_loader);
         stub_loader_is_patched = true;
       }
     } else {
       static bool stub_is_patched = false;
       if (!stub_is_patched) {
-        prepare_patched_stub(patched_stub, (uint64_t) handle_syscall);
+        prepare_patched_stub(patched_stub, (uint64_t)handle_syscall);
         stub_is_patched = true;
       }
     }
@@ -512,7 +516,7 @@ void patch_syscalls_in_range(struct library *lib, char *start, char *stop,
 }
 
 void detour_func(struct library *lib, char *start, char *end, int sc_no,
-    char **extra_space __unused, int *extra_len __unused) {
+                 char **extra_space __unused, int *extra_len __unused) {
   struct rb_root *branch_targets;
   branch_targets = lookup_branch_targets(start, end);
 
@@ -520,7 +524,7 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
     char *addr;
     uint32_t insn;
     uint32_t len;
-  } code[6] = { { 0 } };
+  } code[6] = {{0}};
 
   char *ptr = start;
   code[0].addr = ptr;
@@ -538,8 +542,8 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
     if (target && target->addr == next) {
       break;
     }
-    if (is_safe_insn(code[i].insn) || is_store16(code[i].insn)
-        || is_store32(code[i].insn)) {
+    if (is_safe_insn(code[i].insn) || is_store16(code[i].insn) ||
+        is_store32(code[i].insn)) {
       length = next - code[0].addr;
     } else {
       break;
@@ -551,41 +555,43 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
   // as a normal system call
   // we need to input the system call
 
-  static char stub [] = "\xfe\x81\x01\x13" // addi sp, sp, -16
-          "\x00\x51\x30\x23"// sd t0, 0(sp)
-          "\x00\x11\x34\x23"// sd ra, 8(sp)
-          "\x00\x61\x38\x23"// sd t1, 16(sp)
-          "\x00\x00\x03\x13"// mv zero, t1
-          "\x00\x00\x00\x00"// preserved for putting ecall number in t2
-          "\x00\x00\x02\x93"// li t0, 0
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x82\x92\x93"// slli t0, t0, 0x8
-          "\x00\x02\x82\x93"// addi t0, t0, ...
-          "\x00\x02\x80\xe7"// jalr t0
-          "\x00\x01\x32\x83"// ld t0, 0(sp)
-          "\x00\x81\x30\x83"// ld ra, 8(sp)
-          "\x01\x01\x33\x03"// ld t1, 16(sp)
-          "\x01\x81\x01\x13"// addi sp, sp, 16
-  ;
+  static char stub[] =
+      "\xfe\x81\x01\x13" // addi sp, sp, -16
+      "\x00\x51\x30\x23" // sd t0, 0(sp)
+      "\x00\x11\x34\x23" // sd ra, 8(sp)
+      "\x00\x61\x38\x23" // sd t1, 16(sp)
+      "\x00\x00\x03\x13" // mv zero, t1
+      "\x00\x00\x00\x00" // preserved for putting ecall number in t2
+      "\x00\x00\x02\x93" // li t0, 0
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x82\x92\x93" // slli t0, t0, 0x8
+      "\x00\x02\x82\x93" // addi t0, t0, ...
+      "\x00\x02\x80\xe7" // jalr t0
+      "\x00\x01\x32\x83" // ld t0, 0(sp)
+      "\x00\x81\x30\x83" // ld ra, 8(sp)
+      "\x01\x01\x33\x03" // ld t1, 16(sp)
+      "\x01\x81\x01\x13" // addi sp, sp, 16
+      ;
 
   const size_t stub_n = 26;
   const uint32_t needed_scratch_space = stub_n * 4 + 4 + length + 4;
   // don't add the system call (-4)
   // and count the jal return (+4)
 
-  char *dest = maps_alloc_near(lib->maps->fd, code[0].addr,
-      needed_scratch_space, PROT_EXEC | PROT_READ | PROT_WRITE, true, 0xfffff);
+  char *dest =
+      maps_alloc_near(lib->maps->fd, code[0].addr, needed_scratch_space,
+                      PROT_EXEC | PROT_READ | PROT_WRITE, true, 0xfffff);
 
   if (dest == NULL) {
     assert(false);
@@ -596,7 +602,7 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
   if (vdso_callback) {
     plugin_vdso_handler = vdso_callback(sc_no, trampoline_addr);
     _nx_debug_printf("trampoline_addr: %p\tplugin_vdso_handler: %p\n",
-        (void*)trampoline_addr, (void*)plugin_vdso_handler);
+                     (void *)trampoline_addr, (void *)plugin_vdso_handler);
   }
 
   struct inst_param addi_encode;
@@ -612,12 +618,12 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
     // move syscall number to t2
     addi_encode.imm = sc_no;
     addi_encode.rs1 = 0;
-    addi_encode.rd = 7;	// x7 == t2
+    addi_encode.rd = 7; // x7 == t2
   }
 
   // inst added
 
-  char * const scratch_start = dest;
+  char *const scratch_start = dest;
 
   // load the skeleton stub to scratch space
   _nx_debug_printf("load the skeleton stub to scratch space\n");
@@ -625,13 +631,13 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
   {
     char *copy_start = stub;
     for (size_t i = 0; i < stub_n; i++) {
-      uint32_t insn = __bswap_32(*((uint32_t *) copy_start));
-      *((uint32_t *) dest) = insn;
+      uint32_t insn = __bswap_32(*((uint32_t *)copy_start));
+      *((uint32_t *)dest) = insn;
       copy_start += 4;
       dest += 4;
     }
   }
-  *((uint32_t *) (stub_dest_start + 20)) = encode_addi32(&addi_encode);
+  *((uint32_t *)(stub_dest_start + 20)) = encode_addi32(&addi_encode);
 
   dest += 4;
   // move the trampoline to somewhere else
@@ -639,21 +645,21 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
   int i;
   for (i = 0; length > 0; i++) {
     if (code[i].len == 4) {
-      *((uint32_t *) dest) = code[i].insn;
+      *((uint32_t *)dest) = code[i].insn;
     } else {
-      *((uint16_t *) dest) = code[i].insn;
+      *((uint16_t *)dest) = code[i].insn;
     }
     dest += code[i].len;
     length -= code[i].len;
   }
 
   int64_t trampoline_return_offset = code[i].addr - dest;
-  *((uint32_t *) dest) = get_patch_jal(trampoline_return_offset, 0);
+  *((uint32_t *)dest) = get_patch_jal(trampoline_return_offset, 0);
 
   // patch the target address
   _nx_debug_printf("patch target address\n");
   // TODO: remove duplication
-  uint64_t handle_vdso_addr = (uint64_t) handle_vdso;
+  uint64_t handle_vdso_addr = (uint64_t)handle_vdso;
   char *stub_patch_start = stub_dest_start + 26;
   uint64_t mask = 0xff00000000000000;
   for (int i = 0; i < 8; i++) {
@@ -670,10 +676,10 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
 
   // calculate the return address of the next inst after ecall
   // patch the jal to the next inst after ecall to the end of stub
-  uint64_t return_jalr_addr = (uint64_t) scratch_start + stub_n * 4;
+  uint64_t return_jalr_addr = (uint64_t)scratch_start + stub_n * 4;
   uint64_t return_jalr_inst = 0x00008067; // ret
 
-  *((uint32_t *) return_jalr_addr) = return_jalr_inst;
+  *((uint32_t *)return_jalr_addr) = return_jalr_inst;
   _nx_debug_printf("return jal is 0x%08lx\n", return_jalr_inst);
 
   // patch the vdso call
@@ -681,16 +687,12 @@ void detour_func(struct library *lib, char *start, char *end, int sc_no,
   uint32_t jal_insn = get_patch_jal(offset / 2, 0);
 
   // patch store and jal at the original location
-  *((uint32_t *) code[0].addr) = jal_insn;
-
+  *((uint32_t *)code[0].addr) = jal_insn;
 }
 
-void api_detour_func(struct library *lib __unused,
-                    char *start __unused,
-                    char *end __unused,
-                    sbr_icept_callback_fn callback __unused,
-                    char **extra_space __unused,
-                    int *extra_len __unused) {
+void api_detour_func(struct library *lib __unused, char *start __unused,
+                     char *end __unused,
+                     sbr_icept_callback_fn callback __unused,
+                     char **extra_space __unused, int *extra_len __unused) {
   _nx_fatal_printf("api_detour_func is not implemented yet for RISC-V\n");
 }
-

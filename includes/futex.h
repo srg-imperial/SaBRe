@@ -11,38 +11,39 @@
 #include <errno.h>
 #include <linux/futex.h>
 #include <stdint.h>
-#include <sys/time.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <unistd.h>
-
 
 __BEGIN_DECLS
 
 // This works for syscalls made through libc which sets errno when fail.  This
 // does not work for syscalls made directly to the kernel, which signals errors
 // by returning a negative value
-#define NOINTR_LIBC(x)                             \
-  ({                                          \
-    typeof(x) __i;                            \
-    while ((__i = (x)) < 0 && errno == EINTR) \
-      ;                                       \
-    __i;                                      \
+#define NOINTR_LIBC(x)                                                         \
+  ({                                                                           \
+    typeof(x) __i;                                                             \
+    while ((__i = (x)) < 0 && errno == EINTR)                                  \
+      ;                                                                        \
+    __i;                                                                       \
   })
 
 // This works for syscalls made directly to the kernel (adapted from glibc)
-#define NOINTR_RAW(expression)                  \
-   ({ long int __result;                    \
-    do __result = (long int) (expression);  \
-    while (__result == -EINTR);             \
-    __result;                               \
-    })
+#define NOINTR_RAW(expression)                                                 \
+  ({                                                                           \
+    long int __result;                                                         \
+    do                                                                         \
+      __result = (long int)(expression);                                       \
+    while (__result == -EINTR);                                                \
+    __result;                                                                  \
+  })
 
 typedef struct {
   int l;
   int n;
 } futex_t;
 
-#define FUTEX_INIT(n) ((futex_t) {0, (n)})
+#define FUTEX_INIT(n) ((futex_t){0, (n)})
 #define FUTEX(name, n) futex_t name = FUTEX_INIT(n)
 
 static inline void INIT_FUTEX(futex_t *self, int n) {
@@ -50,11 +51,10 @@ static inline void INIT_FUTEX(futex_t *self, int n) {
   self->n = n;
 }
 
-static int futex(int *uaddr, int futex_op, int val, const struct timespec *timeout, int *uaddr2, int val3)
-{
-    return syscall(SYS_futex, uaddr, futex_op, val, timeout, uaddr2, val3);
+static int futex(int *uaddr, int futex_op, int val,
+                 const struct timespec *timeout, int *uaddr2, int val3) {
+  return syscall(SYS_futex, uaddr, futex_op, val, timeout, uaddr2, val3);
 }
-
 
 /*
  * Suspends the caller until it can down the futex. There can be at
@@ -124,4 +124,4 @@ static __attribute__((unused)) void futex_up(futex_t *self, int bit) {
 
 __END_DECLS
 
-#endif  // FUTEX_H_
+#endif // FUTEX_H_

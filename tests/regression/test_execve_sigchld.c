@@ -14,25 +14,25 @@
  * RUN: diff %t1.actual %t1.expected
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <assert.h>
 #include <errno.h>
-#include <signal.h>
-#include <string.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #define xstr(a) str(a)
-#define str(a)  #a
+#define str(a) #a
 
 #ifndef _EXEC_NAME
 #define _EXEC_NAME a.out
 #endif
 
-#define ISSET(t, f)     ((t) & (f))
+#define ISSET(t, f) ((t) & (f))
 
 int signal_pipe[2];
 
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
     fflush(NULL);
     return 0;
   }
-  
+
   // Set up pipe and make it non-blocking
   int rval = pipe(signal_pipe);
   if (rval == -1)
@@ -90,14 +90,14 @@ int main(int argc, char **argv) {
 
   // Parent - poll on pipe
   struct pollfd fd;
-  fd.fd     = signal_pipe[0];
-  fd.events = (POLLIN|POLLHUP);
+  fd.fd = signal_pipe[0];
+  fd.events = (POLLIN | POLLHUP);
 
-  for(;;) {
+  for (;;) {
     int ret = poll(&fd, 1, -1);
     if (ret > 0)
       break;
-    else if (ret == -1  && errno != EINVAL)
+    else if (ret == -1 && errno != EINVAL)
       // Try again
       continue;
     else

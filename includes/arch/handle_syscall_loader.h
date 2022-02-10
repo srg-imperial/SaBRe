@@ -10,6 +10,6 @@
 
 #include "compiler.h"
 
-void handle_syscall_loader () __internal;
+void handle_syscall_loader() __internal;
 
 #endif /* !HANDLE_SYSCALL_LOADER_H */

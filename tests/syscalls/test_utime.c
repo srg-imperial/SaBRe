@@ -16,11 +16,11 @@
 #include <sys/types.h>
 #include <utime.h>
 
-int main(int argc, char ** argv) {
+int main(int argc, char **argv) {
   char buf[1024];
 
   struct utimbuf t;
-  t.actime  = 10;
+  t.actime = 10;
   t.modtime = 0;
 
   if (utime(argv[1], &t) < 0)

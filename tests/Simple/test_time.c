@@ -16,17 +16,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include<time.h>
-#include<sys/time.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <assert.h>
 
 /* Utility functions */
 
 /* Tests */
-static void test_time() {
-  assert(time(NULL) != -1);
-}
+static void test_time() { assert(time(NULL) != -1); }
 
 static void test_gettimeofday() {
   struct timeval tv;

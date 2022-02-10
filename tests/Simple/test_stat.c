@@ -14,13 +14,13 @@
  * RUN: diff %t2.actual %t2.expected
  */
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/vfs.h>
-#include <fcntl.h>
+#include <unistd.h>
 
 #include <assert.h>
 
@@ -30,7 +30,7 @@
 
 /* Tests */
 
-static void test_stat(char * filename) {
+static void test_stat(char *filename) {
   struct stat s;
   assert(stat(filename, &s) != -1);
 }
@@ -40,21 +40,21 @@ static void test_fstat(int fd) {
   assert(fstat(fd, &s) != -1);
 }
 
-static void test_lstat_readlink(char * filename) {
+static void test_lstat_readlink(char *filename) {
   struct stat s;
-  char * linkname;
+  char *linkname;
   ssize_t r;
 
   assert(lstat(filename, &s) != -1);
- 
+
   linkname = malloc(s.st_size + 1);
- 
+
   r = readlink(filename, linkname, s.st_size + 1);
- 
+
   free(linkname);
 }
 
-static void test_statfs(char * filename) {
+static void test_statfs(char *filename) {
   struct statfs s;
 
   assert(statfs(filename, &s) != -1);

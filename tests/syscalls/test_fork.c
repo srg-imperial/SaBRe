@@ -16,10 +16,10 @@
 #include <asm/unistd.h>
 #include <sys/wait.h>
 
-long __syscall(int syscallno, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6);
+long __syscall(int syscallno, long arg1, long arg2, long arg3, long arg4,
+               long arg5, long arg6);
 
-
-int main(int argc, char * argv[]) {
+int main(int argc, char *argv[]) {
 
   int ret = __syscall(__NR_fork, 0L, 0L, 0L, 0L, 0L, 0L);
 
@@ -45,15 +45,15 @@ asm(".pushsection .text, \"ax\", @progbits\n"
     ".globl __syscall\n"
     ".type __syscall, @function\n"
 #if defined(__x86_64__)
-  "movq %rdi, %rax\n"     /* place syscall number into %rax */
-  "movq %rsi, %rdi\n"     /* shift arg1 - arg5 */
-  "movq %rdx, %rsi\n"
-  "movq %rcx, %rdx\n"
-  "movq %r8, %r10\n"
-  "movq %r9, %r8\n"
-  "movq 8(%rsp),%r9\n"    /* arg6 is on the stack */
-  "syscall\n"             /* do the system call */
-  "ret\n"                 /* return to caller */
+    "movq %rdi, %rax\n" /* place syscall number into %rax */
+    "movq %rsi, %rdi\n" /* shift arg1 - arg5 */
+    "movq %rdx, %rsi\n"
+    "movq %rcx, %rdx\n"
+    "movq %r8, %r10\n"
+    "movq %r9, %r8\n"
+    "movq 8(%rsp),%r9\n" /* arg6 is on the stack */
+    "syscall\n"          /* do the system call */
+    "ret\n"              /* return to caller */
 #else
 #error Unsupported target platform
 #endif

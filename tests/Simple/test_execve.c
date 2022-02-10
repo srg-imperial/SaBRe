@@ -13,14 +13,14 @@
  * RUN: diff %t1.actual %t1.expected
  */
 
+#include <assert.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <assert.h>
+#include <unistd.h>
 
 #define xstr(a) str(a)
-#define str(a)  #a
+#define str(a) #a
 
 #ifndef _EXEC_NAME
 #define _EXEC_NAME a.out
@@ -32,15 +32,15 @@ int main(int argc, char **argv) {
     fflush(NULL);
     return 0;
   }
-  
+
   int pid = fork();
   if (pid == 0) {
     char *const args[] = {xstr(_EXEC_NAME), NULL};
     char *const envp[] = {NULL};
     execve(xstr(_EXEC_NAME), args, envp);
     assert(0);
-  }
-  else wait(NULL);
-  
+  } else
+    wait(NULL);
+
   return 0;
 }

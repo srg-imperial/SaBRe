@@ -21,7 +21,7 @@ struct rb_root {
 
 #define rb_parent(r) ((struct rb_node *)((r)->__rb_parent_color & ~3))
 
-#define RB_ROOT \
+#define RB_ROOT                                                                \
   (struct rb_root) { NULL, }
 #define rb_entry(ptr, type, member) container_of(ptr, type, member)
 
@@ -31,8 +31,7 @@ struct rb_root {
 #define RB_EMPTY_NODE(node) ((node)->__rb_parent_color == (unsigned long)(node))
 #define RB_CLEAR_NODE(node) ((node)->__rb_parent_color = (unsigned long)(node))
 
-static inline void rb_link_node(struct rb_node *node,
-                                struct rb_node *parent,
+static inline void rb_link_node(struct rb_node *node, struct rb_node *parent,
                                 struct rb_node **rb_link) {
   node->__rb_parent_color = (unsigned long)parent;
   node->rb_left = node->rb_right = NULL;
@@ -40,10 +39,10 @@ static inline void rb_link_node(struct rb_node *node,
   *rb_link = node;
 }
 
-#define rb_entry_safe(ptr, type, member)              \
-  ({                                                  \
-    typeof(ptr) ____ptr = (ptr);                      \
-    ____ptr ? rb_entry(____ptr, type, member) : NULL; \
+#define rb_entry_safe(ptr, type, member)                                       \
+  ({                                                                           \
+    typeof(ptr) ____ptr = (ptr);                                               \
+    ____ptr ? rb_entry(____ptr, type, member) : NULL;                          \
   })
 
 /**
@@ -55,12 +54,13 @@ static inline void rb_link_node(struct rb_node *node,
  * @root: 'rb_root *' of the rbtree.
  * @field:  the name of the rb_node field within 'type'.
  */
-#define rbtree_postorder_for_each_entry_safe(pos, n, root, field)           \
-  for (pos = rb_entry_safe(rb_first_postorder(root), typeof(*pos), field);  \
-       pos && ({                                                            \
-    n = rb_entry_safe(rb_next_postorder(&pos->field), typeof(*pos), field); \
-    1;                                                                      \
-              });                                                           \
+#define rbtree_postorder_for_each_entry_safe(pos, n, root, field)              \
+  for (pos = rb_entry_safe(rb_first_postorder(root), typeof(*pos), field);     \
+       pos && ({                                                               \
+         n = rb_entry_safe(rb_next_postorder(&pos->field), typeof(*pos),       \
+                           field);                                             \
+         1;                                                                    \
+       });                                                                     \
        pos = n)
 
 static inline void rb_set_black(struct rb_node *rb) {
@@ -78,18 +78,16 @@ static inline struct rb_node *rb_red_parent(struct rb_node *red) {
  */
 static inline void __rb_rotate_set_parents(struct rb_node *old,
                                            struct rb_node *new,
-                                           struct rb_root *root,
-                                           int color) {
+                                           struct rb_root *root, int color) {
   struct rb_node *parent = rb_parent(old);
   new->__rb_parent_color = old->__rb_parent_color;
   rb_set_parent_color(old, new, color);
   __rb_change_child(old, new, parent, root);
 }
 
-static __always_inline void __rb_insert(
-    struct rb_node *node,
-    struct rb_root *root,
-    void (*augment_rotate)(struct rb_node *old, struct rb_node *new)) {
+static __always_inline void
+__rb_insert(struct rb_node *node, struct rb_root *root,
+            void (*augment_rotate)(struct rb_node *old, struct rb_node *new)) {
   struct rb_node *parent = rb_red_parent(node), *gparent, *tmp;
 
   while (true) {
@@ -214,8 +212,7 @@ static __always_inline void __rb_insert(
  * and eliminate the dummy_rotate callback there
  */
 static __always_inline void ____rb_erase_color(
-    struct rb_node *parent,
-    struct rb_root *root,
+    struct rb_node *parent, struct rb_root *root,
     void (*augment_rotate)(struct rb_node *old, struct rb_node *new)) {
   struct rb_node *node = NULL, *sibling, *tmp1, *tmp2;
 
@@ -369,8 +366,7 @@ static __always_inline void ____rb_erase_color(
 
 /* Non-inline version for rb_erase_augmented() use */
 static inline void __rb_erase_color(
-    struct rb_node *parent,
-    struct rb_root *root,
+    struct rb_node *parent, struct rb_root *root,
     void (*augment_rotate)(struct rb_node *old, struct rb_node *new)) {
   ____rb_erase_color(parent, root, augment_rotate);
 }
@@ -412,8 +408,7 @@ static inline void rb_erase(struct rb_node *node, struct rb_root *root) {
  */
 
 static inline void __rb_insert_augmented(
-    struct rb_node *node,
-    struct rb_root *root,
+    struct rb_node *node, struct rb_root *root,
     void (*augment_rotate)(struct rb_node *old, struct rb_node *new)) {
   __rb_insert(node, root, augment_rotate);
 }
@@ -500,8 +495,7 @@ static inline struct rb_node *rb_prev(const struct rb_node *node) {
   return parent;
 }
 
-static inline void rb_replace_node(struct rb_node *victim,
-                                   struct rb_node *new,
+static inline void rb_replace_node(struct rb_node *victim, struct rb_node *new,
                                    struct rb_root *root) {
   struct rb_node *parent = rb_parent(victim);
 

@@ -10,7 +10,6 @@
 
 #include "compiler.h"
 
-
 void handle_syscall() __internal;
 
 #endif /* !HANDLE_SYSCALL_H */
