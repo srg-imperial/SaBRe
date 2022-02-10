@@ -10,6 +10,7 @@
 
 #include <stdbool.h>
 
-void inject_needed_lib(const char *, const char *, bool);
+void inject_needed_lib(const char *elfpath, const char *pluginpath, int fd,
+                       bool debug);
 
 #endif /* !PATHELF_H */

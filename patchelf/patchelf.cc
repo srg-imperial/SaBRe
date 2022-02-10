@@ -1977,17 +1977,60 @@ int main(int argc, char **argv) {
 
 #else // !SABRE
 
+static void writeToFd(int fd, const FileContents &contents) {
+  size_t bytesWritten = 0;
+  ssize_t portion;
+  while (bytesWritten < contents->size()) {
+    if ((portion = write(fd, contents->data() + bytesWritten,
+                         contents->size() - bytesWritten)) < 0) {
+      if (errno == EINTR)
+        continue;
+      error("write");
+    }
+    bytesWritten += portion;
+  }
+}
+
+template <class ElfFile>
+static void prependLibs2(ElfFile &&elfFile, const FileContents &fileContents,
+                         int fd, const std::set<std::string> &libs) {
+  elfFile.addNeeded(libs);
+
+  // Always write to our memfd.
+  writeToFd(fd, fileContents);
+}
+
+static void prependLibs(const std::string &fileName, int fd,
+                        const std::set<std::string> &libs) {
+  debug("patching ELF file '%s'\n", fileName.c_str());
+
+  auto fileContents = readFile(fileName);
+
+  if (getElfType(fileContents).is32Bit)
+    prependLibs2(
+        ElfFile<Elf32_Ehdr, Elf32_Phdr, Elf32_Shdr, Elf32_Addr, Elf32_Off,
+                Elf32_Dyn, Elf32_Sym, Elf32_Verneed, Elf32_Versym>(
+            fileContents),
+        fileContents, fd, libs);
+  else
+    prependLibs2(
+        ElfFile<Elf64_Ehdr, Elf64_Phdr, Elf64_Shdr, Elf64_Addr, Elf64_Off,
+                Elf64_Dyn, Elf64_Sym, Elf64_Verneed, Elf64_Versym>(
+            fileContents),
+        fileContents, fd, libs);
+}
+
 // TODO(andronat): Patchelf has issues with elflint
-// TODO(andronat): Patchelf is writing a file. Can we do everything in-memory?
 extern "C" {
-void inject_needed_lib(const char *pluginpath, const char *elfpath,
+void inject_needed_lib(const char *elfpath, const char *pluginpath, int fd,
                        bool debug) {
   if (debug)
     debugMode = true;
 
-  fileNames.push_back(elfpath);
-  neededLibsToAdd.insert(pluginpath);
-  patchElf();
+  std::set<std::string> libs;
+  libs.insert(pluginpath);
+
+  prependLibs(elfpath, fd, libs);
 }
 }
 #endif

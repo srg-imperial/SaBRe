@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -166,33 +167,6 @@ static size_t find_client_path_idx(char **argv) {
   errx(EXIT_FAILURE, "Missing -- from CLI. Please check --help.");
 }
 
-static void copy_fresh_client_elf(const char *source_path,
-                                  const char *target_path) {
-  FILE *source, *target;
-
-  source = fopen(source_path, "rb");
-  if (source == NULL)
-    errx(EXIT_FAILURE, "fopen: Couldn't find: %s.", source_path);
-  target = fopen(target_path, "wb");
-  assert(target != NULL);
-
-  size_t n, m;
-  unsigned char buff[8192];
-  do {
-    n = fread(buff, 1, sizeof buff, source);
-    if (n != 0)
-      m = fwrite(buff, 1, n, target);
-    else
-      m = 0;
-  } while ((n > 0) && (n == m));
-  assert(m == 0);
-
-  assert(fclose(target) == 0);
-  assert(fclose(source) == 0);
-
-  chmod(target_path, S_IRWXU | S_IRWXG);
-}
-
 // Returns the address of entry point and also populates a pointer
 // for the top of the new stack
 void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
@@ -301,30 +275,14 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
 
   // Find client's path. It should be right after `--`.
   size_t client_path_idx = find_client_path_idx(argv);
+  const char *client_path = argv[client_path_idx];
 
-  // Create the new client elf file with the rewritten elf headers in a unique
-  // path.
-  pid_t pid = getpid();
-  char pid_s[10];
-  sprintf(pid_s, "%d", pid);
+  // Rewrite the client binary in memory.
+  int elf_fd = memfd_create(client_path, 0);
 
-  char new_client_elf_path[30] = {0};
-  strcpy(new_client_elf_path, "/tmp/sbr_client.");
-  strcat(new_client_elf_path, pid_s);
-
-  // Check if the file already exists and delete it.
-  if (access(new_client_elf_path, F_OK) != -1) {
-    if (remove(new_client_elf_path) != 0)
-      errx(EXIT_FAILURE, "Failed to remove file %s.", new_client_elf_path);
-  }
-
-  copy_fresh_client_elf(argv[client_path_idx], new_client_elf_path);
-  inject_needed_lib(abs_plugin_path, new_client_elf_path, false);
+  inject_needed_lib(client_path, abs_plugin_path, elf_fd, false);
 
   setup_sbr_premain(&register_function_intercepts);
-
-  // Switch the client's binary path in the stack.
-  // argv[client_path_idx] = new_client_elf_path;
 
   // Separate client and plugin arguments.
   plugin_argc = client_path_idx - 1;
@@ -339,13 +297,9 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
   // Mask out loader and plugin
   binrw_rd_init_maps();
 
-  int elf_fd = open(new_client_elf_path, O_RDONLY);
-  if (elf_fd < 0)
-    _nx_fatal_printf("Cannot open ELF file %s\n", new_client_elf_path);
-
   ElfW(Ehdr) ehdr;
   if (elfld_getehdr(elf_fd, &ehdr) != 0)
-    _nx_fatal_printf("Failed to get ELF header from %s\n", new_client_elf_path);
+    _nx_fatal_printf("Failed to get ELF header from %s\n", client_path);
 
   /* Load the program and point the auxv elements at its phdrs and entry.  */
   const char *interp = NULL;
@@ -353,27 +307,26 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
       elfld_load_elf(elf_fd, &ehdr, pagesize, &av_phdr->a_un.a_val,
                      &av_phnum->a_un.a_val, &interp);
 
+  // The elf is mapped into memory, so we can safely close this.
   close(elf_fd);
 
   ElfW(Addr) entry;
   if (interp) {
     // There was a PT_INTERP, so we have a dynamic linker to load.
 
-    int elf_fd = open(interp, O_RDONLY, 0);
-    if (elf_fd < 0)
+    int interp_fd = open(interp, O_RDONLY, 0);
+    if (interp_fd < 0)
       _nx_fatal_printf("Cannot open ELF file %s\n", interp);
 
-    if (elfld_getehdr(elf_fd, &ehdr) != 0)
+    if (elfld_getehdr(interp_fd, &ehdr) != 0)
       _nx_fatal_printf("Failed to get ELF header from file\n");
 
-    entry = elfld_load_elf(elf_fd, &ehdr, pagesize, NULL, NULL, NULL);
-    close(elf_fd);
+    entry = elfld_load_elf(interp_fd, &ehdr, pagesize, NULL, NULL, NULL);
+    close(interp_fd);
 
     const char *libs[] = {"ld", NULL};
-    memorymaps_rewrite_all(libs, new_client_elf_path, true);
-  }
-
-  else {
+    memorymaps_rewrite_all(libs, client_path, true);
+  } else {
     // TODO(andronat): We don't support statically linked binaries for now.
     assert(false);
     entry = av_entry->a_un.a_val;
@@ -382,7 +335,7 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
     // The binary itself probably has syscalls too, re-write it
     const char *libs[] = {"ld",         "libc",      "librt",
                           "libpthread", "libresolv", NULL};
-    memorymaps_rewrite_all(libs, new_client_elf_path, false);
+    memorymaps_rewrite_all(libs, client_path, false);
   }
 
   // if (post_load != NULL)
