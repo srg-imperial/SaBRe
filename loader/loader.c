@@ -41,6 +41,7 @@ typedef uintptr_t __attribute__((may_alias)) stack_val_t;
 // Global variables
 int plugin_argc = 0;
 char **plugin_argv = NULL;
+char abs_sabre_path[PATH_MAX];
 char abs_plugin_path[PATH_MAX];
 sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 int registered_icept_cnt = 0;
@@ -260,6 +261,9 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
   //     the API.\n");
   // }
 
+  char *rv = realpath(argv[0], abs_sabre_path);
+  assert(rv != NULL);
+
   // Drop irrelevant args before passing them to the init
   --argc;
   ++argv;
@@ -289,7 +293,10 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top)
 
   // Get the absolute path of the plugin so we can add it as DT_NEEDED
   // dependency in the client's elf file.
-  char *rv = realpath(argv[0], abs_plugin_path);
+  if (access(argv[0], F_OK) == -1) {
+    errx(EXIT_FAILURE, "Failed to find plugin file at: %s.", argv[0]);
+  }
+  rv = realpath(argv[0], abs_plugin_path);
   assert(rv != NULL);
 
   // Find client's path. It should be right after `--`.

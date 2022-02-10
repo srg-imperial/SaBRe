@@ -81,7 +81,7 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
 #ifdef __NX_INTERCEPT_RDTSC
               &plugin_rdtsc_handler,
 #endif
-              &post_load);
+              &post_load, abs_sabre_path, abs_plugin_path);
 
   if (post_load != NULL)
     post_load(NULL);

@@ -37,12 +37,13 @@ typedef struct sbr_fn_icept {
    * different parameters anyway, so we might as well use ANY function pointer
    * to keep the compiler happy and cast them to whatever is required.
    */
-  //void (*(*icept_callback)(void (*)(void)))(void);
+  // void (*(*icept_callback)(void (*)(void)))(void);
   sbr_icept_callback_fn icept_callback;
 } sbr_fn_icept_struct;
 
 // Signature for the syscall handler
-typedef long (*sbr_sc_handler_fn)(long, long, long, long, long, long, long, void *);
+typedef long (*sbr_sc_handler_fn)(long, long, long, long, long, long, long,
+                                  void *);
 
 #ifdef __NX_INTERCEPT_RDTSC
 // Signature for the RDTSC handler
@@ -60,19 +61,17 @@ typedef void (*sbr_post_load_fn)(bool);
 typedef void_void_fn sbr_premain_fn;
 
 // Signature for the sbr_init function
-typedef void (*sbr_init_fn)(int *,
-                           char ***,
-                           //sbr_segfault_handler_fn *segfault_handler, // - TBD
-                           sbr_icept_reg_fn,
-                           sbr_icept_vdso_callback_fn *,
-                           sbr_sc_handler_fn *,
+typedef void (*sbr_init_fn)(
+    int *, char ***,
+    // sbr_segfault_handler_fn *segfault_handler, // - TBD
+    sbr_icept_reg_fn, sbr_icept_vdso_callback_fn *, sbr_sc_handler_fn *,
 #ifdef __NX_INTERCEPT_RDTSC
-                           sbr_rdtsc_handler_fn *,
+    sbr_rdtsc_handler_fn *,
 #endif
-                           sbr_post_load_fn *);
+    sbr_post_load_fn *, char *, char *);
 
 struct syscall_stackframe;
-void *get_syscall_return_address (struct syscall_stackframe* stack_frame);
+void *get_syscall_return_address(struct syscall_stackframe *stack_frame);
 
 // SaBRe uses the recursion_protector shim to check if a syscall is made from
 // the SaBRe plugin or the client.

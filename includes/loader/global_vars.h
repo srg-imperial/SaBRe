@@ -16,13 +16,14 @@
 #define MAX_ICEPT_STRLEN 80
 
 typedef struct {
-    char lib_name[MAX_ICEPT_STRLEN];
-    char fn_name[MAX_ICEPT_STRLEN];
-    sbr_icept_callback_fn callback;
+  char lib_name[MAX_ICEPT_STRLEN];
+  char fn_name[MAX_ICEPT_STRLEN];
+  sbr_icept_callback_fn callback;
 } sbr_fn_icept_local_struct;
 
 extern int plugin_argc;
 extern char **plugin_argv;
+extern char abs_sabre_path[PATH_MAX];
 extern char abs_plugin_path[PATH_MAX];
 
 extern int registered_icept_cnt;
