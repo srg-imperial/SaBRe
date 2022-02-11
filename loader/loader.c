@@ -44,6 +44,7 @@ int plugin_argc = 0;
 char **plugin_argv = NULL;
 char abs_sabre_path[PATH_MAX];
 char abs_plugin_path[PATH_MAX];
+char abs_client_path[PATH_MAX];
 sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];
 int registered_icept_cnt = 0;
 sbr_sc_handler_fn plugin_sc_handler = NULL;
@@ -276,6 +277,11 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
   // Find client's path. It should be right after `--`.
   size_t client_path_idx = find_client_path_idx(argv);
   const char *client_path = argv[client_path_idx];
+
+  // Store the full path so we can use it later.
+  // TODO: Handle errors better here. We may also not want to resolve symlinks.
+  rv = realpath(client_path, abs_client_path);
+  assert(rv != NULL);
 
   // Rewrite the client binary in memory.
   int elf_fd = memfd_create(client_path, 0);

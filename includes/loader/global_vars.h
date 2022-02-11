@@ -25,6 +25,7 @@ extern int plugin_argc;
 extern char **plugin_argv;
 extern char abs_sabre_path[PATH_MAX];
 extern char abs_plugin_path[PATH_MAX];
+extern char abs_client_path[PATH_MAX];
 
 extern int registered_icept_cnt;
 extern sbr_fn_icept_local_struct intercept_records[MAX_ICEPT_RECORDS];

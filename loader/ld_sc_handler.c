@@ -15,6 +15,7 @@
 #ifdef __x86_64__
 #include <asm/prctl.h>
 #endif
+#include <errno.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 
@@ -359,6 +360,45 @@ long ld_sc_handler(long sc_no, long arg1, long arg2, long arg3, long arg4,
       return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
   }
 #endif // __x86_64__
+
+  case SYS_readlink: {
+    // Intercept readlink so that we can fool the linker into thinking
+    // `/proc/self/exe` points to the target executable instead of sabre itself.
+    //
+    // This fixes a problem where $ORIGIN in the RPATH gets replaced with the
+    // path to sabre, not the real executable.
+    //
+    // FIXME: Also handle readlinkat? The dynamic linker doesn't use this (yet).
+    // FIXME: Every plugin should probably also implement this.
+    const char *pathname = (const char *)arg1;
+    char *buf = (char *)arg2;
+    size_t bufsize = (size_t)arg3;
+
+    if (strcmp(pathname, "/proc/self/exe") == 0) {
+      if (buf == NULL) {
+        return -EFAULT;
+      }
+
+      // strncpy doesn't tell us how many bytes it copied, so we have to
+      // calculate that ourselves. Plus, readlink should not append a NUL byte
+      // to the end. Best to use memcpy here to mimic the kernel.
+      size_t len = strlen(abs_client_path);
+      if (len > bufsize) {
+        len = bufsize;
+      }
+
+      memcpy(buf, abs_client_path, len);
+
+      _nx_debug_printf("readlink: enter loader syscall (\"%s\", %p -> "
+                       "\"%.*s\", %zu) -> %zu\n",
+                       pathname, buf, len, buf, bufsize, len);
+
+      return len;
+    } else {
+      size_t len = real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
+      return len;
+    }
+  }
 
   default:
     _nx_debug_printf("calling syscall %ld\n", sc_no);
