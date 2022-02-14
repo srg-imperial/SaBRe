@@ -5,27 +5,23 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/syscall.h>
 #include <stdbool.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #define __USE_GNU
 #include <fcntl.h>
 #include <sys/mman.h>
 #undef __USE_GNU
 
-#include "sbr_api_defs.h"
 #include "real_syscall.h"
+#include "sbr_api_defs.h"
 #include "sysent.h"
 
-enum vdso_flags {
-  VDSO_STRACE,
-  VDSO_SYSCALL,
-  VDSO_SPECIAL
-};
+enum vdso_flags { VDSO_STRACE, VDSO_SYSCALL, VDSO_SPECIAL };
 
 // Global state - not the nicest, but this is a tiny application
 static enum vdso_flags vdso_arg_flag = VDSO_SYSCALL;
@@ -141,7 +137,13 @@ static char *print_signed_dec(char *dst, long n) {
   return print_dec_impl(dst, n);
 }
 
-static char *print_fd(char *dst, long n) { return print_signed_dec(dst, n); }
+static char *print_fd(char *dst, long n) {
+  if ((int)n == AT_FDCWD) {
+    return print_cstr(dst, "AT_FDCWD");
+  } else {
+    return print_signed_dec(dst, (int)n);
+  }
+}
 
 // We don't want to use ctype since it accesses TLS,
 // which messes with %fs and causes segfault
@@ -192,12 +194,14 @@ static const struct_sysent sysent[] = {
 #include "syscallent.h"
 };
 
+// clang-format off
 #define OUT_ARG output
 #define VDSO_ARG handle-vdso
 #define ARG_PATTERN2(s) "--" #s "="
 #define ARG_PATTERN(s) ARG_PATTERN2(s)
 #define ARG_PATTERN_NO_PARAM2(s) "--" #s
 #define ARG_PATTERN_NO_PARAM(s) ARG_PATTERN_NO_PARAM2(s)
+// clang-format on
 
 static void print_help(void) {
   // This macro works for string literals because char [N] does not decay to
@@ -463,6 +467,20 @@ static char *pre_decode_args(char *dst, long sc, const long args[]) {
     dst = print_fd(dst, args[0]);
     break;
 
+  case SYS_readlink:
+    dst = print_cstr_escaped(dst, (const char *)args[0], 0);
+    dst = print_cstr(dst, ", ");
+    dst = print_hex(dst, args[1]);
+    break;
+
+  case SYS_readlinkat:
+    dst = print_fd(dst, args[0]);
+    dst = print_cstr(dst, ", ");
+    dst = print_cstr_escaped(dst, (const char *)args[1], 0);
+    dst = print_cstr(dst, ", ");
+    dst = print_hex(dst, args[2]);
+    break;
+
   default:
     for (int argno = 0; argno < sysent[sc].nargs; ++argno) {
       if (!argno) {
@@ -488,6 +506,20 @@ static char *post_decode_args(char *dst, long sc, const long args[], long rtn) {
       else
         dst = print_hex(dst, args[argno]);
     }
+    break;
+
+  case SYS_readlink:
+    dst = print_cstr(dst, " -> ");
+    dst = print_cstr_escaped(dst, (const char *)args[1], rtn);
+    dst = print_cstr(dst, ", ");
+    dst = print_hex(dst, args[2]);
+    break;
+
+  case SYS_readlinkat:
+    dst = print_cstr(dst, " -> ");
+    dst = print_cstr_escaped(dst, (const char *)args[2], rtn);
+    dst = print_cstr(dst, ", ");
+    dst = print_hex(dst, args[3]);
     break;
 
   default:
@@ -555,15 +587,9 @@ long handle_syscall_real(long sc_no, long arg1, long arg2, long arg3, long arg4,
   }
 }
 
-long handle_syscall(long sc_no,
-                    long arg1,
-                    long arg2,
-                    long arg3,
-                    long arg4,
-                    long arg5,
-                    long arg6,
-                    void *wrapper_sp) {
-  (void)wrapper_sp;  // unused
+long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
+                    long arg5, long arg6, void *wrapper_sp) {
+  (void)wrapper_sp; // unused
   return handle_syscall_real(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, false);
 }
 
@@ -646,20 +672,20 @@ void handle_args(int *argc, char **argv[]) {
 }
 
 void_void_fn vdso_callback_imp(long sc_no, void_void_fn actual_fn) {
-  (void)actual_fn;  // unused
+  (void)actual_fn; // unused
   switch (sc_no) {
-    case SYS_clock_gettime:
-      return (void_void_fn)handle_syscall_clock_gettime;
-    case SYS_getcpu:
-      return (void_void_fn)handle_syscall_getcpu;
-    case SYS_gettimeofday:
-      return (void_void_fn)handle_syscall_gettimeofday;
+  case SYS_clock_gettime:
+    return (void_void_fn)handle_syscall_clock_gettime;
+  case SYS_getcpu:
+    return (void_void_fn)handle_syscall_getcpu;
+  case SYS_gettimeofday:
+    return (void_void_fn)handle_syscall_gettimeofday;
 #ifdef __x86_64__
-    case SYS_time:
-      return (void_void_fn)handle_syscall_time;
+  case SYS_time:
+    return (void_void_fn)handle_syscall_time;
 #endif // __x86_64__
-    default:
-      return (void_void_fn)NULL;
+  default:
+    return (void_void_fn)NULL;
   }
 }
 
@@ -667,7 +693,7 @@ void_void_fn vdso_callback_imp(long sc_no, void_void_fn actual_fn) {
 long handle_rdtsc() {
   long high, low;
 
-  asm volatile ("rdtsc;" :"=a"(low), "=d"(high) : : );
+  asm volatile("rdtsc;" : "=a"(low), "=d"(high) : :);
 
   long ret = high;
   ret <<= 32;
@@ -678,7 +704,7 @@ long handle_rdtsc() {
 #endif
 
 void_void_fn vdso_callback_none_imp(long sc_no, void_void_fn actual_fn) {
-  (void)sc_no;  // unused
+  (void)sc_no; // unused
   return actual_fn;
 }
 
@@ -705,14 +731,14 @@ void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
 
   // Deal with vDSO calls
   switch (vdso_arg_flag) {
-    case VDSO_SYSCALL:
-      *vdso_callback = NULL;
-      break;
-    case VDSO_SPECIAL:
-      *vdso_callback = vdso_callback_imp;
-      break;
-    case VDSO_STRACE:
-      *vdso_callback = vdso_callback_none_imp;
-      break;
+  case VDSO_SYSCALL:
+    *vdso_callback = NULL;
+    break;
+  case VDSO_SPECIAL:
+    *vdso_callback = vdso_callback_imp;
+    break;
+  case VDSO_STRACE:
+    *vdso_callback = vdso_callback_none_imp;
+    break;
   }
 }
