@@ -14,7 +14,9 @@
 #include "sbr_api_defs.h"
 #include "sysent.h"
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <errno.h>
 #include <execinfo.h>
 #include <getopt.h>

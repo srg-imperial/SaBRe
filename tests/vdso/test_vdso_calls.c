@@ -15,7 +15,9 @@
  * RUN: [ $(grep "getcpu" %t1.actual | wc -l) -eq 2 ]
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <assert.h>
 #include <sched.h>
 #include <stdio.h>

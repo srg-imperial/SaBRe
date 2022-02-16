@@ -8,7 +8,9 @@
 #ifndef SC_FUZZER_SYSENT_H
 #define SC_FUZZER_SYSENT_H
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <errno.h>
 #undef _GNU_SOURCE
 

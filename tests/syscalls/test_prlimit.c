@@ -8,7 +8,9 @@
 // RUN: %{cc} %s -o %t1
 // RUN: %{sbr} %t1 2>&1
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <stddef.h>
 #include <sys/resource.h>
 #include <sys/time.h>
