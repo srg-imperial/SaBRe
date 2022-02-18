@@ -183,14 +183,15 @@ ElfW(Addr) elfld_load_elf(int fd, ElfW(Ehdr) const *ehdr, size_t pagesize,
    */
   uintptr_t mapping;
   uintptr_t hint = round_down(first_load->p_vaddr, pagesize);
-  mapping = (uintptr_t)mmap((void *)hint,
-                            span, prot_from_phdr(first_load), MAP_PRIVATE, fd,
+  mapping = (uintptr_t)mmap((void *)hint, span, prot_from_phdr(first_load),
+                            MAP_PRIVATE, fd,
                             round_down(first_load->p_offset, pagesize));
 
-  if (hint != 0 && mapping != hint)  {
-    _nx_fatal_printf("Failed to load client on the expected memory area. This "
-    "might be that SaBRe was not compiled with PIE and reserves the memory "
-    "area of the client.\n");
+  if (hint != 0 && mapping != hint) {
+    _nx_fatal_printf(
+        "Failed to load client on the expected memory area. This "
+        "might be that SaBRe was not compiled with PIE and reserves the memory "
+        "area of the client.\n");
   }
 
   if ((void *)mapping == MAP_FAILED) {
@@ -202,7 +203,8 @@ ElfW(Addr) elfld_load_elf(int fd, ElfW(Ehdr) const *ehdr, size_t pagesize,
   if (first_load->p_offset > ehdr->e_phoff ||
       first_load->p_filesz <
           ehdr->e_phoff + (ehdr->e_phnum * sizeof(ElfW(Phdr)))) {
-    _nx_fatal_printf("First load segment of ELF file does not contain phdrs!\n");
+    _nx_fatal_printf(
+        "First load segment of ELF file does not contain phdrs!\n");
   }
 
   handle_bss(first_load, load_bias, pagesize);
