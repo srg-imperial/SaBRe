@@ -94,31 +94,8 @@ handle_syscall:
   movq %rdi, %rsi    # arg1
   movq %rax, %rdi    # sc_no
 
-  # Call the actual handler
-  # cmp $0, %rax
-  # je readwrite
-  # cmp $1, %rax
-  # je readwrite
-  # cmp $2, %rax
-  # je backk
-  # cmp $3, %rax
-  # je backk
-  # cmp $5, %rax
-  # je backk
-  # cmp $8, %rax
-  # je backk
-  # cmp $87, %rax
-  # je backk
-  # cmp $257, %rax
-  # je backk
-
   call *runtime_syscall_router@GOTPCREL(%rip)
-  # jmp backk
 
-# readwrite:
-  # movq %rcx, %rax
-
-# backk:
   # Pop arguments
   popq %r9
   popq %r15    # skip wrapper_sp
