@@ -44,7 +44,8 @@ void exit_plugin() { from_plugin = false; }
 // Until them, we used a guard that will change value after glibc is
 // initialized.
 
-static _Thread_local bool vdso_ready = false;
+static _Thread_local bool vdso_ready
+    __attribute__((tls_model("initial-exec"))) = false;
 
 void vdso_are_ready() __attribute__((constructor));
 void vdso_are_ready() { vdso_ready = true; }
