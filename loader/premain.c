@@ -23,13 +23,27 @@
 #include "maps.h"
 #include "premain.h"
 
-// TODO(andronat): This is currently a hack. We intercept the loader in order to
-// edit the internal representation of its link-map. More specifically we edit
+// From: https://code.woboq.org/userspace/glibc/elf/dl-init.c.html#_dl_init
+typedef void (*_dl_init_fn)(struct ld_link_map *, int, char **, char **);
+static _dl_init_fn real_dl_init;
+// From: https://code.woboq.org/userspace/glibc/elf/dl-deps.c.html#_dl_map_object_deps
+typedef void (*_dl_map_object_deps_fn)(struct ld_link_map *,
+                                       struct ld_link_map **, unsigned int, int,
+                                       int);
+static _dl_map_object_deps_fn real_dl_map_object_deps;
+// From: https://code.woboq.org/userspace/glibc/elf/dl-load.c.html#_dl_map_object
+typedef void *(*_dl_map_object_fn)(struct link_map *, const char *, int, int,
+                                   int, Lmid_t, void *);
+static _dl_map_object_fn real_dl_map_object;
+typedef int (*clock_gettime_fn)(clockid_t, struct timespec *);
+static clock_gettime_fn real_clock_gettime;
+
+// This is currently a huge and unstable hack. We intercept the loader in order
+// to edit the internal representation of its link-map. More specifically we edit
 // the preinit_array loaded from the client's elf file, by prepending our shim
 // in this array. The advantage of function calls made by the .preinit_array is
 // that we can safely use arbitrary function calls to client libraries as GOT
 // and all that jazz is ready.
-
 // TODO(andronat): Write a tests that check client always gets client argv.
 static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
   unreferenced_var(argc);
@@ -104,14 +118,17 @@ static void preinit_shim_init_sbr_plugin(int argc, char **argv, char **env) {
 
 static ElfW(Dyn) new_dyn_entries[2] = {{.d_tag = DT_PREINIT_ARRAY},
                                        {.d_tag = DT_PREINIT_ARRAYSZ}};
-
-typedef void (*_dl_init_fn)(struct ld_link_map *, int, char **, char **);
-static _dl_init_fn real_dl_init;
 static bool sbr_preinit_done = false;
 
-// TODO: The following mechanism is very fragile. This should be ideally
-// replaced by elfutils altering the elf headers and injecting the
-// .preinit_array section.
+// Shared objects are not allowed to register preinit_array:
+// https://github.com/bminor/binutils-gdb/blob/20ea3acc727f3be6322dfbd881e506873535231d/bfd/elflink.c#L7302
+// So we have to intercept the loader and inject our initialization functions.
+// The following mechanism of course is very fragile. If the loader changes,
+// or if the internals of the loader change, then the following won't work.
+// You might be tempted to replace the following with some elf rewriting library.
+// Our experience has shown that this didn't work well because (e.g. patchelf)
+// is changing the elf layout so significantly (e.g. moves LOAD segments around)
+// that those changes create issues with loading debug symbols.
 void sbr_dl_init(struct ld_link_map *main_map, int ac, char **av, char **e) {
   if (sbr_preinit_done)
     return real_dl_init(main_map, ac, av, e);
@@ -188,13 +205,82 @@ void sbr_dl_init(struct ld_link_map *main_map, int ac, char **av, char **e) {
   return real_dl_init(main_map, ac, av, e);
 }
 
-static void_void_fn premain_icept_callback(void_void_fn r_dl_init) {
-  real_dl_init = (_dl_init_fn)r_dl_init;
-  return (void_void_fn)sbr_dl_init;
+static bool ready_to_inject_plugin = false;
+static int plugin_position = 0;
+
+// Instead of hacking link-maps and replacing elf symbols in the l_ld, we could
+// make sabre to call itself with LD_PRELOAD and execve. Though this method
+// can be just portable and safe, the "problem" is that we change the order of
+// library loading which again create issues with dynamically loaded ASan. We
+// are already bounded to intercept the internals of the loader due to the
+// preinit_array restriction, thus intercepting the loader again to inject our
+// plugin as a DT_NEEDED, makes no difference to the already non-portability.
+void sbr_dl_map_object_deps(struct ld_link_map *map,
+                            struct ld_link_map **preloads,
+                            unsigned int npreloads, int trace_mode,
+                            int open_mode) {
+  int first_dt_needed = 0;
+  for (; map->l_ld[first_dt_needed].d_tag != DT_NEEDED &&
+         map->l_ld[first_dt_needed].d_tag != DT_NULL;
+       first_dt_needed++)
+    ;
+  int last_dt_needed = first_dt_needed;
+  for (; map->l_ld[last_dt_needed].d_tag == DT_NEEDED &&
+         map->l_ld[first_dt_needed].d_tag != DT_NULL;
+       last_dt_needed++)
+    ;
+  int l_ld_len = last_dt_needed;
+  for (; map->l_ld[l_ld_len].d_tag != DT_NULL; l_ld_len++)
+    ;
+
+  ElfW(Dyn) *new_l_ld = malloc((l_ld_len + 2) * sizeof(ElfW(Dyn)));
+
+  // We add the plugin library last, so we can avoid cases where ASan is loaded
+  // dynamically. ASan expects to be loaded first, or it fails. We might want to
+  // have it as a configurable strategy in the future, as the earlier the plugin
+  // is, the more weak symbols it can intercept.
+
+  // Copy up to the last DT_NEEDED.
+  memcpy(new_l_ld, map->l_ld, last_dt_needed * sizeof(ElfW(Dyn)));
+
+  // Leave 1 empty spot right after all DT_NEEDED and repeat the last entry.
+  new_l_ld[last_dt_needed] = map->l_ld[last_dt_needed - 1];
+  plugin_position = last_dt_needed - first_dt_needed;
+
+  assert(new_l_ld[last_dt_needed].d_tag == DT_NEEDED &&
+         "This binary has no DT_NEEDED.");
+
+  // Copy everything left to the end.
+  memcpy(&new_l_ld[last_dt_needed + 1], &map->l_ld[last_dt_needed],
+         (l_ld_len - last_dt_needed + 1) * sizeof(ElfW(Dyn)));
+
+  map->l_ld = new_l_ld;
+
+  ready_to_inject_plugin = true;
+
+  real_dl_map_object_deps(map, preloads, npreloads, trace_mode, open_mode);
 }
 
-typedef int (*clock_gettime_fn)(clockid_t, struct timespec *);
-static clock_gettime_fn real_clock_gettime;
+void *sbr_dl_map_object(struct link_map *loader, const char *name, int type,
+                        int trace_mode, int mode, Lmid_t nsid,
+                        void *BROKEN_ARG_DONT_USE) {
+  (void)BROKEN_ARG_DONT_USE; // unused
+
+  // TODO: There is a bug on passing more than 6 args in function detours.
+  void *arg7;
+  asm volatile("mov 0x20(%%rbp), %0;" : "=r"(arg7));
+
+  static int counter = 0;
+  if (ready_to_inject_plugin) {
+    if (counter == plugin_position) {
+      name = abs_plugin_path;
+      ready_to_inject_plugin = false;
+    }
+    counter++;
+  }
+
+  return real_dl_map_object(loader, name, type, trace_mode, mode, nsid, arg7);
+}
 
 int sabre_clock_gettime(clockid_t clockid, struct timespec *tp) {
   if (is_vdso_ready())
@@ -202,6 +288,18 @@ int sabre_clock_gettime(clockid_t clockid, struct timespec *tp) {
   return syscall(SYS_clock_gettime, clockid, tp);
 }
 
+static void_void_fn premain_icept_callback(void_void_fn r_dl_init) {
+  real_dl_init = (_dl_init_fn)r_dl_init;
+  return (void_void_fn)sbr_dl_init;
+}
+static void_void_fn elf_deps_icept_callback(void_void_fn r_dl_map_object_deps) {
+  real_dl_map_object_deps = (_dl_map_object_deps_fn)r_dl_map_object_deps;
+  return (void_void_fn)sbr_dl_map_object_deps;
+}
+static void_void_fn elf_deps_2_icept_callback(void_void_fn r_dl_map_object) {
+  real_dl_map_object = (_dl_map_object_fn)r_dl_map_object;
+  return (void_void_fn)sbr_dl_map_object;
+}
 static void_void_fn vdso_guard_icept_callback(void_void_fn r_clock_gettime) {
   real_clock_gettime = (clock_gettime_fn)r_clock_gettime;
   return (void_void_fn)sabre_clock_gettime;
@@ -212,6 +310,15 @@ void setup_sbr_premain(sbr_icept_reg_fn fn_icept_reg) {
                                  .fn_name = "_dl_init",
                                  .icept_callback = premain_icept_callback};
   fn_icept_reg(&premain);
+  sbr_fn_icept_struct elf_deps = {.lib_name = "ld",
+                                  .fn_name = "_dl_map_object_deps",
+                                  .icept_callback = elf_deps_icept_callback};
+  fn_icept_reg(&elf_deps);
+  sbr_fn_icept_struct elf_deps_2 = {.lib_name = "ld",
+                                    .fn_name = "_dl_map_object",
+                                    .icept_callback =
+                                        elf_deps_2_icept_callback};
+  fn_icept_reg(&elf_deps_2);
   sbr_fn_icept_struct vdso_guard = {.lib_name = "libc",
                                     .fn_name = "__clock_gettime",
                                     .icept_callback =
