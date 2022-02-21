@@ -19,6 +19,9 @@
  * RUN: grep "Location is global 'Global' of size" %t2.actual
  */
 
+// Currently this fails because TSan can't properly resolve symbols due to
+// SaBRe.
+
 #include <pthread.h>
 
 int Global;
