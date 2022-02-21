@@ -6,12 +6,15 @@
  */
 
 /*
+ * XFAIL: *
  * RUN: %{cc} -nostdlib -nostartfiles %s -o %t1
  * RUN: %{sbr} %t1
  */
 
 /* The purpose of this test is to ensure that when Varan encounters a non-relocatable instruction
    it inserts an illegal instruction that will trigger a SIGILL */
+
+/* SaBRe 2.0 with dl interception doesn't support dynamic binaries with not DT_NEEDED yet. */
 
 .global _start
 _start:

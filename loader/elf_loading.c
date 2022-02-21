@@ -140,10 +140,6 @@ int elfld_getehdr(int fd, ElfW(Ehdr) * ehdr) {
   return 0;
 }
 
-// Keep in mind that we are loading a new elf after patchelf. That means that
-// the PT_LOAD segments might not be the same with the original ones. For
-// example, if we try to load the .text segment in gdb, the PT_LOAD segment
-// might be different between the original elf file and the one after patchelf.
 ElfW(Addr) elfld_load_elf(int fd, ElfW(Ehdr) const *ehdr, size_t pagesize,
                           ElfW(Addr) * out_phdr, ElfW(Addr) * out_phnum,
                           const char **out_interp) {

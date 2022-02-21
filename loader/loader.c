@@ -29,7 +29,6 @@
 #include "global_vars.h"
 #include "ld_sc_handler.h"
 #include "macros.h"
-#include "patchelf.h"
 #include "plugins/sbr_api_defs.h"
 #include "premain.h"
 #ifdef __NX_INTERCEPT_RDTSC
@@ -69,7 +68,8 @@ void register_function_intercepts(const sbr_fn_icept_struct *r_struct) {
 
   ++registered_icept_cnt;
 }
-void *find_auxv(void *argv) {
+
+static void *find_auxv(void *argv) {
   char **search_ptr;
 
   for (search_ptr = (char **)argv; *search_ptr; ++search_ptr)
@@ -221,52 +221,12 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
     }
   }
 
-  // Load the plugin
-  // void *plugin_handle = dlopen(argv[1], RTLD_NOW);
-  // if (!plugin_handle)
-  //   _nx_fatal_printf("Unable to open plugin: %s\n", dlerror());
-
-  // dlerror();    /* Clear any existing error */
-
-  // sbr_init_fn plugin_init = dlsym(plugin_handle, "sbr_init");
-  // if (!plugin_init) {
-  //   char *error = dlerror();
-  //   if (error)
-  //     _nx_fatal_printf("%s\n", error);
-  //   else
-  //     dprintf(2, "WARNING: plugin_init seems to be NULL. It is required by
-  //     the API.\n");
-  // }
-
   char *rv = realpath(argv[0], abs_sabre_path);
   assert(rv != NULL);
 
   // Drop irrelevant args before passing them to the init
   --argc;
   ++argv;
-
-  //   char ** const argv_plugin = argv;
-  //   sbr_post_load_fn post_load = NULL;
-  //   plugin_init(&argc,
-  //               &argv,
-  //               &register_function_intercepts,
-  //               &vdso_callback,
-  //               &plugin_sc_handler,
-  // #ifdef __NX_INTERCEPT_RDTSC
-  //               &plugin_rdtsc_handler,
-  // #endif
-  //               &post_load);
-
-  //   if (argv == argv_plugin)
-  //     _nx_fatal_printf("argv[0] must point to the client ELF path.\n");
-
-  //   if (!plugin_sc_handler)
-  //     _nx_fatal_printf("No syscall handler provided by plugin.\n");
-
-  // #ifdef __NX_INTERCEPT_RDTSC
-  //   if (!plugin_rdtsc_handler)
-  //     _nx_fatal_printf("No RDTSC handler provided by plugin.\n");
-  // #endif
 
   // Get the absolute path of the plugin so we can add it as DT_NEEDED
   // dependency in the client's elf file.
@@ -279,16 +239,6 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
   // Find client's path. It should be right after `--`.
   size_t client_path_idx = find_client_path_idx(argv);
   const char *client_path = argv[client_path_idx];
-
-  // Store the full path so we can use it later.
-  // TODO: Handle errors better here. We may also not want to resolve symlinks.
-  rv = realpath(client_path, abs_client_path);
-  assert(rv != NULL);
-
-  // Rewrite the client binary in memory.
-  int elf_fd = memfd_create(client_path, 0);
-
-  inject_needed_lib(client_path, abs_plugin_path, elf_fd, false);
 
   setup_sbr_premain(&register_function_intercepts);
 
@@ -304,6 +254,13 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
 
   // Mask out loader and plugin
   binrw_rd_init_maps();
+
+  // Store the full path so we can use it later.
+  // TODO: Handle errors better here. We may also not want to resolve symlinks.
+  rv = realpath(client_path, abs_client_path);
+  assert(rv != NULL);
+
+  int elf_fd = open(client_path, O_RDONLY, 0);
 
   ElfW(Ehdr) ehdr;
   if (elfld_getehdr(elf_fd, &ehdr) != 0)
@@ -345,9 +302,6 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
                           "libpthread", "libresolv", NULL};
     memorymaps_rewrite_all(libs, client_path, false);
   }
-
-  // if (post_load != NULL)
-  //   post_load(interp);
 
   // Set up SIGILL handler for dealing with RDTSC instructions and system calls
   // that have been rewritten to use UD
