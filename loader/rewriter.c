@@ -540,6 +540,7 @@ static void patch_syscalls(struct library *lib, bool loader) {
 // over various other places to find the symbols.
 static GElf_Sym find_ld_symbol(const char *ld_path, const char *fn_name) {
   GElf_Sym gsym;
+  // TODO: Can we somehow read this from the elf itself?
   const char *ld_symbols_paths[] = {
       ld_path, "/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.27.so", NULL};
 
