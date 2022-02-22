@@ -455,18 +455,20 @@ static const char *strip_pathname(const char *pathname) {
   return real;
 }
 
+bool starts_with(const char *a, const char *b) {
+  if (strncmp(a, b, strlen(b)) == 0)
+    return true;
+  return false;
+}
+
+// TODO: This needs refactoring to use only SONAMEs.
 // Returns true if real library filename corresponds to bare library name
 static bool lib_name_match(const char *bare, const char *pathname) {
   const char *real = strip_pathname(pathname);
 
-  const char *name;
-  if ((name = strstr(real, bare))) {
-    char ch = name[strlen(bare)];
-    if (ch < 'A' || (ch > 'Z' && ch < 'a') || ch > 'z') {
-      return true;
-    }
+  if (starts_with(real, bare)) {
+    return true;
   }
-
   return false;
 }
 
