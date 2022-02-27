@@ -1,4 +1,4 @@
-SaBRe 1.0
+SaBRe 2.0
 
 Copyright © 2019 Software Reliability Group (see AUTHORS file)
 
@@ -11,8 +11,6 @@ SaBRe is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See LICENSE.GPL-3 for more details.
-
-
 
 The following files were adapted from Google's Native Client
 and originally distributed under the 3-clause BSD license (see LICENSE.BSD-3):
@@ -30,7 +28,6 @@ and originally distributed under the 3-clause BSD license (see LICENSE.BSD-3):
 The following files are taken from the Linux kernel
 and distributed under GNU General Public License version 2.0 (see LICENSE.GPL-2):
 	includes/
-		bitops.h
 		hash.h
 		hlist.h
 		jhash.h
@@ -38,8 +35,3 @@ and distributed under GNU General Public License version 2.0 (see LICENSE.GPL-2)
 		list.h
 		rbtree_augmented.h
 		rbtree.h
-
-
-libsrc/malloc/malloc.c is
-Copyright (c) 2012, 2013 ARM Ltd. All rights reserved.
-See in-file license notice for details.
