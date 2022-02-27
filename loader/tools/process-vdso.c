@@ -5,7 +5,9 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 
 #include <assert.h>
 #include <elf.h>

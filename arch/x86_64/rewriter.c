@@ -6,10 +6,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later AND BSD-3-Clause
  */
 
-#include "config.h"
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 
-#include "loader/global_vars.h"
 #include "loader/rewriter.h"
+#include "loader/global_vars.h"
 
 #include "handle_rdtsc.h"
 #include "handle_syscall.h"

@@ -5,10 +5,8 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "config.h"
-
-#include "loader/global_vars.h"
 #include "loader/rewriter.h"
+#include "loader/global_vars.h"
 
 #include "handle_rdtsc.h"
 #include "handle_syscall.h"

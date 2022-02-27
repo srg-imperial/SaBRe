@@ -16,6 +16,7 @@
 #include <asm/prctl.h>
 #endif
 #include <errno.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 

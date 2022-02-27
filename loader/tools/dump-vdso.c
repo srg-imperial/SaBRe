@@ -5,6 +5,10 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #include <arch/rewriter_tools.h>
 #include <elf.h>
 #include <errno.h>
@@ -16,7 +20,6 @@
 #include <sys/wait.h>
 
 #include "compiler.h"
-#include "config.h"
 #include "kernel.h"
 #include "loader/maps.h"
 
