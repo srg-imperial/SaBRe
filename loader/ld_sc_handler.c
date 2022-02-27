@@ -21,6 +21,7 @@
 
 #include "compiler.h"
 #include "global_vars.h"
+#include "ld_sc_handler.h"
 #include "macros.h"
 #include "plugins/real_syscall.h"
 
@@ -243,6 +244,11 @@ long arch_set_fs_handler(unsigned long addr) {
 long ld_sc_handler(long sc_no, long arg1, long arg2, long arg3, long arg4,
                    long arg5, long arg6, void *wrapper_sp) {
   unreferenced_var(wrapper_sp);
+
+  if (calling_from_plugin != NULL) {
+    return runtime_syscall_router(sc_no, arg1, arg2, arg3, arg4, arg5, arg6,
+                                  wrapper_sp);
+  }
 
 #ifdef __x86_64__
   if (loader_tls_addr != 0) {
@@ -537,13 +543,6 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
   }
 
   long rc = 0;
-
-  // TODO: I think the following crashes because malloc goes through SBR's libc
-  // rather than the client libc. How can I prove this?
-  // load_sabre_tls();
-  // dprintf(1, "test %ld\n", sc_no);
-  // load_client_tls();
-
   enter_plugin();
   // ARCH_SET_FS needs special handling because it switches TLS.
   // TODO(andronat): I think we don't need this in runtime as the plugin runs
@@ -555,6 +554,5 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
                            wrapper_sp);
   }
   exit_plugin();
-
   return rc;
 }
