@@ -3,8 +3,7 @@
 #ifndef KERNEL_H_
 #define KERNEL_H_
 
-#include "bitops.h"
-#include <compiler.h>
+#include "compiler.h"
 
 #include <limits.h>
 #include <stdarg.h>

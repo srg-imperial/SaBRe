@@ -6,7 +6,9 @@
  * SPDX-License-Identifier: GPL-3.0-or-later AND BSD-3-Clause
  */
 
-#include "config.h"
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 
 #include "rewriter.h"
 
@@ -20,6 +22,7 @@
 #include <asm/unistd.h>
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>

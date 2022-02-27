@@ -5,6 +5,8 @@
 
 #include "kernel.h"
 
+#include <stdbool.h>
+
 /** Red Black tree node */
 struct rb_node {
   unsigned long __rb_parent_color;
