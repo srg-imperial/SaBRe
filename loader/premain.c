@@ -251,18 +251,29 @@ void sbr_dl_map_object_deps(struct ld_link_map *map,
   new_l_ld[last_dt_needed] = map->l_ld[last_dt_needed - 1];
   plugin_position = last_dt_needed - first_dt_needed;
 
-  assert(new_l_ld[last_dt_needed].d_tag == DT_NEEDED &&
-         "This binary has no DT_NEEDED.");
+  // If it is a dynamic binary but there are no dependencies, let's create one
+  // for ourselves.
+  if (new_l_ld[last_dt_needed].d_tag != DT_NEEDED) {
+    new_l_ld[last_dt_needed].d_tag = DT_NEEDED;
+    new_l_ld[last_dt_needed].d_un.d_val = 0;
+    new_l_ld[last_dt_needed].d_un.d_ptr = 0;
+    map->l_info[DT_NEEDED] = &new_l_ld[last_dt_needed];
+  }
 
   // Copy everything left to the end.
   memcpy(&new_l_ld[last_dt_needed + 1], &map->l_ld[last_dt_needed],
          (l_ld_len - last_dt_needed + 1) * sizeof(ElfW(Dyn)));
 
+  ElfW(Dyn) *old_l_ld = map->l_ld;
   map->l_ld = new_l_ld;
 
   ready_to_inject_plugin = true;
 
   real_dl_map_object_deps(map, preloads, npreloads, trace_mode, open_mode);
+
+  // Let's put everything back before we break something important.
+  map->l_info[DT_NEEDED] = NULL;
+  map->l_ld = old_l_ld;
 }
 
 void *sbr_dl_map_object(struct link_map *loader, const char *name, int type,
