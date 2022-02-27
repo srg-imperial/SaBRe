@@ -219,6 +219,10 @@ void sbr_dl_map_object_deps(struct ld_link_map *map,
                             struct ld_link_map **preloads,
                             unsigned int npreloads, int trace_mode,
                             int open_mode) {
+  if (sbr_preinit_done)
+    return real_dl_map_object_deps(map, preloads, npreloads, trace_mode,
+                                   open_mode);
+
   int first_dt_needed = 0;
   for (; map->l_ld[first_dt_needed].d_tag != DT_NEEDED &&
          map->l_ld[first_dt_needed].d_tag != DT_NULL;
@@ -269,6 +273,9 @@ void *sbr_dl_map_object(struct link_map *loader, const char *name, int type,
   // TODO: There is a bug on passing more than 6 args in function detours.
   void *arg7;
   asm volatile("mov 0x20(%%rbp), %0;" : "=r"(arg7));
+
+  if (sbr_preinit_done)
+    real_dl_map_object(loader, name, type, trace_mode, mode, nsid, arg7);
 
   static int counter = 0;
   if (ready_to_inject_plugin) {
