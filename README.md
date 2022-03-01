@@ -11,7 +11,7 @@ We provide three plugins:
 * *sbr-trace*: a fast system-call tracer that mimics the original `strace` output
 * *sbr-scfuzzer*: a parametric fault injector to fuzz system calls
 
-SaBRe has two different system architectures. SaBRe 1.0 currently lives under [branch sabre_1.0](https://github.com/srg-imperial/SaBRe/tree/sabre_1.0) of this repo, while SaBRe 2.0 is the current main branch. For the differences between the two systems, look at section [SaBRe 1.0 vs 2.0](#SaBRe_1.0_vs_2.0). To learn more about the implementation details read our papers in [SaBRe research and papers](SaBRe_research_and_papers).
+SaBRe has two different system architectures. SaBRe 1.0 currently lives under [branch sabre_1.0](https://github.com/srg-imperial/SaBRe/tree/sabre_1.0) of this repo, while SaBRe 2.0 is the current main branch. For the differences between the two systems, look at section [SaBRe 1.0 vs 2.0](#sabre-10-vs-20). To learn more about the implementation details read our papers in [SaBRe research and papers](#sabre-research-and-papers).
 
 ## Building SaBRe
 
