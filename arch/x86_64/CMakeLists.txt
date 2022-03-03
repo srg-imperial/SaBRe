@@ -15,7 +15,7 @@ endif(RDTSC)
 
 sabre_add_component(backend ${SRCS})
 
-sabre_add_component(realsyscall clone_syscall.s real_syscall.s)
+sabre_add_component(realsyscall clone_syscall.s clone3_syscall.s real_syscall.s)
 
 sabre_add_executable(sabre main.s)
 set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY
