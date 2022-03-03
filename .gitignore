@@ -3,6 +3,7 @@
 
 # Anything pertaining to building the project
 build/
+builds/
 .vscode/
 
 # Object files
@@ -54,4 +55,3 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-

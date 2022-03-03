@@ -4,31 +4,39 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required(VERSION 3.10)
 
-set(CMAKE_USER_MAKE_RULES_OVERRIDE_C "${CMAKE_CURRENT_SOURCE_DIR}/cmake/c_flags_override.cmake")
+set(CMAKE_USER_MAKE_RULES_OVERRIDE_C
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/c_flags_override.cmake")
 
-project (SaBRe C ASM CXX)
+project(SaBRe C ASM CXX)
 
 find_program(GCC_PATH gcc)
 
 set(SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes")
 set(SABRE_COMPONENT_C_DEFINES "")
-set(SABRE_COMPONENT_C_FLAGS "-std=gnu99" "-Wall" "-Wextra" "-Werror" "-fPIE" "-fstack-protector" "-fno-common")
+set(SABRE_COMPONENT_C_FLAGS
+    "-std=gnu99"
+    "-Wall"
+    "-Wextra"
+    "-Werror"
+    "-fPIE"
+    "-fstack-protector"
+    "-fno-common")
 set(SABRE_EXE_LINK_FLAGS "-pie" "-rdynamic")
 set(SABRE_PLUGIN_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/plugins")
 set(SABRE_PLUGIN_C_DEFINES "")
 set(SABRE_PLUGIN_C_FLAGS "-std=gnu99")
 
 option(DEBUG_INTERNAL "Print debug messages" OFF)
-if (DEBUG_INTERNAL)
+if(DEBUG_INTERNAL)
   list(APPEND SABRE_COMPONENT_C_DEFINES "-DSBR_DEBUG")
   list(APPEND SABRE_PLUGIN_C_DEFINES "-DSBR_DEBUG")
-endif ()
+endif()
 
-if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
   option(RDTSC "Intercept instruction RDTSC as a system call" ON)
-  if (RDTSC)
+  if(RDTSC)
     list(APPEND SABRE_COMPONENT_C_DEFINES "-D__NX_INTERCEPT_RDTSC")
     list(APPEND SABRE_PLUGIN_C_DEFINES "-D__NX_INTERCEPT_RDTSC")
   endif()

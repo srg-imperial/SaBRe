@@ -6,24 +6,17 @@
 
 list(APPEND SABRE_COMPONENT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/includes/arch")
 
-set(SRCS
-  handle_syscall.S
-  handle_syscall_loader.s
-  handle_vdso.s
-  rewriter.c
-  syscall_stackframe.c
-  x86_decoder.c
-)
+set(SRCS handle_syscall.S handle_syscall_loader.s handle_vdso.s rewriter.c
+         syscall_stackframe.c x86_decoder.c)
 
-if (RDTSC)
+if(RDTSC)
   list(APPEND SRCS handle_rdtsc.s)
 endif(RDTSC)
 
 sabre_add_component(backend ${SRCS})
 
-sabre_add_component(realsyscall
-  clone_syscall.s
-  real_syscall.s)
+sabre_add_component(realsyscall clone_syscall.s real_syscall.s)
 
 sabre_add_executable(sabre main.s)
-set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set_target_properties(sabre PROPERTIES RUNTIME_OUTPUT_DIRECTORY
+                                       ${CMAKE_BINARY_DIR})
