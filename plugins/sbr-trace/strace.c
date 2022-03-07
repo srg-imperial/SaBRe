@@ -12,7 +12,9 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#ifndef __USE_GNU
 #define __USE_GNU
+#endif
 #include <fcntl.h>
 #include <sys/mman.h>
 #undef __USE_GNU
