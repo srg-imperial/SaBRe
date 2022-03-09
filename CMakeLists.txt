@@ -44,6 +44,8 @@ endif()
 
 include("${CMAKE_SOURCE_DIR}/cmake/sabre_add_component.cmake")
 
+set(PROTECTOR ${CMAKE_CURRENT_SOURCE_DIR}/plugin_api/recursion_protector.c)
+
 # Sources
 add_subdirectory("arch/${CMAKE_SYSTEM_PROCESSOR}" arch)
 add_subdirectory("loader")
