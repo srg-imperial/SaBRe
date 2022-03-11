@@ -17,6 +17,7 @@
 #define _GNU_SOURCE
 #endif
 #include <assert.h>
+#include <errno.h>
 #include <linux/sched.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +45,11 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr);
   } else if (sc_no == SYS_execve) {
+    if (access((char *)arg1, F_OK) != 0) {
+      // TODO: Double check this is the correct way to return errors.
+      return -ENOENT;
+    }
+
     char **old_argv = (char **)arg2; // Just make our life easier.
 
     size_t old_argv_size = 0;
