@@ -77,9 +77,31 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
 
     return real_syscall(SYS_execve, (long)sabre_path, (long)n_argv, arg3, arg4,
                         arg5, arg6);
-  } else {
-    return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
+  } else if (sc_no == SYS_readlink) {
+    const char *pathname = (const char *)arg1;
+    char *buf = (char *)arg2;
+    size_t bufsize = (size_t)arg3;
+
+    if (strcmp(pathname, "/proc/self/exe") == 0) {
+      if (buf == NULL) {
+        return -EFAULT;
+      }
+
+      // strncpy doesn't tell us how many bytes it copied, so we have to
+      // calculate that ourselves. Plus, readlink should not append a NUL byte
+      // to the end. Best to use memcpy here to mimic the kernel.
+      size_t len = strlen(client_path);
+      if (len > bufsize) {
+        len = bufsize;
+      }
+
+      memcpy(buf, client_path, len);
+
+      return len;
+    }
   }
+
+  return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 void_void_fn actual_clock_gettime = NULL;
