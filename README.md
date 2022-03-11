@@ -94,6 +94,17 @@ As a full working example, if you want to execute the `ls` command under the `sb
 
 ---
 
+## How to debug in SaBRe
+
+When using GDB with SaBRe you will notice that when the execution has reached the plugin's or the client's code, GDB is not able to show neither symbols nor source code.
+To fix this you will have to load `debug-tools/gdb-symbol-loader.py` in your GDB and then run the registered commands.
+SaBRe offers two helper commands:
+
+* `sbr-src`: Loads some paths for the source code of well known libraries like `libc` under Ubuntu 18.04.
+* `sbr-sym`: If provided with no arguments, it tries to load the symbols of some well know libraries that SaBRe is currently relocating (e.g. `libc`, `pthreads`, etc.). If strings are provided as arguments, we try to match those with the paths of libraries found in the maps of the running application and load their symbols. `sbr-sym` is using `add-symbol-file` under the hood and thus all restrictions and requirements apply.
+
+---
+
 ## SaBRe 1.0 vs 2.0
 
 SaBRe is binary rewriter that loads a user provided plugin into the memory space of a client application. This plugin is called to handle the intercepted system calls or function calls of the client application. The main difference between SaBRe 1.0 and 2.0 is in *which* memory space the plugin lives and operates.
