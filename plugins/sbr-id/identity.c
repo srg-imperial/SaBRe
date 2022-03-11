@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <linux/sched.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
@@ -99,6 +100,16 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
 
       return len;
     }
+  } else if (sc_no == SYS_vfork ||
+             (sc_no == SYS_clone &&
+              (arg1 & (CLONE_VM | CLONE_VFORK | SIGCHLD)) ==
+                  (CLONE_VM | CLONE_VFORK | SIGCHLD))) {
+    long pid = vfork_syscall();
+    if (pid == 0) { // Child
+      return vfork_return_from_child(wrapper_sp);
+    }
+    // Parent
+    return pid;
   }
 
   return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
