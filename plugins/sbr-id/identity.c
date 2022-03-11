@@ -65,6 +65,9 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
     n_argv[0] = sabre_path;
     n_argv[1] = plugin_path;
     n_argv[2] = "--";
+    // Overwrite first argument of old_argv as sometimes this is not a valid
+    // path.
+    n_argv[3] = (char *)arg1;
 
     return real_syscall(SYS_execve, (long)sabre_path, (long)n_argv, arg3, arg4,
                         arg5, arg6);
