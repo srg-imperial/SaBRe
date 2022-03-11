@@ -48,6 +48,7 @@ set(PROTECTOR ${CMAKE_CURRENT_SOURCE_DIR}/plugin_api/recursion_protector.c)
 
 # Sources
 add_subdirectory("arch/${CMAKE_SYSTEM_PROCESSOR}" arch)
+add_subdirectory("plugin_api/arch/${CMAKE_SYSTEM_PROCESSOR}" plugin_api)
 add_subdirectory("loader")
 file(GLOB subdirs CONFIGURE_DEPENDS "plugins/*")
 foreach(subdir ${subdirs})

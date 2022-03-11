@@ -41,4 +41,7 @@ long clone_syscall(unsigned long flags, void *child_stack, int *ptid, int *ctid,
 long clone3_syscall(long arg1, long arg2, long arg3, int not_used, long arg5,
                     void *ret_addr);
 
+long vfork_syscall();
+long vfork_return_from_child(void *wrapper_sp);
+
 #endif /* !REAL_SYSCALL_H */
