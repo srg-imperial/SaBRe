@@ -25,8 +25,9 @@
 #include <time.h>
 #include <unistd.h>
 
-char *sabre_path;
-char *plugin_path;
+static char *sabre_path;
+static char *plugin_path;
+static char *client_path;
 
 long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
                     long arg5, long arg6, void *wrapper_sp) {
@@ -140,12 +141,13 @@ void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
 #ifdef __NX_INTERCEPT_RDTSC
               sbr_rdtsc_handler_fn *rdtsc_handler,
 #endif
-              sbr_post_load_fn *post_load, char *sp, char *pp) {
+              sbr_post_load_fn *post_load, char *sp, char *cp) {
   (void)fn_icept_reg; // unused
   (void)post_load;    // unused
 
   sabre_path = sp;
-  plugin_path = pp;
+  plugin_path = (*argv)[0];
+  client_path = cp;
 
   *syscall_handler = handle_syscall;
   *vdso_callback = handle_vdso;
