@@ -64,13 +64,16 @@ handle_syscall:
   .cfi_def_cfa_register rbp
   .cfi_remember_state
 
-  # Save the registers
+  # Save the registers.
+  # While the kernel clobbers %rcx and %r11, we play safe and we store them.
+  # From: https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/kernel.tex#L35-37
   pushq %rbx
   pushq %rcx
   pushq %rdx
   pushq %rsi
   pushq %rdi
   pushq %r8
+  pushq %r9
   pushq %r10
   pushq %r11
   pushq %r12
@@ -112,6 +115,7 @@ handle_syscall:
   popq %r12
   popq %r11
   popq %r10
+  popq %r9
   popq %r8
   popq %rdi
   popq %rsi

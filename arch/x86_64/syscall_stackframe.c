@@ -17,6 +17,7 @@ struct syscall_stackframe {
   void *r12;
   void *r11;
   void *r10;
+  void *r9;
   void *r8;
   void *rdi;
   void *rsi;
