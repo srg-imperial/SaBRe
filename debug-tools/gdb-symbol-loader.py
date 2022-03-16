@@ -1,36 +1,17 @@
-import os
 import subprocess
 
-# Make a .gdbinit file and add:
+# Make a ~/.gdbinit file and add:
 # source ~/SaBRe/debug-tools/gdb-symbol-loader.py
-# Invoke from GDB as: sbr-sym
+# Invoke from GDB as: sbr-sym and sbr-src
+
+# For adding debugging source files for Ubuntu 18.04 you can add the following
+# in your ~/.gdbinit:
+# dir /usr/src/glibc/glibc-2.27/nptl
+# dir /usr/src/glibc/glibc-2.27/elf
+# dir /usr/src/glibc/glibc-2.27/libio
+# dir /usr/src/gcc-7/src/libsanitizer/include/sanitizer
 
 # Useful gdb commands: info file, remove-symbol-file
-
-
-class CommonSourcePaths(gdb.Command):
-    def __init__(self):
-        super(CommonSourcePaths, self).__init__("sbr-src", gdb.COMMAND_USER)
-        self.dont_repeat()
-
-    def invoke(self, args, from_tty):
-        srcs = [
-            "/usr/src/glibc/glibc-2.27/nptl",
-            "/usr/src/glibc/glibc-2.27/elf",
-            "/usr/src/glibc/glibc-2.27/libio",
-            "/usr/src/gcc-7/src/libsanitizer/include/sanitizer",
-        ]
-
-        for src in srcs:
-            if os.path.isdir(src):
-                cmd = f"dir {src}"
-                print(cmd)
-                gdb.execute(cmd, from_tty)
-            else:
-                print(f"Can't find source dir: {src}")
-
-
-CommonSourcePaths()
 
 
 class AddSaBReSymbols(gdb.Command):
