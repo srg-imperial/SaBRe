@@ -16,6 +16,6 @@ sabre_add_component(
   premain.c
   rewriter.c)
 
-target_link_libraries(loader ${CMAKE_DL_LIBS} realsyscall backend elf)
+target_link_libraries(loader ${CMAKE_DL_LIBS} backend elf plugin_api)
 
 add_subdirectory(tools)
