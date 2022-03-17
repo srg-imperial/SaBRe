@@ -4,4 +4,5 @@
 #
 # SPDX-License-Identifier: MIT
 
-sabre_add_component(plugin_api vfork_syscall.s vfork_return_from_child.s)
+sabre_add_component(plugin_api vfork_syscall.s vfork_return_from_child.s
+                               clone3_syscall.s clone_syscall.s real_syscall.s)
