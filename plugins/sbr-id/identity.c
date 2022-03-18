@@ -37,12 +37,8 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone_syscall(arg1, (void *)arg2, (void *)arg3, (void *)arg4, arg5,
                          ret_addr);
-  } else if (sc_no == SYS_clone3) { // clone3
-    struct clone_args *cl_args = (struct clone_args *)arg1;
-    if (cl_args->stack == 0) {
-      return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
-    }
-
+  } else if (sc_no == SYS_clone3 &&
+             ((struct clone_args *)arg1)->stack != 0) { // clone3
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr);
   } else if (sc_no == SYS_execve) {
