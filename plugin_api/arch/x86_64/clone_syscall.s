@@ -10,18 +10,17 @@
   .globl clone_syscall
   .type clone_syscall, @function
 
-# long clone (unsigned long flags,
-#             void *child_stack,	# %rsi
-#             int *ptid, int *ctid,
-#             unsigned long newtls,
-#             void* ret_addr			# %r9
-#             );
+# long clone (unsigned long flags,  # %rdi
+#             void *child_stack,    # %rsi
+#             int *ptid,            # %rdx
+#             int *ctid,            # %rcx
+#             unsigned long newtls, # %r8
+#             void* ret_addr        # %r9
+#            );
+
 clone_syscall:
   pushq %rbp
   movq %rsp, %rbp
-
-  # Set up child arguments, including return address
-  movq %r9, -8(%rsi)
 
   # Adjust the arguments
   movq $56, %rax
@@ -33,9 +32,28 @@ clone_syscall:
   jnz    1f
 
   # Child
-  movq -8(%rsp), %r11
+
+  # TODO: Return to the plugin after a new child and not directly to client.
+
+  pushq %rdi
+  pushq %rsi
+  pushq %rdx
+  pushq %r10 # %rcx
+  pushq %r8
+  pushq %r9
+  call *exit_plugin@GOTPCREL(%rip)
+  popq %r9
+  popq %r8
+  popq %r10 # %rcx
+  popq %rdx
+  popq %rsi
+  popq %rdi
+
+  # The child always returns 0.
+  movq $0, %rax
+
   subq $0x80, %rsp
-  jmp *%r11
+  jmp *%r9
 
 1:
   # Parent

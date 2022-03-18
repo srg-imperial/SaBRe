@@ -18,9 +18,7 @@ vfork_return_from_child:
   movq %rsp, %rbp
 
   pushq %rdi
-
   call *exit_plugin@GOTPCREL(%rip)
-
   popq %rdi
 
   movq 0x8(%rdi), %r15
