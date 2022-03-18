@@ -5,6 +5,10 @@
  *  SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include <assert.h>
+#include <errno.h>
+#include <linux/sched.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +26,10 @@
 #include "real_syscall.h"
 #include "sbr_api_defs.h"
 #include "sysent.h"
+
+static char *sabre_path;
+static char *plugin_path;
+static char *client_path;
 
 enum vdso_flags { VDSO_STRACE, VDSO_SYSCALL, VDSO_SPECIAL };
 
@@ -531,7 +539,7 @@ static char *post_decode_args(char *dst, long sc, const long args[], long rtn) {
 }
 
 long handle_syscall_real(long sc_no, long arg1, long arg2, long arg3, long arg4,
-                         long arg5, long arg6, bool vdso) {
+                         long arg5, long arg6, void *wrapper_sp, bool vdso) {
   long local_args[] = {arg1, arg2, arg3, arg4, arg5, arg6};
 
   long syscall_rtn;
@@ -570,8 +578,60 @@ long handle_syscall_real(long sc_no, long arg1, long arg2, long arg3, long arg4,
       // though, so...
       syscall_rtn = 0;
       outfd_close = true;
-    } else
-      syscall_rtn = real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
+    } else {
+      if (sc_no == SYS_clone && arg2 != 0) { // clone
+        void *ret_addr = get_syscall_return_address(wrapper_sp);
+        syscall_rtn = clone_syscall(arg1, (void *)arg2, (void *)arg3,
+                                    (void *)arg4, arg5, ret_addr);
+      } else if (sc_no == SYS_clone3 &&
+                 ((struct clone_args *)arg1)->stack != 0) { // clone3
+        void *ret_addr = get_syscall_return_address(wrapper_sp);
+        syscall_rtn = clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr);
+      } else if (sc_no == SYS_vfork ||
+                 (sc_no == SYS_clone &&
+                  (arg1 & (CLONE_VM | CLONE_VFORK | SIGCHLD)) ==
+                      (CLONE_VM | CLONE_VFORK | SIGCHLD))) {
+        syscall_rtn = vfork_syscall();
+        if (syscall_rtn == 0) { // Child
+          return vfork_return_from_child(wrapper_sp);
+        }
+      } else if (sc_no == SYS_execve) {
+        if (access((char *)arg1, F_OK) != 0) {
+          // TODO: Double check this is the correct way to return errors.
+          syscall_rtn = -ENOENT;
+        }
+
+        char **old_argv = (char **)arg2; // Just make our life easier.
+
+        size_t old_argv_size = 0;
+        for (int i = 0; old_argv[i] != NULL; i++) {
+          old_argv_size++;
+        }
+        // argv is NULL terminated, and we should copy the NULL too.
+        old_argv_size += 1;
+
+        // We will be adding the minimum 3 args.
+        // TODO: Support addition of plugin and sabre flags.
+        char **n_argv = malloc((old_argv_size + 3) * sizeof(char *));
+        assert(n_argv != NULL);
+        // argv should always start with the path to the binary.
+        // old_argv now has the old binary path by default so
+        // we just append it.
+        memcpy(n_argv + 3, old_argv, old_argv_size * sizeof(char *));
+
+        n_argv[0] = sabre_path;
+        n_argv[1] = plugin_path;
+        n_argv[2] = "--";
+        // Overwrite first argument of old_argv as sometimes this is not a valid
+        // path.
+        n_argv[3] = (char *)arg1;
+
+        syscall_rtn = real_syscall(SYS_execve, (long)sabre_path, (long)n_argv,
+                                   arg3, arg4, arg5, arg6);
+      } else {
+        syscall_rtn = real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
+      }
+    }
 
     dst = post_decode_args(dst, sc_no, local_args, syscall_rtn);
 
@@ -591,25 +651,27 @@ long handle_syscall_real(long sc_no, long arg1, long arg2, long arg3, long arg4,
 
 long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
                     long arg5, long arg6, void *wrapper_sp) {
-  (void)wrapper_sp; // unused
-  return handle_syscall_real(sc_no, arg1, arg2, arg3, arg4, arg5, arg6, false);
+  return handle_syscall_real(sc_no, arg1, arg2, arg3, arg4, arg5, arg6,
+                             wrapper_sp, false);
 }
 
 long handle_syscall_clock_gettime(long arg1, long arg2) {
-  return handle_syscall_real(SYS_clock_gettime, arg1, arg2, 0, 0, 0, 0, true);
+  return handle_syscall_real(SYS_clock_gettime, arg1, arg2, 0, 0, 0, 0, NULL,
+                             true);
 }
 
 long handle_syscall_getcpu(long arg1, long arg2, long arg3) {
-  return handle_syscall_real(SYS_getcpu, arg1, arg2, arg3, 0, 0, 0, true);
+  return handle_syscall_real(SYS_getcpu, arg1, arg2, arg3, 0, 0, 0, NULL, true);
 }
 
 long handle_syscall_gettimeofday(long arg1, long arg2) {
-  return handle_syscall_real(SYS_gettimeofday, arg1, arg2, 0, 0, 0, 0, true);
+  return handle_syscall_real(SYS_gettimeofday, arg1, arg2, 0, 0, 0, 0, NULL,
+                             true);
 }
 
 #ifdef __x86_64__
 long handle_syscall_time(long arg1) {
-  return handle_syscall_real(SYS_time, arg1, 0, 0, 0, 0, 0, true);
+  return handle_syscall_real(SYS_time, arg1, 0, 0, 0, 0, 0, NULL, true);
 }
 #endif // __x86_64__
 
@@ -716,9 +778,13 @@ void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
 #ifdef __NX_INTERCEPT_RDTSC
               sbr_rdtsc_handler_fn *rdtsc_handler,
 #endif
-              sbr_post_load_fn *post_load) {
+              sbr_post_load_fn *post_load, char *sp, char *cp) {
   (void)fn_icept_reg; // unused
   (void)post_load;    // unused
+
+  sabre_path = sp;
+  plugin_path = (*argv)[0];
+  client_path = cp;
 
   // For error messages before handling the args
   log_fd = STDERR_FILENO;
