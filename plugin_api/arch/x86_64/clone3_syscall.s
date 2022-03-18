@@ -32,6 +32,24 @@ clone3_syscall:
   jnz    1f
 
   # Child
+
+  # TODO: Return to the plugin after a new child and not directly to client.
+
+  pushq %rdi
+  pushq %rsi
+  pushq %rdx
+  pushq %r8
+  pushq %r9
+  call *exit_plugin@GOTPCREL(%rip)
+  popq %r9
+  popq %r8
+  popq %rdx
+  popq %rsi
+  popq %rdi
+
+  # The child always returns 0.
+  movq $0, %rax
+
   subq $0x80, %rsp # We need the -0x80 as we are jumping back to our trampoline that adds 0x80.
 
   # From: https://elixir.bootlin.com/glibc/glibc-2.35/source/sysdeps/unix/sysv/linux/x86_64/clone3.S#L52
