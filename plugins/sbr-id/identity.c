@@ -31,6 +31,19 @@ static char *sabre_path;
 static char *plugin_path;
 static char *client_path;
 
+bool is_vfork_through_clone3(long sc_no, long arg1) {
+  struct clone_args *cl_args = (struct clone_args *)arg1;
+  return sc_no == SYS_clone3 &&
+         ((cl_args->flags & (CLONE_VM | CLONE_VFORK | SIGCHLD)) ==
+          (CLONE_VM | CLONE_VFORK | SIGCHLD));
+}
+
+bool is_vfork_through_clone(long sc_no, long arg1) {
+  unsigned long flags = (unsigned long)arg1;
+  return (sc_no == SYS_clone && (flags & (CLONE_VM | CLONE_VFORK | SIGCHLD)) ==
+                                    (CLONE_VM | CLONE_VFORK | SIGCHLD));
+}
+
 long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
                     long arg5, long arg6, void *wrapper_sp) {
   if (sc_no == SYS_clone && arg2 != 0) { // clone
@@ -96,10 +109,8 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
 
       return len;
     }
-  } else if (sc_no == SYS_vfork ||
-             (sc_no == SYS_clone &&
-              (arg1 & (CLONE_VM | CLONE_VFORK | SIGCHLD)) ==
-                  (CLONE_VM | CLONE_VFORK | SIGCHLD))) {
+  } else if (sc_no == SYS_vfork || is_vfork_through_clone(sc_no, arg1) ||
+             is_vfork_through_clone3(sc_no, arg1)) {
     long pid = vfork_syscall();
     if (pid == 0) { // Child
       return vfork_return_from_child(wrapper_sp);
