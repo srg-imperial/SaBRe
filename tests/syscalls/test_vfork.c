@@ -7,7 +7,7 @@
 
 /*
  * RUN: %{cc} %s -o %t1
- * RUN: %{sbr} %t1 &> %t1.actual
+ * RUN: %{sbr} %{sbr-id} -- %t1 &> %t1.actual
  * RUN: echo "Child process started"  >  %t1.expected
  * RUN: echo "Now i am coming back to parent process" >> %t1.expected
  * RUN: echo "Value of n: 10" >> %t1.expected

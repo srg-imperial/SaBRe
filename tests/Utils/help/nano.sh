@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: nano
-# RUN: %{sbr} %{nano}         --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{nano}         --help &>%t1
 # RUN: grep "nano" %t1

@@ -5,6 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: ip
-# RUN: %{sbr} %{ip} --help &>%t1 || RC=$(echo $?)
+# RUN: %{sbr} %{sbr-id} -- %{ip} --help &>%t1 || RC=$(echo $?)
 # RUN: test ${RC} -eq 255
 # RUN: grep "ip" %t1

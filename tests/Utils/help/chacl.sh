@@ -5,6 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: chacl
-# RUN: %{sbr} %{chacl} &>%t1 || RC=$(echo $?)
+# RUN: %{sbr} %{sbr-id} -- %{chacl} &>%t1 || RC=$(echo $?)
 # RUN: test ${RC} -eq 1
 # RUN: grep "chacl" %t1

@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: nc
-# RUN: %{sbr} %{nc}           -h     &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{nc}           -h     &>%t1
 # RUN: grep "nc" %t1

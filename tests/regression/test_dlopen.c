@@ -6,7 +6,7 @@
  */
 
 // RUN: %{cc} %s -o %t1 -ldl
-// RUN: %{sbr} %t1 &> %t1.actual
+// RUN: %{sbr} %{sbr-id} -- %t1 &> %t1.actual
 // %t1 &> %t1.actual
 // RUN: echo "-0.416147" > %t1.expected
 // RUN: diff %t1.actual %t1.expected

@@ -8,7 +8,7 @@
 /*
  * RUN: %{cc} %s -o %t1
  * RUN: echo -n "Test contents" >  %t1.expected
- * RUN: %{sbr} %t1 &> %t1.actual
+ * RUN: %{sbr} %{sbr-id} -- %t1 &> %t1.actual
  * RUN: diff %t1.actual %t1.expected
  */
 #include <assert.h>

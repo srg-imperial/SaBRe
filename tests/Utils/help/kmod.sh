@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: kmod
-# RUN: %{sbr} %{kmod} --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{kmod} --help &>%t1
 # RUN: grep "kmod" %t1

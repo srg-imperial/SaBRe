@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: gzip
-# RUN: %{sbr} %{gzip}         --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{gzip}         --help &>%t1
 # RUN: grep "gzip" %t1

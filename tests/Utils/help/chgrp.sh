@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: chgrp
-# RUN: %{sbr} %{chgrp}        --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{chgrp}        --help &>%t1
 # RUN: grep "chgrp" %t1
