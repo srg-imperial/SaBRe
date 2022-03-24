@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: openvt
-# RUN: %{sbr} %{openvt}       --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{openvt}       --help &>%t1
 # RUN: grep "openvt" %t1

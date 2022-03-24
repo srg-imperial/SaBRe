@@ -7,7 +7,7 @@
 
 /*
  * RUN: %{cc} %s -o %t2
- * RUN: %{sbr} %t2 2>&1 > %t2.actual
+ * RUN: %{sbr} %{sbr-id} -- %t2 2>&1 > %t2.actual
  * RUN: echo "Success" > %t2.expected
  * RUN: diff %t2.actual %t2.expected
  */

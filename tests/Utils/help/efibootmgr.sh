@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: efibootmgr
-# RUN: %{sbr} %{efibootmgr}   --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{efibootmgr}   --help &>%t1
 # RUN: grep "efibootmgr" %t1

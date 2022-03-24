@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: lessecho
-# RUN: %{sbr} %{lessecho}     --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{lessecho}     --help &>%t1
 # RUN: grep "lessecho" %t1

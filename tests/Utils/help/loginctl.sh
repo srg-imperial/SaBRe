@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: loginctl
-# RUN: %{sbr} %{loginctl}     --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{loginctl}     --help &>%t1
 # RUN: grep "loginctl" %t1

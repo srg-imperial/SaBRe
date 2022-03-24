@@ -11,8 +11,8 @@
  * RUN: ulimit -s 32768
  * RUN: %{gcc} -fsanitize=thread -fPIE -pie -g -O1 %s -o %t1
  * RUN: %{clang} -fsanitize=thread -fPIE -pie -g -O1 %s -o %t2
- * RUN: ! %{sbr} %t1 &> %t1.actual
- * RUN: ! %{sbr} %t2 &> %t2.actual
+ * RUN: ! %{sbr} %{sbr-id} -- %t1 &> %t1.actual
+ * RUN: ! %{sbr} %{sbr-id} -- %t2 &> %t2.actual
  * RUN: grep "WARNING: ThreadSanitizer: data race" %t1.actual
  * RUN: grep "WARNING: ThreadSanitizer: data race" %t2.actual
  * RUN: grep "Location is global 'Global' of size" %t1.actual

@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: cat
-# RUN: %{sbr} %{cat}          --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{cat}          --help &>%t1
 # RUN: grep "cat" %t1

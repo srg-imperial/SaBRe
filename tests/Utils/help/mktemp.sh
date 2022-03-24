@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: mktemp
-# RUN: %{sbr} %{mktemp}       --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{mktemp}       --help &>%t1
 # RUN: grep "mktemp" %t1

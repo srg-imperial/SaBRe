@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: grep
-# RUN: %{sbr} %{grep}         --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{grep}         --help &>%t1
 # RUN: grep "grep" %t1

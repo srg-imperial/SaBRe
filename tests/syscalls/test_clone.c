@@ -7,7 +7,7 @@
 
 /*
  * RUN: %{cc} %s -o %t1 -lpthread
- * RUN: %{sbr} %t1 &> %t1.actual
+ * RUN: %{sbr} %{sbr-id} -- %t1 &> %t1.actual
  * RUN: echo "Hello from parent"    >  %t1.expected
  * RUN: echo "Hello from child"     >> %t1.expected
  * RUN: echo "Goodbye from parent"  >> %t1.expected

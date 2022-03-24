@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: dbus-uuidgen
-# RUN: %{sbr} %{dbus-uuidgen} --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{dbus-uuidgen} --help &>%t1
 # RUN: grep "dbus-uuidgen" %t1

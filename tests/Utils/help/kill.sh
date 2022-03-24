@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: kill
-# RUN: %{sbr} %{kill}         --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{kill}         --help &>%t1
 # RUN: grep "kill" %t1

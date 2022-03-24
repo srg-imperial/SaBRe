@@ -8,7 +8,7 @@
 // RUN: %{cc} %s -o %t1
 // RUN: touch %t3
 // RUN: ln -sf %t3 %t3.link
-// RUN: %{sbr} %t1 %t3 %t3.link 2>&1
+// RUN: %{sbr} %{sbr-id} -- %t1 %t3 %t3.link 2>&1
 
 #include <stdio.h>
 #include <stdlib.h>

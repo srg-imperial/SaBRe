@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: date
-# RUN: %{sbr} %{date}         --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{date}         --help &>%t1
 # RUN: grep "date" %t1

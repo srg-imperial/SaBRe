@@ -6,7 +6,7 @@
  */
 
 // RUN: %{cc} %s -o %t1
-// RUN: %{sbr} %t1 2>&1
+// RUN: %{sbr} %{sbr-id} -- %t1 2>&1
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

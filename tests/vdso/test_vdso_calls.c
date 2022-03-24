@@ -7,7 +7,7 @@
 
 /*
  * RUN: %{cc} -g %s -o %t1
- * RUN: %{sbr-trc} %t1 &> %t1.actual
+ * RUN: %{sbr} %{sbr-trc} --handle-vdso=special -- %t1 &> %t1.actual
  * RUN: [ $(grep "(vDSO)" %t1.actual | wc -l) -eq 4 ]
  * RUN: [ $(grep "time(0X0)" %t1.actual | wc -l) -eq 2 ]
  * RUN: [ $(grep "gettimeofday" %t1.actual | wc -l) -eq 2 ]

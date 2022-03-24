@@ -4,5 +4,5 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# RUN: %{sbr} %{gcc} --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{gcc} --help &>%t1
 # RUN: grep "gcc" %t1

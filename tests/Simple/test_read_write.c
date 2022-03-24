@@ -8,7 +8,7 @@
 /*
  * RUN: echo "This is a test file" > %t2
  * RUN: %{cc} %s -o %t1
- * RUN: %{sbr} %t1 %t2 &> %t1.actual
+ * RUN: %{sbr} %{sbr-id} -- %t1 %t2 &> %t1.actual
  * RUN: echo -n > %t1.expected
  * RUN: diff %t1.actual %t1.expected
  */

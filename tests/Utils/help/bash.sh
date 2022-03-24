@@ -4,5 +4,5 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# RUN: %{sbr} %{bash} --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{bash} --help &>%t1
 # RUN: grep "bash" %t1

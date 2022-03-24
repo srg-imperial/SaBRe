@@ -5,5 +5,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: dmesg
-# RUN: %{sbr} %{dmesg}        --help &>%t1
+# RUN: %{sbr} %{sbr-id} -- %{dmesg}        --help &>%t1
 # RUN: grep "dmesg" %t1
