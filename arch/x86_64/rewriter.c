@@ -406,13 +406,23 @@ static inline void copy_postamble(void *dest, struct s_code code[],
       char *mod_rm_ptr;
       char *sib_ptr;
       switch (code[insn].insn) {
-      case 0x83: // CMP
+      case 0x81: // CMP with imm16/32 operand
+      case 0x83: // CMP with imm8 operand
       {
         // Instruction format:
         //         83 3D XX XX XX XX XX
         //         -- -- ----------- --
         // addr +  0  1  2           6
         //         |  |  |            -> 8 bit immediate
+        //         |  |   -> 32 bit RIP displacement
+        //         |   -> Mod R/M byte
+        //          -> Opcode
+
+        // Instruction format:
+        //         81 3D XX XX XX XX XX XX [ XX XX ]
+        //         -- -- ----------- ---------------
+        // addr +  0  1  2           6
+        //         |  |  |            -> 16 or 32 bit immediate
         //         |  |   -> 32 bit RIP displacement
         //         |   -> Mod R/M byte
         //          -> Opcode
@@ -593,7 +603,8 @@ static inline void copy_postamble(void *dest, struct s_code code[],
         break;
       }
       default:
-        _nx_fatal_printf("vDSO RIP relative instruction not supported");
+        _nx_fatal_printf("vDSO RIP relative instruction not supported: 0x%x\n",
+                         code[insn].insn);
       }
     } else {
       memcpy(curr, code[insn].addr, code[insn].len);
