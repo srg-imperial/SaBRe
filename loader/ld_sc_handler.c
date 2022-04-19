@@ -545,8 +545,6 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
       void *ret_addr = get_syscall_return_address(wrapper_sp);
       return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr);
     }
-    assert(sc_no != SYS_clone);
-    assert(sc_no != SYS_clone3);
     assert(sc_no != SYS_execve);
     assert(sc_no != SYS_vfork);
     return real_syscall(sc_no, arg1, arg2, arg3, arg4, arg5, arg6);
