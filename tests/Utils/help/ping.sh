@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # REQUIRES: ping
-# RUN: %{sbr} %{sbr-id} -- %{ping} &>%t1 || RC=$(echo $?)
-# RUN: test ${RC} -eq 2
+# RUN: %{ping} || RC_ORIG=$(echo $?)
+# RUN: %{sbr} %{sbr-id} -- %{ping} &>%t1 || RC_SABRE=$(echo $?)
+# RUN: test ${RC_ORIG} -eq ${RC_SABRE}
 # RUN: grep "ping" %t1
