@@ -172,51 +172,42 @@ static size_t find_client_path_idx(char **argv) {
 }
 
 // Parse the shebang line if present.
-static int parse_shebang(const char **target_path,
-                         char buf[BINPRM_BUF_SIZE + 1], const char *prefix[3]) {
-  const char *orig_target_path = *target_path;
-  prefix[0] = orig_target_path;
-  int fd = open(orig_target_path, O_RDONLY);
-  if (fd < 0 || access(orig_target_path, X_OK) < 0) {
-    // let main handle the failure
-    return 1;
+static int parse_shebang(const char *client_path,
+                         char shebang_path[BINPRM_BUF_SIZE],
+                         char shebang_arg[BINPRM_BUF_SIZE]) {
+  if (access(client_path, X_OK) < 0) {
+    _nx_fatal_printf("Provided client: %s, is not executable!\n", client_path);
   }
-  ssize_t bytes_read = read(fd, buf, BINPRM_BUF_SIZE);
-  close(fd);
-  if (bytes_read < 2 || memcmp(buf, "#!", 2) != 0) {
-    return 1;
+  FILE *f = fopen(client_path, "r");
+  if (f == NULL) {
+    fclose(f);
+    return 0;
   }
-  buf[bytes_read] = '\0';
-  bytes_read = strcspn(buf, "\n\r");
-  buf[bytes_read] = '\0';
 
-  ssize_t interp_path_start = strspn(buf + 2, " \t") + 2;
-  ssize_t interp_path_size = strcspn(buf + interp_path_start, " \t");
-  ssize_t interp_path_end = interp_path_start + interp_path_size;
-  ssize_t interp_arg_start =
-      strspn(buf + interp_path_end, " \t") + interp_path_end;
-  buf[interp_path_end] = '\0';
-
-  if (buf[interp_path_start] != '/') {
-    return 1;
+  char shebang_buf[BINPRM_BUF_SIZE];
+  char *rc = fgets(shebang_buf, BINPRM_BUF_SIZE, f);
+  fclose(f);
+  if (rc == NULL || memcmp(shebang_buf, "#!", 2) != 0) {
+    return 0;
   }
-  prefix[0] = buf + interp_path_start;
-  *target_path = prefix[0];
 
-  const char *shebang_arg = buf + interp_arg_start;
-  if (*shebang_arg) {
-    prefix[1] = shebang_arg;
-    prefix[2] = orig_target_path;
-    return 3;
+  // Skip #!.
+  char *shebang_line = shebang_buf + 2;
+
+  // Get the tokens.
+  char *token1 = strtok(shebang_line, " \n\r\t");
+  memcpy(shebang_path, token1, strlen(token1));
+  char *token2 = strtok(NULL, " \n\r\t");
+  if (token2 != NULL) {
+    memcpy(shebang_arg, token2, strlen(token2));
+    return 2;
   }
-  prefix[1] = orig_target_path;
-  return 2;
+  return 1;
 }
 
 // Returns the address of entry point and also populates a pointer
 // for the top of the new stack
 void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
-
   if (argc < 4) {
     print_usage();
     exit(EXIT_FAILURE);
@@ -284,12 +275,6 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
   size_t client_path_idx = find_client_path_idx(argv);
   const char *client_path = argv[client_path_idx];
 
-  // Parse shebang line into new argv prefix if client is a script
-  static char shebang_buffer[BINPRM_BUF_SIZE + 1];
-  const char *new_argv_prefix[3];
-  int new_argv_prefix_size =
-      parse_shebang(&client_path, shebang_buffer, new_argv_prefix);
-
   setup_sbr_premain(&register_function_intercepts);
 
   // Separate client and plugin arguments.
@@ -302,10 +287,25 @@ void load(int argc, char *argv[], void **new_entry, void **new_stack_top) {
   argv += client_path_idx;
   argc -= client_path_idx;
 
-  // Update argv prefix if needed.
-  argv -= new_argv_prefix_size - 1;
-  argc += new_argv_prefix_size - 1;
-  memcpy(argv, new_argv_prefix, sizeof(char *) * new_argv_prefix_size);
+  // Check if our client_path is a script with a shebang line, and if yes, parse
+  // it.
+  // We need these vars static as we will return from this function.
+  static char shebang_path[BINPRM_BUF_SIZE];
+  static char shebang_arg[BINPRM_BUF_SIZE];
+  int shebang_tokens_found =
+      parse_shebang(client_path, shebang_path, shebang_arg);
+
+  if (shebang_tokens_found > 0) {
+    // Let's use the plugin slots on argv, as we don't need them anymore.
+    argv -= shebang_tokens_found;
+    argc += shebang_tokens_found;
+
+    argv[0] = shebang_path;
+    client_path = shebang_path;
+
+    if (shebang_tokens_found == 2)
+      argv[1] = shebang_arg;
+  }
 
   // Mask out loader and plugin
   binrw_rd_init_maps();
