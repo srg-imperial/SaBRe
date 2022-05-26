@@ -51,6 +51,8 @@ add_subdirectory("arch/${CMAKE_SYSTEM_PROCESSOR}" arch)
 add_subdirectory("plugin_api/arch/${CMAKE_SYSTEM_PROCESSOR}" plugin_api)
 add_subdirectory("loader")
 file(GLOB subdirs CONFIGURE_DEPENDS "plugins/*")
+# When we are building under macos docker, we need to avoid these files.
+list(FILTER subdirs EXCLUDE REGEX ".*/plugins/.DS_Store")
 foreach(subdir ${subdirs})
   add_subdirectory(${subdir})
 endforeach()
