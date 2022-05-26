@@ -11,5 +11,4 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     libelf-dev python3-pip python3-psutil libc6-dbg python3-setuptools make
 
 USER vscode
-RUN sudo -H pip3 install wheel
-RUN sudo -H pip3 install lit
+RUN sudo -H pip3 install wheel lit
