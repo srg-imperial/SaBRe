@@ -3,8 +3,8 @@ compiler: gcc
 dist: bionic
 
 before_install:
-  - sudo apt-get install -y python3-pip python3-psutil libc6-dbg
-  - sudo -H pip3 install lit
+  - sudo apt-get install -y python3-pip python3-psutil python3-setuptools libc6-dbg
+  - sudo -H pip3 install wheel lit
 addons:
   apt:
     update: true
