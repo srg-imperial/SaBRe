@@ -564,3 +564,5 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
   exit_plugin();
   return rc;
 }
+
+void post_clone_hook() { return; }

@@ -40,7 +40,10 @@ clone3_syscall:
   pushq %rdx
   pushq %r8
   pushq %r9
+
+  call *post_clone_hook@GOTPCREL(%rip)
   call *exit_plugin@GOTPCREL(%rip)
+
   popq %r9
   popq %r8
   popq %rdx

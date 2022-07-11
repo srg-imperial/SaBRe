@@ -184,6 +184,8 @@ long handle_rdtsc() {
 }
 #endif // __NX_INTERCEPT_RDTSC
 
+void post_clone_hook() { return; }
+
 void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
               sbr_icept_vdso_callback_fn *vdso_callback,
               sbr_sc_handler_fn *syscall_handler,

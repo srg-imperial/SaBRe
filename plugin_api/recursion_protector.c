@@ -51,3 +51,5 @@ void vdso_are_ready() __attribute__((constructor));
 void vdso_are_ready() { vdso_ready = true; }
 
 bool is_vdso_ready() { return vdso_ready; }
+
+__attribute__((weak)) void post_clone_hook() { return; }
