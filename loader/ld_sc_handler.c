@@ -399,7 +399,7 @@ long ld_sc_handler(long sc_no, long arg1, long arg2, long arg3, long arg4,
 
       _nx_debug_printf("readlink: enter loader syscall (\"%s\", %p -> "
                        "\"%.*s\", %zu) -> %zu\n",
-                       pathname, buf, len, buf, bufsize, len);
+                       pathname, buf, (int)len, buf, bufsize, len);
 
       return len;
     } else {
