@@ -49,11 +49,11 @@ long handle_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
   if (sc_no == SYS_clone && arg2 != 0) { // clone
     void *ret_addr = get_syscall_return_address(wrapper_sp);
     return clone_syscall(arg1, (void *)arg2, (void *)arg3, (void *)arg4, arg5,
-                         ret_addr);
+                         ret_addr, NULL);
   } else if (sc_no == SYS_clone3 &&
              ((struct clone_args *)arg1)->stack != 0) { // clone3
     void *ret_addr = get_syscall_return_address(wrapper_sp);
-    return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr);
+    return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr, NULL);
   } else if (sc_no == SYS_execve) {
     if (access((char *)arg1, F_OK) != 0) {
       // TODO: Double check this is the correct way to return errors.
@@ -184,7 +184,10 @@ long handle_rdtsc() {
 }
 #endif // __NX_INTERCEPT_RDTSC
 
-void post_clone_hook() { return; }
+void post_clone_hook(void *ctx) {
+  assert(ctx == NULL);
+  return;
+}
 
 void sbr_init(int *argc, char **argv[], sbr_icept_reg_fn fn_icept_reg,
               sbr_icept_vdso_callback_fn *vdso_callback,
