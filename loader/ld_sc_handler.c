@@ -539,11 +539,11 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
     if (sc_no == SYS_clone && arg2 != 0) { // clone
       void *ret_addr = get_syscall_return_address(wrapper_sp);
       return clone_syscall(arg1, (void *)arg2, (void *)arg3, (void *)arg4, arg5,
-                           ret_addr);
+                           ret_addr, NULL);
     } else if (sc_no == SYS_clone3 &&
                ((struct clone_args *)arg1)->stack != 0) { // clone3
       void *ret_addr = get_syscall_return_address(wrapper_sp);
-      return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr);
+      return clone3_syscall(arg1, arg2, arg3, 0, arg5, ret_addr, NULL);
     }
     assert(sc_no != SYS_execve);
     assert(sc_no != SYS_vfork);
@@ -565,4 +565,7 @@ long runtime_syscall_router(long sc_no, long arg1, long arg2, long arg3,
   return rc;
 }
 
-void post_clone_hook() { return; }
+void post_clone_hook(void *ctx) {
+  (void)ctx;
+  return;
+}

@@ -36,10 +36,10 @@ long real_syscall(long sc_no, long arg1, long arg2, long arg3, long arg4,
                   long arg5, long arg6);
 
 long clone_syscall(unsigned long flags, void *child_stack, int *ptid, int *ctid,
-                   unsigned long newtls, void *ret_addr);
+                   unsigned long newtls, void *ret_addr, void *ctx);
 
 long clone3_syscall(long arg1, long arg2, long arg3, int not_used, long arg5,
-                    void *ret_addr);
+                    void *ret_addr, void *ctx);
 
 long vfork_syscall();
 long vfork_return_from_child(void *wrapper_sp);
