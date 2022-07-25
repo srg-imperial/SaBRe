@@ -20,6 +20,14 @@
 
 #define MAX_PHNUM 16
 
+static Elf *open_elf(const char *elf_path, int *fd) {
+  if (elf_version(EV_CURRENT) == EV_NONE)
+    _nx_fatal_printf("ELF library initialization failed\n");
+
+  *fd = open(elf_path, O_RDONLY);
+  return elf_begin(*fd, ELF_C_READ, NULL);
+}
+
 GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name,
                          bool *valid) {
   // TODO(andronat): This opens a file. Can we make it faster?
@@ -31,11 +39,7 @@ GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name,
   GElf_Sym rv = {0};
   *valid = false;
 
-  if (elf_version(EV_CURRENT) == EV_NONE)
-    _nx_fatal_printf("ELF library initialization failed\n");
-
-  fd = open(elf_path, O_RDONLY);
-  elf = elf_begin(fd, ELF_C_READ, NULL);
+  elf = open_elf(elf_path, &fd);
 
   while ((scn = elf_nextscn(elf, scn)) != NULL) {
     gelf_getshdr(scn, &shdr);
@@ -66,6 +70,95 @@ GElf_Sym find_elf_symbol(const char *elf_path, const char *sym_name,
   elf_end(elf);
   close(fd);
   return rv;
+}
+
+static bool read_note_from_section(Elf_Data *data, Elf64_Word note_type,
+                                   const char *owner, size_t owner_name_len,
+                                   void *notebuf, size_t *notesz) {
+  size_t off = 0;
+  GElf_Nhdr nhdr;
+  size_t name_off;
+  size_t desc_off;
+  while ((off = gelf_getnote(data, off, &nhdr, &name_off, &desc_off)) > 0) {
+    if (nhdr.n_type != note_type || nhdr.n_namesz != owner_name_len + 1 ||
+        memcmp(data->d_buf + name_off, owner, owner_name_len + 1)) {
+      continue;
+    }
+    if (nhdr.n_descsz > *notesz) {
+      return false;
+    }
+    *notesz = nhdr.n_descsz;
+    memcpy(notebuf, data->d_buf + desc_off, *notesz);
+    return true;
+  }
+  return false;
+}
+
+bool read_elf_note(const char *path, Elf64_Word note_type, const char *owner,
+                   void *notebuf, size_t *notesz) {
+  Elf *elf;
+  Elf_Scn *scn = NULL;
+  GElf_Shdr shdr;
+  int fd;
+  size_t owner_name_len = strlen(owner);
+  bool found = false;
+
+  elf = open_elf(path, &fd);
+
+  // TODO: check PT_NODE phdr as well
+  while ((scn = elf_nextscn(elf, scn)) != NULL) {
+    gelf_getshdr(scn, &shdr);
+    if (shdr.sh_type != SHT_NOTE) {
+      continue;
+    }
+    // Found a note section
+    Elf_Data *data = elf_getdata(scn, NULL);
+    if (read_note_from_section(data, note_type, owner, owner_name_len, notebuf,
+                               notesz)) {
+      found = true;
+      break;
+    }
+  }
+
+  elf_end(elf);
+  close(fd);
+  return found;
+}
+
+bool read_elf_section(const char *path, const char *section_name, void *scbuf,
+                      size_t *scsz) {
+  Elf *elf;
+  Elf_Scn *scn = NULL;
+  GElf_Shdr shdr;
+  int fd;
+  size_t shstrndx;
+
+  elf = open_elf(path, &fd);
+  if (elf_getshdrstrndx(elf, &shstrndx)) {
+    return false;
+  }
+
+  bool found = false;
+  while ((scn = elf_nextscn(elf, scn)) != NULL) {
+    gelf_getshdr(scn, &shdr);
+    const char *name = elf_strptr(elf, shstrndx, shdr.sh_name);
+    if (strcmp(name, section_name)) {
+      continue;
+    }
+    Elf_Data *data = elf_getdata(scn, NULL);
+    if (data->d_size > *scsz) {
+      found = false;
+      break;
+    }
+    *scsz = data->d_size;
+    memcpy(scbuf, data->d_buf, *scsz);
+    found = true;
+    break;
+  }
+
+  elf_end(elf);
+  close(fd);
+  return found;
 }
 
 ElfW(Addr) addr_of_elf_symbol(const char *elf_path, const char *sym_name,

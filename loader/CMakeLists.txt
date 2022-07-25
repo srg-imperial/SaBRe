@@ -14,7 +14,8 @@ sabre_add_component(
   loader.c
   maps.c
   premain.c
-  rewriter.c)
+  rewriter.c
+  debuginfo.c)
 
 target_link_libraries(loader ${CMAKE_DL_LIBS} backend elf plugin_api)
 

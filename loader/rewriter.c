@@ -12,10 +12,12 @@
 
 #include "rewriter.h"
 
+#include "debuginfo.h"
 #include "elf_loading.h"
 #include "global_vars.h"
 #include "macros.h"
 #include "maps.h"
+#include "stringutil.h"
 
 #include "arch/rewriter_api.h"
 
@@ -538,28 +540,45 @@ static void patch_syscalls(struct library *lib, bool loader) {
   _nx_debug_printf("mprotected\n");
 }
 
+// Try to find ld symbol in a given .so file
+bool find_ld_symbol_in(const char *ld_path, const char *fn_name,
+                       GElf_Sym *result) {
+  if (access(ld_path, F_OK) == -1)
+    return false;
+
+  bool valid = false;
+  *result = find_elf_symbol(ld_path, fn_name, &valid);
+  return valid;
+}
+
 // Under some OSes (e.g. Ubuntu 18.04), ld comes without debug symbols. This
 // wrapper function firstly checks if ld has debug symbols and then just looks
 // over various other places to find the symbols.
 static GElf_Sym find_ld_symbol(const char *ld_path, const char *fn_name) {
   GElf_Sym gsym;
-  // TODO: Can we somehow read this from the elf itself?
-  const char *ld_symbols_paths[] = {
-      ld_path, "/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.27.so",
-      "/usr/lib/debug/lib/x86_64-linux-gnu/ld-2.31.so", NULL};
 
-  for (int i = 0; ld_symbols_paths[i] != NULL; i++) {
-    if (access(ld_symbols_paths[i], F_OK) == -1)
-      continue;
-
-    bool valid = false;
-    gsym = find_elf_symbol(ld_symbols_paths[i], fn_name, &valid);
-    if (!valid)
-      continue;
-
+  // Try ld_path itself
+  if (find_ld_symbol_in(ld_path, fn_name, &gsym)) {
     return gsym;
   }
-  assert(false && "We couldn't find ld symbols");
+
+  // Cache the lookup result to avoid doing full search every time
+  static char *ld_orig_path = NULL;
+  static char *ld_debug_path = NULL;
+  if (ld_orig_path == NULL || strcmp(ld_orig_path, ld_path)) {
+    // Save new ld_path
+    free(ld_orig_path);
+    free(ld_debug_path);
+    ld_orig_path = copy_string(ld_path);
+    _nx_debug_printf("searching for external debug info for %s\n", ld_path);
+    ld_debug_path = debuginfo_lookup_external(ld_orig_path);
+    assert(ld_debug_path != NULL && "We couldn't find ld symbols");
+  }
+
+  if (find_ld_symbol_in(ld_debug_path, fn_name, &gsym)) {
+    return gsym;
+  }
+  assert(false && "We couldn't find one specific ld symbol");
 }
 
 static void patch_funcs(struct library *lib) {
