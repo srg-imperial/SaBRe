@@ -471,6 +471,18 @@ bool starts_with(const char *a, const char *b) {
 static bool lib_name_match(const char *bare, const char *pathname) {
   const char *real = strip_pathname(pathname);
 
+  // The dynamic loader intercept uses the historical bare name "ld". Do not
+  // confuse linker executables such as ld, ld.bfd, or ld-new with the
+  // ld-linux/ld.so loader family.
+  if (!strcmp(bare, "ld")) {
+    const char *so = strstr(real, ".so");
+    const bool has_so_boundary =
+        so != NULL && (so[3] == '\0' || so[3] == '.');
+    return has_so_boundary &&
+           (starts_with(real, "ld-linux-") || starts_with(real, "ld.so") ||
+            (starts_with(real, "ld-") && real[3] >= '0' && real[3] <= '9'));
+  }
+
   if (starts_with(real, bare)) {
     return true;
   }
